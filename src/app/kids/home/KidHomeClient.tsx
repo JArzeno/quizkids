@@ -9,7 +9,7 @@ import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 
 export default function KidHomeClient() {
-  const { lang, kids, activeKidId, setActiveKidId, setMode, setStudyParams, updateKid } = useStore();
+  const { lang, kids, activeKidId, setActiveKidId, setMode, setStudyParams, studyParams, updateKid } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
@@ -20,7 +20,7 @@ export default function KidHomeClient() {
   });
 
   const openRecent = (r: { kind: 'quiz' | 'guide' | 'pdf'; title: string }) => {
-    setStudyParams((prev: any) => ({ ...prev, topic: r.title }));
+    setStudyParams({ ...studyParams, topic: r.title });
     if (r.kind === 'quiz') router.push('/kids/quiz');
     if (r.kind === 'guide') router.push('/kids/guide');
     if (r.kind === 'pdf') router.push('/kids/pdf');
