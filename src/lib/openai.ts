@@ -1,10 +1,11 @@
 import OpenAI from 'openai';
 
-export const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getClient() {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'placeholder' });
+}
 
 export async function generateQuiz(topic: string, grade: string, difficulty: string, lang: string) {
+  const openai = getClient();
   const langLabel = lang === 'es' ? 'Spanish' : 'English';
   const cardCount = difficulty === 'easy' ? 6 : 8;
   const diffLabel = difficulty === 'easy' ? 'simple' : difficulty === 'hard' ? 'challenging with tricky variations' : 'moderately challenging';
@@ -39,6 +40,7 @@ The "a" field is the 0-based index of the correct answer in choices.`;
 }
 
 export async function generateGuide(topic: string, grade: string, lang: string) {
+  const openai = getClient();
   const langLabel = lang === 'es' ? 'Spanish' : 'English';
 
   const prompt = `Create an educational study guide about "${topic}" for a grade ${grade} student.
@@ -73,6 +75,7 @@ Keep language simple and engaging for the grade level.`;
 }
 
 export async function generateWorksheet(topic: string, grade: string, lang: string) {
+  const openai = getClient();
   const langLabel = lang === 'es' ? 'Spanish' : 'English';
 
   const prompt = `Create 6 worksheet questions about "${topic}" for a grade ${grade} student.
