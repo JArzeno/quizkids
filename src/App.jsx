@@ -49,24 +49,6 @@ function applyTheme(palKey, fontKey, isPublic) {
 // Routes that are public / pre-login — palette stays on the brand default here.
 const QK_PUBLIC_ROUTES = ["welcome","auth","parent-onboarding","profile-pick","parent-pin","kid-code"];
 
-/* ----------------------------- seed kids ----------------------------- */
-const SEED_KIDS = [
-  {
-    id:"mateo", name:"Mateo", grade:"3", avatar:"fox", color:"#E26D5A",
-    streak:7, stars:42, minutes:36, weekly:62, lastSubject:"Science",
-    recent:[
-      { kind:"quiz",  title:"Solar System & Planets", when:"Today", score:4 },
-      { kind:"guide", title:"States of Matter",       when:"Yesterday", score:5 },
-    ],
-  },
-  {
-    id:"lucia", name:"Lucía", grade:"K", avatar:"sprout", color:"#3F7A4F",
-    streak:3, stars:18, minutes:18, weekly:35, lastSubject:"Language Arts",
-    recent:[
-      { kind:"pdf",   title:"Sight Words", when:"Mon", score:0 },
-    ],
-  },
-];
 
 /* ----------------------------- App ----------------------------- */
 function App() {
@@ -89,14 +71,14 @@ function App() {
   React.useEffect(() => {
     applyTheme(palKey, tweaks.font, QK_PUBLIC_ROUTES.includes(route.name));
   }, [palKey, tweaks.font, route.name]);
-  const [kids, setKids] = React.useState(SEED_KIDS);
+  const [kids, setKids] = React.useState([]);
   const [draft, setDraft] = React.useState({ name:"", grade:"", avatar:"", color:"#3F7A4F", signature:"" });
   const [picked, setPicked] = React.useState({ subject:"sci", grade:"3", topic:"Solar System & Planets" });
   const [activeKidId, setActiveKidId] = React.useState(null);
   const [quizResult, setQuizResult] = React.useState(null);
   const [toast, setToast] = React.useState(null);
   // account + parent prefs
-  const [account, setAccount] = React.useState({ name:"Ana Martinez", email:"ana@home.com" });
+  const [account, setAccount] = React.useState(null);
   const [parentPrefs, setParentPrefs] = React.useState({
     role: "mom", kidsCount: 2, langs: ["en","es"], where: ["home"],
     goalMin: 30, reminders: true, reminderAt: "5:00 pm",
@@ -148,7 +130,7 @@ function App() {
 
   // Auth flow handlers
   const handleAuth = ({ tab, name, email }) => {
-    setAccount({ name: name || "Ana", email: email || "ana@home.com" });
+    setAccount({ name: name || "", email: email || "" });
     if (tab === "signup") {
       setRoute({ name:"parent-onboarding" });
     } else {
