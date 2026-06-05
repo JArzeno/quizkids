@@ -1,6 +1,6 @@
 import React from 'react';
 
-interface IcoProps { d: React.ReactNode; size?: number; stroke?: number; fill?: string; style?: React.CSSProperties; }
+interface IcoProps { d: React.ReactNode; size?: number; stroke?: number | string; fill?: string; style?: React.CSSProperties; }
 export const Ico = ({ d, size = 20, stroke = 1.8, fill = 'none', style }: IcoProps) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" style={style}>{d}</svg>
 );
