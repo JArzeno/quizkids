@@ -11,7 +11,7 @@ import { useT } from '@/lib/i18n';
 
 export default function SettingsClient() {
   const store = useStore();
-  const { lang, setLang, account, setAccount, kids, setKids, updateKid, removeKid, parentPrefs, setParentPrefs, parentPin, setParentPin, customSubjects, setCustomSubjects, plan, setPlan, palette, setPalette, gamification, setGamification, difficulty, setDifficulty, setMode } = store;
+  const { lang, setLang, account, setAccount, kids, setKids, updateKid, removeKid, parentPrefs, setParentPrefs, parentPin, setParentPin, customSubjects, setCustomSubjects, plan, setPlan, palette, setPalette, gamification, setGamification, difficulty, setDifficulty, setMode, setIsDemo } = store;
   const t = useT(lang);
   const router = useRouter();
   const [editingKidId, setEditingKidId] = React.useState<string | null>(null);
@@ -148,7 +148,7 @@ export default function SettingsClient() {
               <section id="sec-danger" className="qk-card" style={{ padding: '22px 24px', scrollMarginTop: 24, borderColor: 'var(--coral)' }}>
                 <h2 className="qk-h2" style={{ color: 'var(--coral)', marginBottom: 18 }}>{t('settingsDanger')}</h2>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <button onClick={() => { setAccount(null); router.push('/'); }} className="qk-btn qk-btn-ghost" style={{ borderColor: 'var(--coral)', color: 'var(--coral)' }}>{t('signOut')}</button>
+                  <button onClick={() => { setAccount(null); setIsDemo(false); setKids([]); router.push('/'); }} className="qk-btn qk-btn-ghost" style={{ borderColor: 'var(--coral)', color: 'var(--coral)' }}>{t('signOut')}</button>
                   <button className="qk-btn" style={{ background: 'var(--coral)', color: '#fff' }}>{lang === 'es' ? 'Eliminar cuenta' : 'Delete account'}</button>
                 </div>
               </section>

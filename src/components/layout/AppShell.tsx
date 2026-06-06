@@ -13,6 +13,7 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
   const router = useRouter();
   const activeKid = kids.find((k) => k.id === activeKidId) || kids[0];
   const account = useStore((s) => s.account);
+  const isDemo = useStore((s) => s.isDemo);
 
   React.useEffect(() => {
     const el = document.documentElement;
@@ -36,6 +37,12 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
 
   return (
     <div className="qk-app">
+      {isDemo && (
+        <div style={{ background: 'var(--honey)', color: '#fff', textAlign: 'center', padding: '7px 16px', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+          <span>{lang === 'es' ? 'Estás viendo un demo.' : "You're viewing a demo."}</span>
+          <Link href="/auth" style={{ color: '#fff', textDecoration: 'underline', fontWeight: 700 }}>{lang === 'es' ? 'Crear cuenta gratis →' : 'Sign up free →'}</Link>
+        </div>
+      )}
       {showNav && (
         <header className="qk-chrome">
           <Link href="/" className="qk-brand" style={{ textDecoration: 'none' }}>
@@ -46,7 +53,7 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
           </Link>
           <div className="qk-chrome-right">
             {/* role switcher */}
-            {kids.length > 0 && account && (
+            {kids.length > 0 && account && !isDemo && (
               <div style={{ display: 'inline-flex', padding: 3, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 999, gap: 2, fontSize: 13, fontWeight: 700 }}>
                 <button onClick={() => switchMode('parent')} style={{ appearance: 'none', border: 0, background: mode === 'parent' ? 'var(--ink)' : 'transparent', color: mode === 'parent' ? 'var(--surface)' : 'var(--ink-2)', padding: '5px 12px 5px 10px', borderRadius: 999, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   <Ico d={<g><circle cx="12" cy="8" r="4" /><path d="M4 22c0-4 4-6 8-6s8 2 8 6" /></g>} size={13} />
@@ -59,7 +66,7 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
               </div>
             )}
             {/* settings gear */}
-            {mode === 'parent' && account && (
+            {mode === 'parent' && account && !isDemo && (
               <Link href="/dashboard/settings" className="qk-iconbtn" title="Settings" style={{ display: 'grid', placeItems: 'center' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="3" />

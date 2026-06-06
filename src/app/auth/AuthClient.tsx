@@ -9,7 +9,7 @@ import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 
 export default function AuthClient() {
-  const { lang, setAccount } = useStore();
+  const { lang, setAccount, setIsDemo, setKids } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -41,7 +41,8 @@ export default function AuthClient() {
     e.preventDefault();
     if (!canSubmit) return;
     setLoading(true);
-    // Demo mode: set account directly, skip real Supabase call
+    setIsDemo(false);
+    setKids([]);
     setAccount({ name: form.name || 'Ana', email: form.email });
     await new Promise((r) => setTimeout(r, 400));
     setLoading(false);

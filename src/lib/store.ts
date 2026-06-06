@@ -8,6 +8,10 @@ interface AppState {
   lang: Lang;
   setLang: (l: Lang) => void;
 
+  // demo mode
+  isDemo: boolean;
+  setIsDemo: (v: boolean) => void;
+
   // profile
   account: { name: string; email: string } | null;
   setAccount: (a: { name: string; email: string } | null) => void;
@@ -58,7 +62,7 @@ interface AppState {
   setGamification: (g: 'minimal' | 'light' | 'medium') => void;
 }
 
-const SEED_KIDS: Kid[] = [
+export const DEMO_KIDS: Kid[] = [
   {
     id: 'mateo', parent_id: 'demo', name: 'Mateo', grade: '3',
     avatar: 'fox', color: '#E26D5A', code: 'MATEO1',
@@ -84,6 +88,9 @@ export const useStore = create<AppState>()(
       lang: 'en',
       setLang: (lang) => set({ lang }),
 
+      isDemo: false,
+      setIsDemo: (isDemo) => set({ isDemo }),
+
       account: null,
       setAccount: (account) => set({ account }),
 
@@ -96,7 +103,7 @@ export const useStore = create<AppState>()(
       plan: { tier: 'free', cycle: 'monthly', since: Date.now() },
       setPlan: (plan) => set({ plan }),
 
-      kids: SEED_KIDS,
+      kids: [],
       setKids: (kids) => set({ kids }),
       addKid: (kid) => set((s) => ({ kids: [...s.kids, kid] })),
       updateKid: (id, patch) => set((s) => ({ kids: s.kids.map((k) => k.id === id ? { ...k, ...patch } : k) })),
