@@ -6,14 +6,25 @@ import { Ico, ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
+import { createClient } from '@/lib/supabase/client';
 
 export function AppShell({ children, showNav = true }: { children: React.ReactNode; showNav?: boolean }) {
-  const { lang, setLang, mode, kids, activeKidId, setMode, setActiveKidId, palette, font } = useStore();
+  const { lang, setLang, mode, kids, activeKidId, setMode, setActiveKidId, palette, font, setAccount, setKids, setIsDemo } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const activeKid = kids.find((k) => k.id === activeKidId) || kids[0];
   const account = useStore((s) => s.account);
   const isDemo = useStore((s) => s.isDemo);
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setAccount(null);
+    setKids([]);
+    setIsDemo(false);
+    setMode('parent');
+    router.push('/auth');
+  };
 
   React.useEffect(() => {
     const el = document.documentElement;
@@ -73,6 +84,16 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
                   <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33 1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82 1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
                 </svg>
               </Link>
+            )}
+            {/* log out */}
+            {account && !isDemo && (
+              <button onClick={handleLogout} className="qk-iconbtn" title={lang === 'es' ? 'Cerrar sesión' : 'Log out'} style={{ display: 'grid', placeItems: 'center' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+              </button>
             )}
             <div className="qk-lang" role="tablist" aria-label="language">
               <button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>EN</button>
