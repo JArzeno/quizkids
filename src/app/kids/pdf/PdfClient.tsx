@@ -21,10 +21,12 @@ const FALLBACK: { questions: QuizQuestion[]; bonus: string } = {
 };
 
 export default function PdfClient() {
-  const { lang, kids, activeKidId, studyParams } = useStore();
+  const { lang, kids, activeKidId, studyParams, setMode } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
+
+  React.useEffect(() => { setMode('kid'); }, []);
 
   const [data, setData] = React.useState<{ questions: QuizQuestion[]; bonus: string } | null>(null);
   const [loading, setLoading] = React.useState(true);
