@@ -6,11 +6,11 @@ import { Ico, ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Btn } from '@/components/ui/Btn';
 import { PricingCards } from '@/components/ui/PricingCards';
-import { useStore } from '@/lib/store';
+import { useStore, DEMO_KIDS } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 
 export default function LandingClient() {
-  const { lang, setLang, kids, setActiveKidId, setMode } = useStore();
+  const { lang, setLang, kids, setActiveKidId, setMode, account, isDemo, setIsDemo, setKids, setAccount } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const [pricingCycle, setPricingCycle] = React.useState('monthly');
@@ -21,8 +21,11 @@ export default function LandingClient() {
   };
 
   const goDemo = (kidId?: string) => {
-    if (kidId) setActiveKidId(kidId);
-    else if (kids[0]) setActiveKidId(kids[0].id);
+    setIsDemo(true);
+    setAccount(null);
+    setKids(DEMO_KIDS);
+    const target = kidId || DEMO_KIDS[0]?.id || null;
+    if (target) setActiveKidId(target);
     setMode('parent');
     router.push('/dashboard');
   };
@@ -41,10 +44,24 @@ export default function LandingClient() {
               <button key={id} onClick={() => scrollTo(id)} style={{ appearance: 'none', border: 0, background: 'transparent', color: 'inherit', padding: 0, cursor: 'pointer', fontWeight: 'inherit', fontFamily: 'var(--font-display)' }}>{label}</button>
             ))}
           </nav>
-          <Link href="/auth?tab=signin" className="qk-btn qk-btn-ghost" style={{ padding: '8px 14px', fontSize: 14 }}>{t('navSignIn')}</Link>
-          <Link href="/auth" className="qk-btn qk-btn-primary" style={{ padding: '8px 14px', fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            {ICONS.plus}<span>{t('addKid')}</span>
-          </Link>
+          {account && !isDemo ? (
+            <>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)' }}>{lang === 'es' ? 'Hola,' : 'Hi,'} {account.name.split(' ')[0]}</span>
+              <Link href="/dashboard" className="qk-btn qk-btn-primary" style={{ padding: '8px 14px', fontSize: 14 }}>{lang === 'es' ? 'Mi panel' : 'Dashboard'}</Link>
+            </>
+          ) : isDemo ? (
+            <>
+              <span style={{ padding: '4px 10px', borderRadius: 999, background: 'var(--honey-l)', color: 'var(--honey)', fontSize: 12, fontWeight: 700, letterSpacing: '.04em' }}>DEMO</span>
+              <Link href="/auth" className="qk-btn qk-btn-primary" style={{ padding: '8px 14px', fontSize: 14 }}>{lang === 'es' ? 'Crear cuenta' : 'Sign up free'}</Link>
+            </>
+          ) : (
+            <>
+              <Link href="/auth?tab=signin" className="qk-btn qk-btn-ghost" style={{ padding: '8px 14px', fontSize: 14 }}>{t('navSignIn')}</Link>
+              <Link href="/auth" className="qk-btn qk-btn-primary" style={{ padding: '8px 14px', fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {ICONS.plus}<span>{t('addKid')}</span>
+              </Link>
+            </>
+          )}
           <div className="qk-lang">
             <button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>EN</button>
             <button className={lang === 'es' ? 'on' : ''} onClick={() => setLang('es')}>ES</button>
@@ -74,7 +91,7 @@ export default function LandingClient() {
                 </div>
               ))}
             </div>
-            {kids.length > 0 && (
+            {account && !isDemo && kids.length > 0 && (
               <div style={{ marginTop: 32 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>{lang === 'es' ? 'Continuar como' : 'Continue as'}</div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

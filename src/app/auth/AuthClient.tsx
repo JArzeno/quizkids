@@ -10,7 +10,7 @@ import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 
 export default function AuthClient() {
-  const { lang, setAccount } = useStore();
+  const { lang, setAccount, setIsDemo, setKids } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -43,6 +43,8 @@ export default function AuthClient() {
     e.preventDefault();
     if (!canSubmit) return;
     setLoading(true);
+    setIsDemo(false);
+    setKids([]);
     setError(null);
     const supabase = createClient();
 

@@ -7,13 +7,13 @@ import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 
 export default function ProfileClient() {
-  const { lang, kids, account, setMode, setActiveKidId, setAccount } = useStore();
+  const { lang, kids, account, setMode, setActiveKidId, setAccount, setIsDemo, setKids } = useStore();
   const t = useT(lang);
   const router = useRouter();
 
   const pickParent = () => router.push('/profile/pin');
   const pickKid = (id: string) => { setActiveKidId(id); setMode('kid'); router.push('/kids/home'); };
-  const signOut = () => { setAccount(null); router.push('/'); };
+  const signOut = () => { setAccount(null); setIsDemo(false); setKids([]); router.push('/'); };
 
   return (
     <div className="qk-screen qk-page-enter" style={{ padding: '40px clamp(20px, 5vw, 56px) 56px', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
