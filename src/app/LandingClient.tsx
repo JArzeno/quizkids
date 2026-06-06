@@ -10,7 +10,7 @@ import { useStore, DEMO_KIDS } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 
 export default function LandingClient() {
-  const { lang, setLang, kids, setActiveKidId, setMode, account, isDemo, setIsDemo, setKids, setAccount } = useStore();
+  const { lang, setLang, setActiveKidId, setMode, account, isDemo, setIsDemo, setKids, setAccount } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const [pricingCycle, setPricingCycle] = React.useState('monthly');
@@ -20,11 +20,15 @@ export default function LandingClient() {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const goDemo = (kidId?: string) => {
+  const goDemo = () => {
+    if (account && !isDemo) {
+      router.push('/dashboard');
+      return;
+    }
     setIsDemo(true);
     setAccount(null);
     setKids(DEMO_KIDS);
-    const target = kidId || DEMO_KIDS[0]?.id || null;
+    const target = DEMO_KIDS[0]?.id || null;
     if (target) setActiveKidId(target);
     setMode('parent');
     router.push('/dashboard');
@@ -91,18 +95,6 @@ export default function LandingClient() {
                 </div>
               ))}
             </div>
-            {account && !isDemo && kids.length > 0 && (
-              <div style={{ marginTop: 32 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>{lang === 'es' ? 'Continuar como' : 'Continue as'}</div>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  {kids.map((k) => (
-                    <button key={k.id} onClick={() => goDemo(k.id)} className="qk-chip" style={{ padding: '6px 12px 6px 6px', gap: 10 }}>
-                      <Avatar id={k.avatar} size={28} /><span>{k.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
           {/* hero card composition */}
           <div style={{ position: 'relative', aspectRatio: '5/4' }}>
