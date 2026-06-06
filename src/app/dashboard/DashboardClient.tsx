@@ -9,11 +9,76 @@ import { Stars, StatCard } from '@/components/ui/Stars';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
+import type { Kid } from '@/types';
+
+function DeleteKidModal({ kid, onCancel, onConfirm }: { kid: Kid; onCancel: () => void; onConfirm: () => void }) {
+  const [typed, setTyped] = React.useState('');
+  const canDelete = typed === 'DELETE';
+  React.useEffect(() => { setTyped(''); }, [kid.id]);
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 100,
+      background: 'rgba(0,0,0,.45)', backdropFilter: 'blur(4px)',
+      display: 'grid', placeItems: 'center', padding: 24,
+    }} onClick={onCancel}>
+      <div className="qk-card" style={{ width: '100%', maxWidth: 420, padding: 28 }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 14, background: 'var(--coral-l)', color: 'var(--coral)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+            {ICONS.trash}
+          </div>
+          <div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18 }}>Remove {kid.name}?</div>
+            <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 2 }}>This will delete all their progress and history.</div>
+          </div>
+        </div>
+
+        <div style={{ padding: '12px 14px', background: 'var(--coral-l)', borderRadius: 12, marginBottom: 20, fontSize: 13, color: 'var(--coral)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Avatar id={kid.avatar} size={28} />
+          <span>{kid.name} · Grade {kid.grade}</span>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 8 }}>
+            Type <strong style={{ fontFamily: 'ui-monospace, monospace', color: 'var(--coral)' }}>DELETE</strong> to confirm:
+          </div>
+          <input
+            className="qk-input"
+            placeholder="DELETE"
+            value={typed}
+            onChange={e => setTyped(e.target.value)}
+            autoFocus
+            style={{ fontFamily: 'ui-monospace, monospace', letterSpacing: '.1em' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button className="qk-btn qk-btn-ghost" onClick={onCancel}>Cancel</button>
+          <button
+            className="qk-btn"
+            disabled={!canDelete}
+            onClick={canDelete ? onConfirm : undefined}
+            style={{
+              background: canDelete ? 'var(--coral)' : 'var(--surface-2)',
+              color: canDelete ? '#fff' : 'var(--ink-3)',
+              cursor: canDelete ? 'pointer' : 'not-allowed',
+              opacity: canDelete ? 1 : 0.7,
+              transition: 'background .2s, color .2s',
+            }}
+          >
+            {ICONS.trash}<span>Remove kid</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardClient() {
-  const { lang, kids, account, setActiveKidId, setMode, gamification } = useStore();
+  const { lang, kids, account, setActiveKidId, setMode, gamification, removeKid } = useStore();
   const t = useT(lang);
   const router = useRouter();
+  const [deletingKid, setDeletingKid] = React.useState<Kid | null>(null);
 
   const totalStars = kids.reduce((a, k) => a + (k.stars || 0), 0);
   const totalMin = kids.reduce((a, k) => a + (k.minutes_total || 0), 0);
@@ -88,6 +153,14 @@ export default function DashboardClient() {
                 <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
                   <Btn kind="primary" onClick={() => createFor(k.id)} icon={ICONS.spark}>{t('createNew')}</Btn>
                   <button className="qk-btn qk-btn-ghost" onClick={() => openKidHome(k.id)}>{t('open')}</button>
+                  <button
+                    className="qk-btn qk-btn-ghost"
+                    onClick={() => setDeletingKid(k)}
+                    style={{ marginLeft: 'auto', color: 'var(--coral)', padding: '0 10px' }}
+                    title="Remove kid"
+                  >
+                    {ICONS.trash}
+                  </button>
                 </div>
               </div>
             ))}
@@ -101,6 +174,14 @@ export default function DashboardClient() {
           </div>
         </div>
       </div>
+
+      {deletingKid && (
+        <DeleteKidModal
+          kid={deletingKid}
+          onCancel={() => setDeletingKid(null)}
+          onConfirm={() => { removeKid(deletingKid.id); setDeletingKid(null); }}
+        />
+      )}
     </AppShell>
   );
 }
