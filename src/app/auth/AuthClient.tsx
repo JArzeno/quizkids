@@ -7,6 +7,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Btn } from '@/components/ui/Btn';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
+import { createClient } from '@/lib/supabase/client';
 
 export default function AuthClient() {
   const { lang, setAccount, setIsDemo, setKids } = useStore();
@@ -19,6 +20,7 @@ export default function AuthClient() {
   const [form, setForm] = React.useState({ name: '', email: '', password: '', remember: true, terms: false });
   const [showPw, setShowPw] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
   const pwScore = (() => {
     const p = form.password;
@@ -43,12 +45,28 @@ export default function AuthClient() {
     setLoading(true);
     setIsDemo(false);
     setKids([]);
-    setAccount({ name: form.name || 'Ana', email: form.email });
-    await new Promise((r) => setTimeout(r, 400));
-    setLoading(false);
+    setError(null);
+    const supabase = createClient();
+
     if (tab === 'signup') {
+      const { error: err } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: { data: { name: form.name } },
+      });
+      setLoading(false);
+      if (err) { setError(err.message); return; }
+      setAccount({ name: form.name, email: form.email });
       router.push('/auth/onboarding');
     } else {
+      const { data, error: err } = await supabase.auth.signInWithPassword({
+        email: form.email,
+        password: form.password,
+      });
+      setLoading(false);
+      if (err) { setError(err.message); return; }
+      const name = data.user?.user_metadata?.name || data.user?.email || '';
+      setAccount({ name, email: form.email });
       router.push('/profile');
     }
   };
@@ -162,6 +180,11 @@ export default function AuthClient() {
                 <input type="checkbox" checked={form.terms} onChange={(e) => setForm({ ...form, terms: e.target.checked })} style={{ marginTop: 3 }} />
                 <span>{t('agreeTerms')}</span>
               </label>
+            )}
+            {error && (
+              <div style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--coral-l, #fde8e8)', color: 'var(--coral, #c0392b)', fontSize: 13, fontWeight: 600 }}>
+                {error}
+              </div>
             )}
             <Btn kind="primary" type="submit" disabled={!canSubmit || loading} style={{ opacity: canSubmit && !loading ? 1 : .5, marginTop: 6 }}>
               {loading ? (lang === 'es' ? 'Entrando…' : 'Signing in…') : (tab === 'signin' ? t('signInBtn') : t('signUpBtn'))}
