@@ -9,12 +9,13 @@ import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 
 export default function GenerateClient() {
-  const { lang, kids, activeKidId, studyParams, difficulty, setMode } = useStore();
+  const { lang, kids, activeKidId, studyParams, difficulty, setMode, updateKid } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
   const [genState, setGenState] = React.useState<'quiz' | 'guide' | 'pdf' | null>(null);
   const [progress, setProgress] = React.useState(0);
+  const [done, setDone] = React.useState<'quiz' | 'guide' | 'pdf' | null>(null);
 
   React.useEffect(() => {
     if (!genState) return;
@@ -26,10 +27,13 @@ export default function GenerateClient() {
         p = 100;
         clearInterval(i);
         setTimeout(() => {
-          setMode('kid');
-          if (genState === 'quiz') router.push('/kids/quiz');
-          if (genState === 'guide') router.push('/kids/guide');
-          if (genState === 'pdf') router.push('/kids/pdf');
+          if (kid) {
+            const newItem = { kind: genState, title: studyParams.topic, when: 'Today', score: 0 };
+            updateKid(kid.id, { recent: [newItem, ...(kid.recent || [])].slice(0, 6) });
+          }
+          setDone(genState);
+          setGenState(null);
+          setProgress(0);
         }, 380);
       }
       setProgress(p);
@@ -43,7 +47,7 @@ export default function GenerateClient() {
     <AppShell>
       <div className="qk-screen qk-page-enter">
         <div style={{ maxWidth: 980, margin: '0 auto' }}>
-          <button className="qk-btn qk-btn-ghost" onClick={() => router.push('/dashboard/picker')}>{ICONS.back} <span>{t('back')}</span></button>
+          <button className="qk-btn qk-btn-ghost" onClick={() => { setDone(null); router.push('/dashboard/picker'); }}>{ICONS.back} <span>{t('back')}</span></button>
 
           <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
             <div>
@@ -53,7 +57,7 @@ export default function GenerateClient() {
             </div>
             {kid && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px 8px 8px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)' }}>
-                <Avatar id={kid.avatar} size={36} />
+                <Avatar id={kid.avatar} size={36} ring={kid.color} />
                 <div>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{kid.name}</div>
                   <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{lang === 'es' ? 'Dificultad' : 'Difficulty'}: {difficultyLabel}</div>
@@ -62,7 +66,31 @@ export default function GenerateClient() {
             )}
           </div>
 
-          <div className="qk-stagger" style={{ marginTop: 28, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18 }}>
+          {done && kid && (
+            <div className="qk-card qk-slide-up" style={{ marginTop: 20, padding: '24px 28px', display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', background: 'linear-gradient(135deg, var(--primary-l) 0%, var(--honey-l) 100%)', borderColor: 'var(--primary)' }}>
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                {ICONS.check}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 20 }}>
+                  {lang === 'es' ? `¡Listo para ${kid.name}!` : `Ready for ${kid.name}!`}
+                </div>
+                <div style={{ fontSize: 14, color: 'var(--ink-2)', marginTop: 4 }}>
+                  {lang === 'es' ? `Aparecerá en el feed de ${kid.name}.` : `Added to ${kid.name}'s feed.`}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+                <Btn kind="primary" icon={ICONS.cards} onClick={() => { setMode('kid'); router.push(`/kids/${done}`); }}>
+                  {lang === 'es' ? `Abrir como ${kid.name}` : `Open as ${kid.name}`}
+                </Btn>
+                <button className="qk-btn qk-btn-ghost" onClick={() => { setDone(null); router.push('/dashboard'); }}>
+                  {lang === 'es' ? 'Volver' : 'Back to dashboard'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="qk-stagger" style={{ marginTop: 28, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18, opacity: done ? 0.45 : 1, pointerEvents: done ? 'none' : undefined }}>
             {[
               { id: 'quiz' as const, title: t('genQuiz'), sub: t('genQuizSub'), tone: 'primary', icon: ICONS.cards },
               { id: 'guide' as const, title: t('genGuide'), sub: t('genGuideSub'), tone: 'sky', icon: ICONS.book },

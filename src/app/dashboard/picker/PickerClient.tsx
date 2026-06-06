@@ -20,7 +20,7 @@ const TOPICS_BY_SUBJECT: Record<string, { en: string[]; es: string[] }> = {
 };
 
 export default function PickerClient() {
-  const { lang, kids, activeKidId, studyParams, setStudyParams, difficulty, setDifficulty, customSubjects } = useStore();
+  const { lang, kids, activeKidId, setActiveKidId, studyParams, setStudyParams, difficulty, setDifficulty, customSubjects } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
@@ -28,20 +28,46 @@ export default function PickerClient() {
 
   const topics = (TOPICS_BY_SUBJECT[studyParams.subject]?.[lang] || TOPICS_BY_SUBJECT.sci[lang]) as string[];
 
+  const selectKid = (id: string) => {
+    const k = kids.find((k) => k.id === id);
+    if (!k) return;
+    setActiveKidId(id);
+    setStudyParams({ ...studyParams, grade: k.grade });
+  };
+
   return (
     <AppShell>
       <div className="qk-screen qk-page-enter">
         <div style={{ maxWidth: 980, margin: '0 auto' }}>
           <button className="qk-btn qk-btn-ghost" onClick={() => router.push('/dashboard')}>{ICONS.back} <span>{t('back')}</span></button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 18, flexWrap: 'wrap' }}>
-            {kid && <Avatar id={kid.avatar} size={56} ring={kid.color} />}
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <h1 className="qk-h1" style={{ margin: 0 }}>{t('pickerTitle')}</h1>
-              <p className="qk-sub" style={{ margin: '6px 0 0' }}>{t('pickerSub')}</p>
-            </div>
-            {kid && <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 999, background: 'var(--primary-l)', color: 'var(--primary-d)', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13 }}>{t('forGrade')} {kid.grade === 'K' ? (lang === 'es' ? 'Kínder' : 'K') : kid.grade}</div>}
+          <div style={{ marginTop: 18 }}>
+            <h1 className="qk-h1" style={{ margin: 0 }}>{t('pickerTitle')}</h1>
+            <p className="qk-sub" style={{ margin: '6px 0 0' }}>{t('pickerSub')}</p>
           </div>
+
+          {/* kid assignment */}
+          {kids.length > 0 && (
+            <section style={{ marginTop: 24 }}>
+              <div className="qk-label" style={{ marginBottom: 10, fontSize: 14 }}>{lang === 'es' ? 'Asignar a' : 'Assign to'}</div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {kids.map((k) => {
+                  const on = (kid?.id ?? '') === k.id;
+                  return (
+                    <button key={k.id} onClick={() => selectKid(k.id)}
+                      style={{ appearance: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px 8px 8px', borderRadius: 999, border: '2px solid ' + (on ? k.color || 'var(--primary)' : 'var(--line)'), background: on ? (k.color || 'var(--primary)') + '18' : 'var(--surface)', cursor: 'pointer', transition: 'all .15s ease' }}>
+                      <Avatar id={k.avatar} size={32} ring={on ? k.color : undefined} />
+                      <div style={{ textAlign: 'left' }}>
+                        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: on ? (k.color || 'var(--primary)') : 'var(--ink)' }}>{k.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{lang === 'es' ? 'Grado ' : 'Grade '}{k.grade}</div>
+                      </div>
+                      {on && <span style={{ marginLeft: 4, color: k.color || 'var(--primary)' }}>{ICONS.check}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {/* subject */}
           <section style={{ marginTop: 28 }}>
@@ -112,3 +138,4 @@ export default function PickerClient() {
     </AppShell>
   );
 }
+ 
