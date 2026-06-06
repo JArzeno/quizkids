@@ -67,6 +67,29 @@ export default function AuthClient() {
       if (err) { setError(err.message); return; }
       const name = data.user?.user_metadata?.name || data.user?.email || '';
       setAccount({ name, email: form.email });
+      const { data: kidsData } = await supabase
+        .from('kids')
+        .select('*')
+        .eq('parent_id', data.user.id)
+        .order('created_at');
+      if (kidsData) {
+        setKids(kidsData.map((k) => ({
+          id: k.id,
+          parent_id: k.parent_id,
+          name: k.name,
+          grade: k.grade,
+          avatar: k.avatar || 'sprout',
+          color: k.color || '#3F7A4F',
+          code: k.code,
+          streak: k.streak || 0,
+          stars: k.stars || 0,
+          minutes_total: k.minutes_total || 0,
+          weekly: k.weekly_pct || 0,
+          goal_min: k.goal_min || 30,
+          lastSubject: k.last_subject || undefined,
+          recent: [],
+        })));
+      }
       router.push('/profile');
     }
   };

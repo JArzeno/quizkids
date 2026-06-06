@@ -9,6 +9,7 @@ import { Stars, StatCard } from '@/components/ui/Stars';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
+import { createClient } from '@/lib/supabase/client';
 import type { Kid } from '@/types';
 
 function DeleteKidModal({ kid, onCancel, onConfirm }: { kid: Kid; onCancel: () => void; onConfirm: () => void }) {
@@ -75,10 +76,39 @@ function DeleteKidModal({ kid, onCancel, onConfirm }: { kid: Kid; onCancel: () =
 }
 
 export default function DashboardClient() {
-  const { lang, kids, account, setActiveKidId, setMode, gamification, removeKid } = useStore();
+  const { lang, kids, account, setActiveKidId, setMode, gamification, removeKid, setKids, isDemo } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const [deletingKid, setDeletingKid] = React.useState<Kid | null>(null);
+
+  React.useEffect(() => {
+    if (isDemo) return;
+    const load = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from('kids').select('*').eq('parent_id', user.id).order('created_at');
+      if (data) {
+        setKids(data.map((k) => ({
+          id: k.id,
+          parent_id: k.parent_id,
+          name: k.name,
+          grade: k.grade,
+          avatar: k.avatar || 'sprout',
+          color: k.color || '#3F7A4F',
+          code: k.code,
+          streak: k.streak || 0,
+          stars: k.stars || 0,
+          minutes_total: k.minutes_total || 0,
+          weekly: k.weekly_pct || 0,
+          goal_min: k.goal_min || 30,
+          lastSubject: k.last_subject || undefined,
+          recent: [],
+        })));
+      }
+    };
+    load();
+  }, [isDemo]);
 
   const totalStars = kids.reduce((a, k) => a + (k.stars || 0), 0);
   const totalMin = kids.reduce((a, k) => a + (k.minutes_total || 0), 0);
@@ -179,7 +209,14 @@ export default function DashboardClient() {
         <DeleteKidModal
           kid={deletingKid}
           onCancel={() => setDeletingKid(null)}
-          onConfirm={() => { removeKid(deletingKid.id); setDeletingKid(null); }}
+          onConfirm={async () => {
+            if (!isDemo) {
+              const supabase = createClient();
+              await supabase.from('kids').delete().eq('id', deletingKid.id);
+            }
+            removeKid(deletingKid.id);
+            setDeletingKid(null);
+          }}
         />
       )}
     </AppShell>
