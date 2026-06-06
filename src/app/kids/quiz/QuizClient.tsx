@@ -21,10 +21,12 @@ const FALLBACK_QUIZ: QuizQuestion[] = [
 ];
 
 export default function QuizClient() {
-  const { lang, kids, activeKidId, studyParams, difficulty, gamification, setQuizResult } = useStore();
+  const { lang, kids, activeKidId, studyParams, difficulty, gamification, setQuizResult, setMode } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
+
+  React.useEffect(() => { setMode('kid'); }, []);
 
   const [cards, setCards] = React.useState<QuizQuestion[]>([]);
   const [loading, setLoading] = React.useState(true);

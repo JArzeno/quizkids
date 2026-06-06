@@ -22,10 +22,12 @@ const FALLBACK: Guide = {
 };
 
 export default function GuideClient() {
-  const { lang, kids, activeKidId, studyParams, gamification } = useStore();
+  const { lang, kids, activeKidId, studyParams, gamification, setMode } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
+
+  React.useEffect(() => { setMode('kid'); }, []);
 
   const [guide, setGuide] = React.useState<Guide | null>(null);
   const [loading, setLoading] = React.useState(true);

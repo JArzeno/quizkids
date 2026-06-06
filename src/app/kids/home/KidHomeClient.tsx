@@ -15,6 +15,8 @@ export default function KidHomeClient() {
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
   const recent = kid?.recent || [];
 
+  React.useEffect(() => { setMode('kid'); }, []);
+
   const session = useSession((minutes) => {
     if (minutes > 0 && kid) updateKid(kid.id, { minutes_total: (kid.minutes_total || 0) + minutes });
   });
