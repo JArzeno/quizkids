@@ -22,6 +22,22 @@ export interface RecentItem {
   title: string;
   when: string;
   score: number;
+  subject?: string;
+  contentId?: string;
+  assignmentId?: string;
+  status?: 'pending' | 'completed';
+}
+
+export interface Assignment {
+  id: string;
+  kid_id: string;
+  content_id: string | null;
+  subject: string;
+  topic: string;
+  grade: string;
+  type: 'quiz' | 'guide' | 'pdf';
+  status: 'pending' | 'completed';
+  assigned_at: string;
 }
 
 export interface Profile {
@@ -81,6 +97,8 @@ export interface StudyParams {
   grade: string;
   difficulty: 'easy' | 'medium' | 'hard';
   lang: 'en' | 'es';
+  contentId?: string;
+  assignmentId?: string;
 }
 
 export type Lang = 'en' | 'es';

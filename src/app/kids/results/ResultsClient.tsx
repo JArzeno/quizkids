@@ -8,16 +8,57 @@ import { StatCard } from '@/components/ui/Stars';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
+import { createClient } from '@/lib/supabase/client';
 
 export default function ResultsClient() {
-  const { lang, kids, activeKidId, quizResult, studyParams, gamification, setQuizResult, updateKid } = useStore();
+  const { lang, kids, activeKidId, quizResult, studyParams, gamification, setQuizResult, updateKid, isDemo } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
+  const savedRef = React.useRef(false);
 
   React.useEffect(() => {
     if (!quizResult) { router.replace('/kids/home'); return; }
-    if (kid && quizResult.stars > 0) updateKid(kid.id, { stars: (kid.stars || 0) + quizResult.stars });
+
+    const pct = Math.round((quizResult.correct / quizResult.total) * 100);
+    const goldStars = pct >= 90 ? 5 : pct >= 75 ? 4 : pct >= 60 ? 3 : pct >= 40 ? 2 : 1;
+
+    if (kid && quizResult.stars > 0) {
+      updateKid(kid.id, {
+        stars: (kid.stars || 0) + goldStars,
+        lastSubject: studyParams.subject,
+      });
+    }
+
+    // Save to Supabase (once)
+    if (!isDemo && kid && !savedRef.current) {
+      savedRef.current = true;
+      const supabase = createClient();
+
+      // Update kid stars in DB
+      supabase.from('kids')
+        .update({ stars: (kid.stars || 0) + goldStars, last_subject: studyParams.subject })
+        .eq('id', kid.id)
+        .then(() => {});
+
+      // Mark assignment completed (in case QuizClient didn't save it)
+      if (studyParams.assignmentId) {
+        supabase.from('kid_assignments')
+          .update({ status: 'completed' })
+          .eq('id', studyParams.assignmentId)
+          .then(() => {});
+      }
+
+      // Update recent item status in local store
+      if (studyParams.assignmentId && kid.recent) {
+        const updatedRecent = kid.recent.map((r) =>
+          r.assignmentId === studyParams.assignmentId
+            ? { ...r, score: goldStars, status: 'completed' as const }
+            : r
+        );
+        updateKid(kid.id, { recent: updatedRecent });
+      }
+    }
   }, []);
 
   if (!quizResult) return null;
@@ -30,7 +71,11 @@ export default function ResultsClient() {
       <div className="qk-screen qk-page-enter" style={{ padding: 0, minHeight: 'calc(100dvh - 65px)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 22px 0', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
           <button onClick={() => router.push('/kids/home')} className="qk-btn qk-btn-ghost">{ICONS.back} <span>{t('backHome')}</span></button>
-          {kid && <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)' }}><Avatar id={kid.avatar} size={32} /><span style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{kid.name}</span></div>}
+          {kid && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)' }}>
+              <Avatar id={kid.avatar} size={32} /><span style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{kid.name}</span>
+            </div>
+          )}
         </div>
 
         <div style={{ maxWidth: 820, margin: '24px auto 0', padding: '0 22px 64px' }}>
@@ -45,7 +90,7 @@ export default function ResultsClient() {
             <div style={{ position: 'relative', textAlign: 'center' }}>
               <div style={{ display: 'inline-block', position: 'relative' }}>
                 {kid && <Avatar id={kid.avatar} size={120} ring={kid.color || 'var(--primary)'} />}
-                <div className="qk-sticker qk-sticker-pop" style={{ position: 'absolute', right: -18, top: -10, fontSize: 14 }}>+{stars} ⭐</div>
+                <div className="qk-sticker qk-sticker-pop" style={{ position: 'absolute', right: -18, top: -10, fontSize: 14 }}>+{goldStars} ⭐</div>
               </div>
               <h1 className="qk-h1" style={{ marginTop: 14 }}>{t('resultsTitle')}</h1>
               <p className="qk-sub" style={{ margin: '6px auto 0', textAlign: 'center' }}>{t('resultsSub')}</p>
@@ -72,7 +117,11 @@ export default function ResultsClient() {
                 <div style={{ width: 48, height: 48, borderRadius: 14, background: 'var(--honey)', color: '#fff', display: 'grid', placeItems: 'center' }}>{ICONS.star}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>{t('rewardEarned')}</div>
-                  <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>{lang === 'es' ? `"Explorador del cosmos" — desbloqueada al estudiar ${studyParams.topic}.` : `"Cosmos explorer" — unlocked for studying ${studyParams.topic}.`}</div>
+                  <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>
+                    {lang === 'es'
+                      ? `"Explorador del cosmos" — desbloqueada al estudiar ${studyParams.topic}.`
+                      : `"Cosmos explorer" — unlocked for studying ${studyParams.topic}.`}
+                  </div>
                 </div>
               </div>
             )}
@@ -85,7 +134,9 @@ export default function ResultsClient() {
                   const right = picks[idx] === c.a;
                   return (
                     <div key={idx} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 12 }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, background: right ? 'var(--primary)' : 'var(--coral)', color: '#fff', display: 'grid', placeItems: 'center' }}>{right ? ICONS.check : ICONS.x}</div>
+                      <div style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, background: right ? 'var(--primary)' : 'var(--coral)', color: '#fff', display: 'grid', placeItems: 'center' }}>
+                        {right ? ICONS.check : ICONS.x}
+                      </div>
                       <div style={{ flex: 1, fontSize: 14 }}>
                         <div style={{ fontWeight: 700 }}>{c.q}</div>
                         <div style={{ marginTop: 2, color: 'var(--ink-3)', fontSize: 13 }}>

@@ -6,6 +6,7 @@ import { Btn } from '@/components/ui/Btn';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
+import { createClient } from '@/lib/supabase/client';
 import type { QuizQuestion } from '@/types';
 
 const FALLBACK: { questions: QuizQuestion[]; bonus: string } = {
@@ -21,7 +22,7 @@ const FALLBACK: { questions: QuizQuestion[]; bonus: string } = {
 };
 
 export default function PdfClient() {
-  const { lang, kids, activeKidId, studyParams, setMode } = useStore();
+  const { lang, kids, activeKidId, studyParams, setMode, isDemo } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
@@ -32,21 +33,48 @@ export default function PdfClient() {
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const fetch_ = async () => {
+    const fetchWorksheet = async () => {
       setLoading(true);
       try {
+        // Try loading from cached contentId first
+        if (studyParams.contentId && !isDemo) {
+          try {
+            const supabase = createClient();
+            const { data: cached } = await supabase
+              .from('generated_content')
+              .select('content')
+              .eq('id', studyParams.contentId)
+              .single();
+            if (cached?.content) {
+              setData(cached.content as { questions: QuizQuestion[]; bonus: string });
+              setLoading(false);
+              return;
+            }
+          } catch (e) {
+            console.warn('Could not load cached worksheet:', e);
+          }
+        }
+
+        // Call API (also checks cache server-side)
         const res = await fetch('/api/generate/worksheet', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic: studyParams.topic, grade: studyParams.grade, lang }),
+          body: JSON.stringify({
+            topic: studyParams.topic,
+            grade: studyParams.grade,
+            lang,
+            subject: studyParams.subject,
+          }),
         });
         if (res.ok) setData(await res.json());
         else setData(FALLBACK);
-      } catch { setData(FALLBACK); }
+      } catch {
+        setData(FALLBACK);
+      }
       setLoading(false);
     };
-    fetch_();
-  }, [studyParams.topic, studyParams.grade, lang]);
+    fetchWorksheet();
+  }, [studyParams.topic, studyParams.grade, studyParams.contentId, lang]);
 
   return (
     <AppShell>
@@ -96,7 +124,7 @@ export default function PdfClient() {
               </div>
 
               <div style={{ marginTop: 24, fontSize: 11, color: '#5b6e60', textAlign: 'center', fontFamily: 'ui-monospace, monospace' }}>
-                QuizKids · Generated for {kid?.name || '—'} · {new Date().toLocaleDateString(lang === 'es' ? 'es' : 'en')}
+                QuizKids · Generated for {kid?.name || '—'} · Grade {studyParams.grade} · {new Date().toLocaleDateString(lang === 'es' ? 'es' : 'en')}
               </div>
             </div>
           )}
