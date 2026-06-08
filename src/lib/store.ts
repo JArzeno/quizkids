@@ -51,6 +51,10 @@ interface AppState {
   customSubjects: Array<{ id: string; name: string; icon: string; color: string }>;
   setCustomSubjects: (s: Array<{ id: string; name: string; icon: string; color: string }>) => void;
 
+  // history subject filter (kids home)
+  filterSubject: string | null;
+  setFilterSubject: (s: string | null) => void;
+
   // theme
   palette: string;
   setPalette: (p: string) => void;
@@ -60,6 +64,10 @@ interface AppState {
   setDifficulty: (d: 'easy' | 'medium' | 'hard') => void;
   gamification: 'minimal' | 'light' | 'medium';
   setGamification: (g: 'minimal' | 'light' | 'medium') => void;
+
+  // session auto-start signal
+  autoStartSession: boolean;
+  setAutoStartSession: (v: boolean) => void;
 }
 
 export const DEMO_KIDS: Kid[] = [
@@ -69,8 +77,8 @@ export const DEMO_KIDS: Kid[] = [
     streak: 7, stars: 42, minutes_total: 36, weekly: 62, goal_min: 30,
     lastSubject: 'Science',
     recent: [
-      { kind: 'quiz', title: 'Solar System & Planets', when: 'Today', score: 4 },
-      { kind: 'guide', title: 'States of Matter', when: 'Yesterday', score: 5 },
+      { kind: 'quiz', title: 'Solar System & Planets', when: 'Today', score: 4, subject: 'sci' },
+      { kind: 'guide', title: 'States of Matter', when: 'Yesterday', score: 5, subject: 'sci' },
     ],
   },
   {
@@ -78,7 +86,7 @@ export const DEMO_KIDS: Kid[] = [
     avatar: 'sprout', color: '#3F7A4F', code: 'LUCIA1',
     streak: 3, stars: 18, minutes_total: 18, weekly: 35, goal_min: 30,
     lastSubject: 'Language Arts',
-    recent: [{ kind: 'pdf', title: 'Sight Words', when: 'Mon', score: 0 }],
+    recent: [{ kind: 'pdf', title: 'Sight Words', when: 'Mon', score: 0, subject: 'lang' }],
   },
 ];
 
@@ -124,6 +132,9 @@ export const useStore = create<AppState>()(
       customSubjects: [],
       setCustomSubjects: (customSubjects) => set({ customSubjects }),
 
+      filterSubject: null,
+      setFilterSubject: (filterSubject) => set({ filterSubject }),
+
       palette: 'forest',
       setPalette: (palette) => set({ palette }),
       font: 'fredoka',
@@ -132,6 +143,9 @@ export const useStore = create<AppState>()(
       setDifficulty: (difficulty) => set({ difficulty }),
       gamification: 'light',
       setGamification: (gamification) => set({ gamification }),
+
+      autoStartSession: false,
+      setAutoStartSession: (autoStartSession) => set({ autoStartSession }),
     }),
     { name: 'quizkids-store' }
   )

@@ -8,6 +8,7 @@ import { ImgPlaceholder } from '@/components/ui/Stars';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
+import { createClient } from '@/lib/supabase/client';
 import type { Guide } from '@/types';
 
 const FALLBACK: Guide = {
@@ -22,7 +23,7 @@ const FALLBACK: Guide = {
 };
 
 export default function GuideClient() {
-  const { lang, kids, activeKidId, studyParams, gamification, setMode } = useStore();
+  const { lang, kids, activeKidId, studyParams, gamification, setMode, isDemo } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
@@ -37,18 +38,45 @@ export default function GuideClient() {
     const fetchGuide = async () => {
       setLoading(true);
       try {
+        // If we have a cached contentId, load from Supabase directly
+        if (studyParams.contentId && !isDemo) {
+          try {
+            const supabase = createClient();
+            const { data } = await supabase
+              .from('generated_content')
+              .select('content')
+              .eq('id', studyParams.contentId)
+              .single();
+            if (data?.content) {
+              setGuide(data.content as Guide);
+              setLoading(false);
+              return;
+            }
+          } catch (e) {
+            console.warn('Could not load cached guide:', e);
+          }
+        }
+
+        // Call API (which also checks cache server-side)
         const res = await fetch('/api/generate/guide', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic: studyParams.topic, grade: studyParams.grade, lang }),
+          body: JSON.stringify({
+            topic: studyParams.topic,
+            grade: studyParams.grade,
+            lang,
+            subject: studyParams.subject,
+          }),
         });
         if (res.ok) setGuide(await res.json());
         else setGuide(FALLBACK);
-      } catch { setGuide(FALLBACK); }
+      } catch {
+        setGuide(FALLBACK);
+      }
       setLoading(false);
     };
     fetchGuide();
-  }, [studyParams.topic, studyParams.grade, lang]);
+  }, [studyParams.topic, studyParams.grade, studyParams.contentId, lang]);
 
   if (loading) return (
     <AppShell>
@@ -66,7 +94,17 @@ export default function GuideClient() {
         {/* kid bar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 22px 0', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
           <button onClick={() => router.push('/kids/home')} className="qk-btn qk-btn-ghost" style={{ padding: '8px 12px' }}>{ICONS.back} <span>{t('back')}</span></button>
-          {kid && <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)' }}><Avatar id={kid.avatar} size={32} /><span style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{kid.name}</span></div>}
+          {kid && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)' }}>
+              <Avatar id={kid.avatar} size={32} />
+              <div>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{kid.name}</span>
+                <span style={{ fontSize: 11, color: 'var(--ink-3)', marginLeft: 6 }}>
+                  {lang === 'es' ? 'Grado ' : 'Gr.'}{studyParams.grade}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={{ maxWidth: 1100, margin: '24px auto 0', padding: '0 22px 64px' }}>
@@ -88,7 +126,8 @@ export default function GuideClient() {
               <div className="qk-label" style={{ marginBottom: 10 }}>{t('onThisPage')}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {guide.sections.map((s, idx) => (
-                  <button key={idx} onClick={() => setActive(idx)} style={{ appearance: 'none', textAlign: 'left', padding: '10px 12px', borderRadius: 12, background: active === idx ? 'var(--primary-l)' : 'transparent', border: '1.5px solid ' + (active === idx ? 'var(--primary)' : 'transparent'), cursor: 'pointer', fontWeight: 600, fontSize: 14, color: 'var(--ink-2)', display: 'flex', alignItems: 'center', gap: 10, transition: 'all .15s ease' }}>
+                  <button key={idx} onClick={() => setActive(idx)}
+                    style={{ appearance: 'none', textAlign: 'left', padding: '10px 12px', borderRadius: 12, background: active === idx ? 'var(--primary-l)' : 'transparent', border: '1.5px solid ' + (active === idx ? 'var(--primary)' : 'transparent'), cursor: 'pointer', fontWeight: 600, fontSize: 14, color: 'var(--ink-2)', display: 'flex', alignItems: 'center', gap: 10, transition: 'all .15s ease' }}>
                     <span style={{ width: 24, height: 24, borderRadius: 8, background: active === idx ? 'var(--primary)' : 'var(--surface-2)', color: active === idx ? '#fff' : 'var(--ink-3)', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 700 }}>{idx + 1}</span>
                     {s.title}
                   </button>
@@ -130,7 +169,9 @@ export default function GuideClient() {
                   <div style={{ width: 56, height: 56, borderRadius: 18, background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center' }}>{ICONS.spark}</div>
                   <div style={{ flex: 1 }}>
                     <h2 className="qk-h2">{t('tryIt')}</h2>
-                    <p style={{ margin: '4px 0 0', fontSize: 15, color: 'var(--ink-2)' }}>{lang === 'es' ? 'Pon a prueba lo que aprendiste con un quiz de 8 tarjetas.' : 'Test what you just learned with an 8-card quiz.'}</p>
+                    <p style={{ margin: '4px 0 0', fontSize: 15, color: 'var(--ink-2)' }}>
+                      {lang === 'es' ? 'Pon a prueba lo que aprendiste con un quiz de 8 tarjetas.' : 'Test what you just learned with an 8-card quiz.'}
+                    </p>
                   </div>
                   <Btn kind="primary" icon={ICONS.cards} onClick={() => router.push('/kids/quiz')}>{t('genQuiz')}</Btn>
                 </div>

@@ -7,6 +7,7 @@ import { Btn } from '@/components/ui/Btn';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
+import { createClient } from '@/lib/supabase/client';
 import type { QuizQuestion } from '@/types';
 
 const FALLBACK_QUIZ: QuizQuestion[] = [
@@ -21,7 +22,7 @@ const FALLBACK_QUIZ: QuizQuestion[] = [
 ];
 
 export default function QuizClient() {
-  const { lang, kids, activeKidId, studyParams, difficulty, gamification, setQuizResult, setMode } = useStore();
+  const { lang, kids, activeKidId, studyParams, difficulty, gamification, setQuizResult, setMode, isDemo } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
@@ -37,15 +38,45 @@ export default function QuizClient() {
   const [feedback, setFeedback] = React.useState<'correct' | 'wrong' | null>(null);
   const [streak, setStreak] = React.useState(0);
   const [stars, setStars] = React.useState(0);
+  const startedAt = React.useRef(Date.now());
 
   React.useEffect(() => {
     const fetchQuiz = async () => {
       setLoading(true);
+      startedAt.current = Date.now();
       try {
+        // If we have a cached contentId, load from Supabase directly
+        if (studyParams.contentId && !isDemo) {
+          try {
+            const supabase = createClient();
+            const { data } = await supabase
+              .from('generated_content')
+              .select('content')
+              .eq('id', studyParams.contentId)
+              .single();
+            if (data?.content) {
+              const content = data.content as { questions?: QuizQuestion[] };
+              const limit = difficulty === 'easy' ? 6 : 8;
+              setCards((content.questions || FALLBACK_QUIZ).slice(0, limit));
+              setLoading(false);
+              return;
+            }
+          } catch (e) {
+            console.warn('Could not load cached content:', e);
+          }
+        }
+
+        // Generate fresh (API also checks cache server-side)
         const res = await fetch('/api/generate/quiz', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic: studyParams.topic, grade: studyParams.grade, difficulty, lang }),
+          body: JSON.stringify({
+            topic: studyParams.topic,
+            grade: studyParams.grade,
+            difficulty,
+            lang,
+            subject: studyParams.subject,
+          }),
         });
         if (res.ok) {
           const data = await res.json();
@@ -60,7 +91,7 @@ export default function QuizClient() {
       setLoading(false);
     };
     fetchQuiz();
-  }, [studyParams.topic, studyParams.grade, difficulty, lang]);
+  }, [studyParams.topic, studyParams.grade, studyParams.contentId, difficulty, lang]);
 
   const cur = cards[i];
   const userPick = picks[i];
@@ -77,7 +108,36 @@ export default function QuizClient() {
     setFlipped(false); setFeedback(null);
     if (i + 1 >= cards.length) {
       const correct = cards.reduce((acc, c, idx) => acc + (picks[idx] === c.a ? 1 : 0), 0);
-      setQuizResult({ total: cards.length, correct, picks, cards, stars });
+      const result = { total: cards.length, correct, picks, cards, stars };
+      setQuizResult(result);
+
+      // Save quiz result to Supabase
+      if (!isDemo && kid) {
+        const supabase = createClient();
+        const pct = Math.round((correct / cards.length) * 100);
+        const goldStars = pct >= 90 ? 5 : pct >= 75 ? 4 : pct >= 60 ? 3 : pct >= 40 ? 2 : 1;
+        supabase.from('quiz_results').insert({
+          kid_id: kid.id,
+          assignment_id: studyParams.assignmentId ?? null,
+          subject: studyParams.subject,
+          topic: studyParams.topic,
+          grade: studyParams.grade,
+          difficulty,
+          total: cards.length,
+          correct,
+          stars: goldStars,
+          lang,
+        }).then(() => {
+          // Mark assignment as completed
+          if (studyParams.assignmentId) {
+            supabase.from('kid_assignments')
+              .update({ status: 'completed' })
+              .eq('id', studyParams.assignmentId)
+              .then(() => {});
+          }
+        });
+      }
+
       router.push('/kids/results');
     } else setI(i + 1);
   };
@@ -106,7 +166,17 @@ export default function QuizClient() {
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: 'var(--coral-l)', color: '#7C2A19', fontWeight: 700 }}>{ICONS.flame} {streak}</div>
               </>
             )}
-            {kid && <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)' }}><Avatar id={kid.avatar} size={32} /><span style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{kid.name}</span></div>}
+            {kid && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)' }}>
+                <Avatar id={kid.avatar} size={32} />
+                <div>
+                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{kid.name}</span>
+                  <span style={{ fontSize: 11, color: 'var(--ink-3)', marginLeft: 6 }}>
+                    {lang === 'es' ? 'Grado ' : 'Gr.'}{studyParams.grade}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -134,7 +204,8 @@ export default function QuizClient() {
                     const isAnswer = revealed[i] && ci === cur.a;
                     const isWrong = revealed[i] && isPicked && ci !== cur.a;
                     return (
-                      <button key={ci} onClick={() => !revealed[i] && setPicks({ ...picks, [i]: ci })} style={{ appearance: 'none', textAlign: 'left', padding: '12px 14px', background: isAnswer ? 'var(--primary-l)' : isWrong ? 'var(--coral-l)' : isPicked ? 'var(--surface-2)' : 'var(--surface)', border: '2px solid ' + (isAnswer ? 'var(--primary)' : isWrong ? 'var(--coral)' : isPicked ? 'var(--ink-3)' : 'var(--line)'), borderRadius: 14, cursor: revealed[i] ? 'default' : 'pointer', fontWeight: 600, fontSize: 15, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 10, transition: 'all .15s ease' }}>
+                      <button key={ci} onClick={() => !revealed[i] && setPicks({ ...picks, [i]: ci })}
+                        style={{ appearance: 'none', textAlign: 'left', padding: '12px 14px', background: isAnswer ? 'var(--primary-l)' : isWrong ? 'var(--coral-l)' : isPicked ? 'var(--surface-2)' : 'var(--surface)', border: '2px solid ' + (isAnswer ? 'var(--primary)' : isWrong ? 'var(--coral)' : isPicked ? 'var(--ink-3)' : 'var(--line)'), borderRadius: 14, cursor: revealed[i] ? 'default' : 'pointer', fontWeight: 600, fontSize: 15, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 10, transition: 'all .15s ease' }}>
                         <span style={{ width: 24, height: 24, borderRadius: 8, background: isAnswer ? 'var(--primary)' : isWrong ? 'var(--coral)' : 'var(--surface-2)', color: (isAnswer || isWrong) ? '#fff' : 'var(--ink-3)', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13 }}>{String.fromCharCode(65 + ci)}</span>
                         <span style={{ flex: 1 }}>{c}</span>
                         {isAnswer && <span style={{ color: 'var(--primary)' }}>{ICONS.check}</span>}
