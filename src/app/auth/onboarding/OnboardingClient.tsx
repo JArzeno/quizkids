@@ -26,13 +26,14 @@ export default function OnboardingClient() {
     () => !!prefs.role,
     () => (prefs.kidsCount || 0) > 0 && (prefs.langs || []).length > 0,
     () => true,
-    () => !!(prefs as any).plan?.tier,
+    () => true,
     () => true,
   ][step]?.() ?? true;
 
   const finish = (addKid: boolean) => {
     setParentPrefs(prefs);
-    if ((prefs as any).plan) setPlan({ ...(prefs as any).plan, since: Date.now() });
+    const cycle = (prefs as any).plan?.cycle || 'monthly';
+    setPlan({ cycle, since: Date.now() });
     setMode('parent');
     router.push(addKid ? '/dashboard/add-kid' : '/profile');
   };
@@ -125,7 +126,7 @@ export default function OnboardingClient() {
             <div>
               <h2 className="qk-h1" style={{ fontSize: 'clamp(22px, 2.6vw, 30px)' }}>{t('pobPlanTitle')}</h2>
               <p className="qk-sub" style={{ marginTop: 6, marginBottom: 22 }}>{t('pobPlanSub')}</p>
-              <PricingCards lang={lang} cycle={(prefs as any).plan?.cycle || 'monthly'} setCycle={(c) => setPrefs({ ...prefs, plan: { ...((prefs as any).plan || { tier: 'free' }), cycle: c } } as any)} currentPlanId={null} onSelect={(tier) => setPrefs({ ...prefs, plan: { tier, cycle: (prefs as any).plan?.cycle || 'monthly' } } as any)} compact />
+              <PricingCards lang={lang} cycle={(prefs as any).plan?.cycle || 'monthly'} setCycle={(c) => setPrefs({ ...prefs, plan: { cycle: c } } as any)} kidsCount={prefs.kidsCount || 1} showCta={false} compact />
             </div>
           )}
 

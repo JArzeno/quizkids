@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ICONS, Ico } from '@/components/ui/Icons';
 import { Avatar, AVATARS } from '@/components/ui/Avatar';
 import { Btn } from '@/components/ui/Btn';
-import { PricingCards, QK_PLANS } from '@/components/ui/PricingCards';
+import { PricingCards } from '@/components/ui/PricingCards';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
@@ -69,7 +69,7 @@ export default function SettingsClient() {
               {/* BILLING */}
               <section id="sec-billing" className="qk-card" style={{ padding: '22px 24px', scrollMarginTop: 24 }}>
                 <h2 className="qk-h2" style={{ marginBottom: 18 }}>{t('settingsBilling')}</h2>
-                <PricingCards lang={lang} cycle={plan.cycle} setCycle={(c) => setPlan({ ...plan, cycle: c as 'monthly' | 'yearly' })} currentPlanId={plan.tier} onSelect={(tier) => { setPlan({ ...plan, tier: tier as 'free' | 'family', since: Date.now() }); fireToast(t('saved')); }} compact />
+                <PricingCards lang={lang} cycle={plan.cycle} setCycle={(c) => { setPlan({ ...plan, cycle: c as 'monthly' | 'yearly' }); fireToast(t('saved')); }} kidsCount={kids.length || 1} current showCta={false} compact />
               </section>
 
               {/* KIDS */}
