@@ -47,7 +47,6 @@ export interface Profile {
   role: string;
   parent_prefs: ParentPrefs;
   parent_pin: string;
-  plan: 'free' | 'family';
   plan_cycle: 'monthly' | 'yearly';
 }
 

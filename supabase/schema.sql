@@ -8,7 +8,7 @@ create table if not exists public.profiles (
   role text default 'parent',
   parent_prefs jsonb default '{}',
   parent_pin text default '1234',
-  plan text default 'free',
+  plan text default 'family',
   plan_cycle text default 'monthly',
   plan_since bigint,
   created_at timestamptz default now(),

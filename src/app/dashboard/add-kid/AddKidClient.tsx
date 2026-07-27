@@ -13,7 +13,7 @@ const STEPS = 4;
 const COLORS = [['#3F7A4F', 'leaf'], ['#E29A2B', 'honey'], ['#E26D5A', 'coral'], ['#6BA8C9', 'sky'], ['#B14F8C', 'berry'], ['#7A5AE0', 'violet']];
 
 export default function AddKidClient() {
-  const { lang, addKid, setActiveKidId } = useStore();
+  const { lang, kids, addKid, setActiveKidId } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const [step, setStep] = React.useState(0);
@@ -128,6 +128,11 @@ export default function AddKidClient() {
                     <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{lang === 'es' ? 'Grado ' : 'Grade '}{draft.grade || '?'}{draft.color && <span style={{ display: 'inline-block', verticalAlign: 'middle', marginLeft: 8, width: 12, height: 12, borderRadius: '50%', background: draft.color }} />}</div>
                   </div>
                 </div>
+                {kids.length >= 1 && (
+                  <div style={{ marginTop: 14, fontSize: 12, color: 'var(--ink-3)', textAlign: 'center' }}>
+                    {lang === 'es' ? '+$5/mes se sumarán a tu facturación por este peque adicional.' : '+$5/month will be added to your billing for this additional kid.'}
+                  </div>
+                )}
               </div>
             )}
 

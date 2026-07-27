@@ -300,7 +300,7 @@ export default function LandingClient() {
             <p className="qk-sub" style={{ margin: '10px auto 0' }}>{t('pricingSub')}</p>
           </div>
           <div style={{ marginTop: 36 }}>
-            <PricingCards lang={lang} cycle={pricingCycle} setCycle={setPricingCycle} currentPlanId={null} onSelect={() => router.push('/auth')} />
+            <PricingCards lang={lang} cycle={pricingCycle} setCycle={setPricingCycle} onSelect={() => router.push('/auth')} />
           </div>
           <p style={{ marginTop: 24, textAlign: 'center', fontSize: 13, color: 'var(--ink-3)' }}>{lang === 'es' ? 'Sin compromisos. Cancela cuando quieras.' : 'No commitments. Cancel anytime.'}</p>
         </div>
@@ -314,7 +314,7 @@ export default function LandingClient() {
             <div style={{ position: 'absolute', right: '-3%', top: '-10%', opacity: .9, transform: 'rotate(8deg)' }}><Avatar id="bee" size={120} /></div>
             <div style={{ position: 'absolute', right: '22%', bottom: '-18%', opacity: .85, transform: 'rotate(-6deg)' }}><Avatar id="frog" size={90} /></div>
             <div style={{ position: 'relative', maxWidth: 600 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: 'rgba(255,255,255,.18)', color: '#fff', fontSize: 13, fontWeight: 700, letterSpacing: '.04em' }}>★ {lang === 'es' ? 'Empieza gratis' : 'Start free'}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: 'rgba(255,255,255,.18)', color: '#fff', fontSize: 13, fontWeight: 700, letterSpacing: '.04em' }}>★ {lang === 'es' ? '14 días gratis' : '14-day free trial'}</span>
               <h2 className="qk-h1" style={{ fontSize: 'clamp(26px, 3vw, 38px)', marginTop: 14, color: '#fff' }}>{t('ctaTitle')}</h2>
               <p style={{ margin: '12px 0 0', fontSize: 17, lineHeight: 1.5, color: 'rgba(255,255,255,.88)', maxWidth: 520 }}>{t('ctaSub')}</p>
               <div style={{ marginTop: 24, display: 'flex', gap: 12, flexWrap: 'wrap' }}>

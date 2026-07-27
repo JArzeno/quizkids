@@ -22,8 +22,8 @@ interface AppState {
   parentPin: string;
   setParentPin: (pin: string) => void;
 
-  plan: { tier: 'free' | 'family'; cycle: 'monthly' | 'yearly'; since: number };
-  setPlan: (p: { tier: 'free' | 'family'; cycle: 'monthly' | 'yearly'; since: number }) => void;
+  plan: { cycle: 'monthly' | 'yearly'; since: number };
+  setPlan: (p: { cycle: 'monthly' | 'yearly'; since: number }) => void;
 
   // kids
   kids: Kid[];
@@ -108,7 +108,7 @@ export const useStore = create<AppState>()(
       parentPin: '1234',
       setParentPin: (parentPin) => set({ parentPin }),
 
-      plan: { tier: 'free', cycle: 'monthly', since: Date.now() },
+      plan: { cycle: 'monthly', since: Date.now() },
       setPlan: (plan) => set({ plan }),
 
       kids: [],
