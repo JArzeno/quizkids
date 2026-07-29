@@ -14,6 +14,15 @@ export default function LandingClient() {
   const t = useT(lang);
   const router = useRouter();
   const [pricingCycle, setPricingCycle] = React.useState('monthly');
+  const [checkedAuth, setCheckedAuth] = React.useState(false);
+
+  React.useEffect(() => {
+    if (account && !isDemo) {
+      router.replace('/dashboard');
+      return;
+    }
+    setCheckedAuth(true);
+  }, [account, isDemo, router]);
 
   const scrollTo = (id: string) => {
     const el = document.getElementById(id);
@@ -33,6 +42,8 @@ export default function LandingClient() {
     setMode('parent');
     router.push('/dashboard');
   };
+
+  if (!checkedAuth) return null;
 
   return (
     <div style={{ minHeight: '100dvh', background: 'radial-gradient(900px 600px at 110% -10%, var(--honey-l), transparent 60%), radial-gradient(800px 500px at -10% 110%, var(--primary-l), transparent 55%), var(--bg)' }}>
