@@ -44,8 +44,29 @@ export default function KidHomeClient() {
 
   const [dbRecent, setDbRecent] = React.useState<RecentItem[] | null>(null);
   const [loadingHistory, setLoadingHistory] = React.useState(false);
+  const [dbMinutesToday, setDbMinutesToday] = React.useState<number | null>(null);
 
   React.useEffect(() => { setMode('kid'); }, []);
+
+  // Load minutes studied today from Supabase (source of truth across devices/reloads)
+  React.useEffect(() => {
+    if (!kid || isDemo) { setDbMinutesToday(null); return; }
+    let cancelled = false;
+    const loadToday = async () => {
+      const supabase = createClient();
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const { data } = await supabase
+        .from('study_sessions')
+        .select('minutes')
+        .eq('kid_id', kid.id)
+        .gte('started_at', startOfDay.toISOString());
+      if (cancelled) return;
+      setDbMinutesToday((data || []).reduce((acc, s) => acc + (s.minutes || 0), 0));
+    };
+    loadToday();
+    return () => { cancelled = true; };
+  }, [kid?.id, isDemo]);
 
   // Load assignments from Supabase
   React.useEffect(() => {
@@ -106,20 +127,32 @@ export default function KidHomeClient() {
     const key = todayKey();
     const baseSeconds = kid.today_date === key ? (kid.seconds_today || 0) : 0;
     const minutes = Math.round(elapsedMs / 60000);
+    const minutesTotal = (kid.minutes_total || 0) + minutes;
     updateKid(kid.id, {
       seconds_today: baseSeconds + seconds,
       today_date: key,
-      minutes_total: (kid.minutes_total || 0) + minutes,
+      minutes_total: minutesTotal,
     });
-    // Save study session to Supabase
+    // Persist the session to Supabase so time tracking survives reloads/device changes
     if (!isDemo && minutes > 0) {
       const supabase = createClient();
-      void supabase.from('study_sessions').insert({ kid_id: kid.id, minutes });
+      const endedAt = new Date();
+      void supabase.from('study_sessions').insert({
+        kid_id: kid.id,
+        minutes,
+        started_at: new Date(endedAt.getTime() - elapsedMs).toISOString(),
+        ended_at: endedAt.toISOString(),
+      });
+      void supabase.from('kids').update({ minutes_total: minutesTotal }).eq('id', kid.id);
+      setDbMinutesToday((prev) => (prev ?? 0) + minutes);
     }
   });
 
-  // Cumulative time studied today = persisted total (resets when the date changes) + the live running session
-  const todayBaseMs = kid && kid.today_date === todayKey() ? (kid.seconds_today || 0) * 1000 : 0;
+  // Cumulative time studied today = max(DB total, local live total) + the live running session.
+  // DB is authoritative across devices/reloads; local seconds give sub-minute precision right after a session ends.
+  const localTodaySeconds = kid && kid.today_date === todayKey() ? (kid.seconds_today || 0) : 0;
+  const dbTodaySeconds = (dbMinutesToday ?? 0) * 60;
+  const todayBaseMs = Math.max(localTodaySeconds, dbTodaySeconds) * 1000;
   const todayElapsedMs = todayBaseMs + session.elapsedMs;
 
   // Auto-start session if signal set by navigate-from-study
