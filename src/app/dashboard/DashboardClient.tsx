@@ -171,8 +171,11 @@ export default function DashboardClient() {
             const quizzes = (quizRes.data || []).filter((r) => r.kid_id === kidId);
             const sessions = (sessionRes.data || []).filter((s) => s.kid_id === kidId);
 
-            const totalMinutes = sessions.reduce((acc, s) => acc + (s.minutes || 0), 0)
-              + data.find((k) => k.id === kidId)?.minutes_total || 0;
+            // kids.minutes_total is kept in sync with study_sessions on every session end, so summing both
+            // would double-count going forward; take the max to also cover legacy rows from before that sync existed.
+            const sessionMinutesSum = sessions.reduce((acc, s) => acc + (s.minutes || 0), 0);
+            const kidMinutesTotal = data.find((k) => k.id === kidId)?.minutes_total || 0;
+            const totalMinutes = Math.max(sessionMinutesSum, kidMinutesTotal);
             const quizzesDone = quizzes.length;
             const avgScore = quizzesDone > 0
               ? Math.round(quizzes.reduce((acc, q) => acc + (q.total > 0 ? (q.correct / q.total) * 100 : 0), 0) / quizzesDone)

@@ -26,7 +26,7 @@ export interface SessionState {
   end: () => void;
 }
 
-export function useSession(onEnd?: (minutes: number) => void): SessionState {
+export function useSession(onEnd?: (elapsedMs: number) => void): SessionState {
   const [state, setState] = React.useState({ running: false, paused: false, startedAt: null as number | null, accumulated: 0 });
   const [now, setNow] = React.useState(Date.now());
 
@@ -46,9 +46,8 @@ export function useSession(onEnd?: (minutes: number) => void): SessionState {
     pause: () => setState((s) => s.running && !s.paused ? { ...s, paused: true, accumulated: s.accumulated + (Date.now() - (s.startedAt || 0)), startedAt: null } : s),
     resume: () => setState((s) => s.paused ? { ...s, paused: false, startedAt: Date.now() } : s),
     end: () => {
-      const minutes = Math.max(0, Math.round(elapsedMs / 60000));
       setState({ running: false, paused: false, startedAt: null, accumulated: 0 });
-      onEnd?.(minutes);
+      onEnd?.(Math.max(0, elapsedMs));
     },
   };
 }

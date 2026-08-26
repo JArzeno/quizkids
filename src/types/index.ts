@@ -10,6 +10,8 @@ export interface Kid {
   streak: number;
   stars: number;
   minutes_total: number;
+  seconds_today?: number;
+  today_date?: string;
   signature?: string;
   weekly?: number;
   lastSubject?: string;

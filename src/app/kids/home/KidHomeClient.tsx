@@ -18,6 +18,11 @@ const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> =
   art:  { en: 'Art',           es: 'Arte',            icon: '🎨' },
 };
 
+function todayKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function relativeDate(iso: string): string {
   const d = new Date(iso);
   const diff = Date.now() - d.getTime();
@@ -39,8 +44,29 @@ export default function KidHomeClient() {
 
   const [dbRecent, setDbRecent] = React.useState<RecentItem[] | null>(null);
   const [loadingHistory, setLoadingHistory] = React.useState(false);
+  const [dbMinutesToday, setDbMinutesToday] = React.useState<number | null>(null);
 
   React.useEffect(() => { setMode('kid'); }, []);
+
+  // Load minutes studied today from Supabase (source of truth across devices/reloads)
+  React.useEffect(() => {
+    if (!kid || isDemo) { setDbMinutesToday(null); return; }
+    let cancelled = false;
+    const loadToday = async () => {
+      const supabase = createClient();
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const { data } = await supabase
+        .from('study_sessions')
+        .select('minutes')
+        .eq('kid_id', kid.id)
+        .gte('started_at', startOfDay.toISOString());
+      if (cancelled) return;
+      setDbMinutesToday((data || []).reduce((acc, s) => acc + (s.minutes || 0), 0));
+    };
+    loadToday();
+    return () => { cancelled = true; };
+  }, [kid?.id, isDemo]);
 
   // Load assignments from Supabase
   React.useEffect(() => {
@@ -94,16 +120,40 @@ export default function KidHomeClient() {
     load();
   }, [kid?.id, isDemo]);
 
-  const session = useSession((minutes) => {
-    if (minutes > 0 && kid) {
-      updateKid(kid.id, { minutes_total: (kid.minutes_total || 0) + minutes });
-      // Save study session to Supabase
-      if (!isDemo) {
-        const supabase = createClient();
-        void supabase.from('study_sessions').insert({ kid_id: kid.id, minutes });
-      }
+  const session = useSession((elapsedMs) => {
+    if (!kid) return;
+    const seconds = Math.round(elapsedMs / 1000);
+    if (seconds <= 0) return;
+    const key = todayKey();
+    const baseSeconds = kid.today_date === key ? (kid.seconds_today || 0) : 0;
+    const minutes = Math.round(elapsedMs / 60000);
+    const minutesTotal = (kid.minutes_total || 0) + minutes;
+    updateKid(kid.id, {
+      seconds_today: baseSeconds + seconds,
+      today_date: key,
+      minutes_total: minutesTotal,
+    });
+    // Persist the session to Supabase so time tracking survives reloads/device changes
+    if (!isDemo && minutes > 0) {
+      const supabase = createClient();
+      const endedAt = new Date();
+      void supabase.from('study_sessions').insert({
+        kid_id: kid.id,
+        minutes,
+        started_at: new Date(endedAt.getTime() - elapsedMs).toISOString(),
+        ended_at: endedAt.toISOString(),
+      });
+      void supabase.from('kids').update({ minutes_total: minutesTotal }).eq('id', kid.id);
+      setDbMinutesToday((prev) => (prev ?? 0) + minutes);
     }
   });
+
+  // Cumulative time studied today = max(DB total, local live total) + the live running session.
+  // DB is authoritative across devices/reloads; local seconds give sub-minute precision right after a session ends.
+  const localTodaySeconds = kid && kid.today_date === todayKey() ? (kid.seconds_today || 0) : 0;
+  const dbTodaySeconds = (dbMinutesToday ?? 0) * 60;
+  const todayBaseMs = Math.max(localTodaySeconds, dbTodaySeconds) * 1000;
+  const todayElapsedMs = todayBaseMs + session.elapsedMs;
 
   // Auto-start session if signal set by navigate-from-study
   const autoStartRef = React.useRef(false);
@@ -175,7 +225,7 @@ export default function KidHomeClient() {
               <div style={{ marginTop: 14, display: 'flex', gap: 18, flexWrap: 'wrap' }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('today')}</div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, fontVariantNumeric: 'tabular-nums' }}>{formatElapsed(session.elapsedMs)}</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, fontVariantNumeric: 'tabular-nums' }}>{formatElapsed(todayElapsedMs)}</div>
                   <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{t('todayStudied')}</div>
                 </div>
                 <div>
