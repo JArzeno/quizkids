@@ -237,11 +237,11 @@ export default function LandingClient() {
             })}
           </div>
           <div style={{ marginTop: 32, display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
-            {[{ id: 'sci', icon: '🔬', live: true }, { id: 'math', icon: '➗', live: false }, { id: 'lang', icon: '📖', live: false }, { id: 'soc', icon: '🌎', live: false }, { id: 'art', icon: '🎨', live: false }].map((s) => (
+            {[{ id: 'sci', icon: '🔬' }, { id: 'math', icon: '➗' }, { id: 'lang', icon: '📖' }, { id: 'soc', icon: '🌎' }, { id: 'art', icon: '🎨' }].map((s) => (
               <div key={s.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 999, background: 'var(--surface)', border: '1.5px solid var(--line)', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15 }}>
                 <span style={{ fontSize: 18 }}>{s.icon}</span>
                 <span>{t(s.id)}</span>
-                <span style={{ padding: '2px 8px', borderRadius: 999, background: s.live ? 'var(--primary)' : 'var(--surface-2)', color: s.live ? '#fff' : 'var(--ink-3)', fontSize: 11, fontWeight: 700, letterSpacing: '.04em' }}>{s.live ? (lang === 'es' ? 'LISTO' : 'LIVE') : (lang === 'es' ? 'PRONTO' : 'SOON')}</span>
+                <span style={{ padding: '2px 8px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontSize: 11, fontWeight: 700, letterSpacing: '.04em' }}>{lang === 'es' ? 'LISTO' : 'LIVE'}</span>
               </div>
             ))}
           </div>

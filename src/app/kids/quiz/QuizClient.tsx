@@ -4,10 +4,12 @@ import { useRouter } from 'next/navigation';
 import { Ico, ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Btn } from '@/components/ui/Btn';
+import { StudyTimerBadge } from '@/components/ui/SessionPill';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
+import { useAutoStudySession } from '@/lib/session';
 import type { QuizQuestion } from '@/types';
 
 const FALLBACK_QUIZ: QuizQuestion[] = [
@@ -28,6 +30,14 @@ export default function QuizClient() {
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
 
   React.useEffect(() => { setMode('kid'); }, []);
+
+  // The clock starts the moment the quiz opens — kids never have to press start.
+  const timer = useAutoStudySession({
+    kidId: kid?.id,
+    subject: studyParams.subject,
+    topic: studyParams.topic,
+    activity: 'quiz',
+  });
 
   const [cards, setCards] = React.useState<QuizQuestion[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -108,7 +118,8 @@ export default function QuizClient() {
     setFlipped(false); setFeedback(null);
     if (i + 1 >= cards.length) {
       const correct = cards.reduce((acc, c, idx) => acc + (picks[idx] === c.a ? 1 : 0), 0);
-      const result = { total: cards.length, correct, picks, cards, stars };
+      const seconds = Math.max(1, Math.round((Date.now() - startedAt.current) / 1000));
+      const result = { total: cards.length, correct, picks, cards, stars, seconds };
       setQuizResult(result);
 
       // Save quiz result to Supabase
@@ -159,7 +170,8 @@ export default function QuizClient() {
         {/* kid bar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 22px 0', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
           <button onClick={() => router.push('/kids/home')} className="qk-btn qk-btn-ghost" style={{ padding: '8px 12px' }}>{ICONS.back} <span>{t('back')}</span></button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            <StudyTimerBadge lang={lang} timer={timer} onTogglePause={timer.toggle} />
             {gamification !== 'minimal' && (
               <>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: 'var(--honey-l)', color: '#7C5410', fontWeight: 700 }}>{ICONS.star} {stars}</div>

@@ -1,7 +1,35 @@
 'use client';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Kid, ParentPrefs, QuizResult, StudyParams, Lang } from '@/types';
+import type { Kid, ParentPrefs, QuizResult, StudyParams, Lang, TimeLogEntry, StudyActivity } from '@/types';
+
+/**
+ * The live study timer. Kept in the store (not in a component) so the clock keeps
+ * running while the kid moves between home → guide → quiz → results, and survives
+ * a reload.
+ */
+export interface StudySession {
+  running: boolean;
+  paused: boolean;
+  /** wall-clock start of the current un-paused span, null while paused */
+  spanStartedAt: number | null;
+  /** milliseconds banked from previous spans */
+  accumulatedMs: number;
+  /** wall-clock start of the whole session (used as started_at when logging) */
+  sessionStartedAt: number | null;
+  kidId: string | null;
+  subject: string | null;
+  topic: string | null;
+  activity: StudyActivity | null;
+}
+
+export const IDLE_SESSION: StudySession = {
+  running: false, paused: false, spanStartedAt: null, accumulatedMs: 0,
+  sessionStartedAt: null, kidId: null, subject: null, topic: null, activity: null,
+};
+
+/** A session left running longer than this is treated as forgotten, not as study time. */
+export const MAX_SESSION_MS = 4 * 60 * 60 * 1000;
 
 interface AppState {
   // lang
@@ -68,6 +96,29 @@ interface AppState {
   // session auto-start signal
   autoStartSession: boolean;
   setAutoStartSession: (v: boolean) => void;
+
+  // live study timer (shared across every screen)
+  session: StudySession;
+  startSession: (ctx: { kidId: string; subject?: string | null; topic?: string | null; activity?: StudyActivity | null }) => void;
+  pauseSession: () => void;
+  resumeSession: () => void;
+  clearSession: () => void;
+  setSessionContext: (ctx: { subject?: string | null; topic?: string | null; activity?: StudyActivity | null }) => void;
+
+  // study time log (local mirror of study_sessions, for kid + parent review)
+  timeLog: TimeLogEntry[];
+  addTimeLog: (e: TimeLogEntry) => void;
+  setTimeLog: (e: TimeLogEntry[]) => void;
+
+  // custom topics the parent typed in, kept per subject so the list stays dynamic
+  customTopics: Record<string, string[]>;
+  addCustomTopic: (subject: string, topic: string) => void;
+  setCustomTopics: (m: Record<string, string[]>) => void;
+}
+
+function elapsedOf(s: StudySession): number {
+  const live = s.running && !s.paused && s.spanStartedAt ? Date.now() - s.spanStartedAt : 0;
+  return Math.max(0, s.accumulatedMs + live);
 }
 
 export const DEMO_KIDS: Kid[] = [
@@ -146,6 +197,61 @@ export const useStore = create<AppState>()(
 
       autoStartSession: false,
       setAutoStartSession: (autoStartSession) => set({ autoStartSession }),
+
+      session: IDLE_SESSION,
+      startSession: ({ kidId, subject = null, topic = null, activity = null }) => set((s) => {
+        // Already timing this kid? Keep the clock, just refresh what they're working on.
+        if (s.session.running && s.session.kidId === kidId) {
+          return {
+            session: {
+              ...s.session,
+              paused: false,
+              spanStartedAt: s.session.paused ? Date.now() : s.session.spanStartedAt,
+              subject: subject ?? s.session.subject,
+              topic: topic ?? s.session.topic,
+              activity: activity ?? s.session.activity,
+            },
+          };
+        }
+        const now = Date.now();
+        return {
+          session: {
+            running: true, paused: false, spanStartedAt: now, accumulatedMs: 0,
+            sessionStartedAt: now, kidId, subject, topic, activity,
+          },
+        };
+      }),
+      pauseSession: () => set((s) => s.session.running && !s.session.paused
+        ? { session: { ...s.session, paused: true, accumulatedMs: elapsedOf(s.session), spanStartedAt: null } }
+        : {}),
+      resumeSession: () => set((s) => s.session.paused
+        ? { session: { ...s.session, paused: false, spanStartedAt: Date.now() } }
+        : {}),
+      clearSession: () => set({ session: IDLE_SESSION }),
+      setSessionContext: ({ subject, topic, activity }) => set((s) => s.session.running
+        ? {
+            session: {
+              ...s.session,
+              subject: subject ?? s.session.subject,
+              topic: topic ?? s.session.topic,
+              activity: activity ?? s.session.activity,
+            },
+          }
+        : {}),
+
+      timeLog: [],
+      addTimeLog: (e) => set((s) => ({ timeLog: [e, ...s.timeLog].slice(0, 300) })),
+      setTimeLog: (timeLog) => set({ timeLog: timeLog.slice(0, 300) }),
+
+      customTopics: {},
+      addCustomTopic: (subject, topic) => set((s) => {
+        const clean = topic.trim();
+        if (!clean) return {};
+        const existing = s.customTopics[subject] || [];
+        if (existing.some((x) => x.toLowerCase() === clean.toLowerCase())) return {};
+        return { customTopics: { ...s.customTopics, [subject]: [clean, ...existing].slice(0, 40) } };
+      }),
+      setCustomTopics: (customTopics) => set({ customTopics }),
     }),
     { name: 'quizkids-store' }
   )

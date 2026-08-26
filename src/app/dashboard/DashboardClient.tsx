@@ -6,11 +6,14 @@ import { ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Btn } from '@/components/ui/Btn';
 import { Stars, StatCard } from '@/components/ui/Stars';
+import { BarChart, HBarChart } from '@/components/ui/Charts';
+import { TimeLogPanel } from '@/components/ui/TimeLogPanel';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
-import type { Kid } from '@/types';
+import { fetchTimeLog, mergeLogs, dailyMinutes, totalSeconds, formatDuration, dayKey } from '@/lib/session';
+import type { Kid, TimeLogEntry } from '@/types';
 
 const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> = {
   sci:  { en: 'Science',       es: 'Ciencias',         icon: '🔬' },
@@ -127,11 +130,27 @@ function KidSummaryPanel({ kid, summary, lang }: { kid: Kid; summary: KidSummary
 }
 
 export default function DashboardClient() {
-  const { lang, kids, account, setActiveKidId, setMode, gamification, removeKid, setKids, isDemo } = useStore();
+  const { lang, kids, account, setActiveKidId, setMode, gamification, removeKid, setKids, isDemo, timeLog, customSubjects, parentPrefs } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const [deletingKid, setDeletingKid] = React.useState<Kid | null>(null);
   const [summaries, setSummaries] = React.useState<Record<string, KidSummary>>({});
+  const [dbLog, setDbLog] = React.useState<TimeLogEntry[]>([]);
+  const [openLogFor, setOpenLogFor] = React.useState<string | null>(null);
+
+  // Study-time log for every kid — the parent's review view.
+  const log = React.useMemo(() => mergeLogs(dbLog, timeLog), [dbLog, timeLog]);
+  const logFor = React.useCallback((kidId: string) => log.filter((e) => e.kid_id === kidId), [log]);
+  const weekDays = React.useMemo(() => dailyMinutes(log, 7, lang), [log, lang]);
+  const weekKeys = React.useMemo(() => new Set(weekDays.map((d) => d.key)), [weekDays]);
+  const weekSeconds = React.useMemo(
+    () => totalSeconds(log.filter((e) => weekKeys.has(dayKey(e.started_at)))),
+    [log, weekKeys],
+  );
+  const perKidWeek = React.useMemo(() => kids.map((k) => ({
+    label: k.name,
+    value: Math.round(totalSeconds(logFor(k.id).filter((e) => weekKeys.has(dayKey(e.started_at)))) / 60),
+  })).sort((a, b) => b.value - a.value), [kids, logFor, weekKeys]);
 
   React.useEffect(() => {
     if (isDemo) return;
@@ -158,9 +177,11 @@ export default function DashboardClient() {
           recent: [],
         })));
 
-        // Load summaries for all kids
+        // Load summaries + the study-time log for all kids
         const kidIds = data.map((k) => k.id);
         if (kidIds.length > 0) {
+          setDbLog(await fetchTimeLog(kidIds, 400));
+
           const [quizRes, sessionRes] = await Promise.all([
             supabase.from('quiz_results').select('kid_id, subject, topic, correct, total, stars, created_at').in('kid_id', kidIds),
             supabase.from('study_sessions').select('kid_id, minutes').in('kid_id', kidIds),
@@ -239,6 +260,42 @@ export default function DashboardClient() {
             </div>
           )}
 
+          {/* study-time review across the family */}
+          {kids.length > 0 && (
+            <section className="qk-card" style={{ marginTop: 24, padding: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+                <div>
+                  <h2 className="qk-h2" style={{ margin: 0 }}>⏱️ {t('timeLog')}</h2>
+                  <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 2 }}>{t('timeLogSub')}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--primary)' }}>{formatDuration(weekSeconds, lang)}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('thisWeekMin')}</div>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 24 }} className="qk-stack-sm qk-results-split">
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>{t('last7Days')}</div>
+                  <BarChart
+                    points={weekDays.map((d) => ({ label: d.label, value: d.value, hint: `${d.label}: ${d.value} min` }))}
+                    unit="m"
+                    goal={parentPrefs.goalMin ? Math.max(5, Math.round(parentPrefs.goalMin / 7)) : undefined}
+                    goalLabel={parentPrefs.goalMin ? `${t('goalLine')} ${Math.max(5, Math.round(parentPrefs.goalMin / 7))}m` : undefined}
+                    emptyLabel={t('timeLogEmpty')}
+                  />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>
+                    {lang === 'es' ? 'Minutos por peque' : 'Minutes per kid'}
+                  </div>
+                  {perKidWeek.some((p) => p.value > 0)
+                    ? <HBarChart points={perKidWeek} unit="m" toneName="sky" />
+                    : <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{t('noSessionsYet')}</div>}
+                </div>
+              </div>
+            </section>
+          )}
+
           <div className="qk-stagger" style={{ marginTop: 28, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
             {kids.map((k) => (
               <div key={k.id} className="qk-card qk-card-interactive" style={{ padding: 20 }}>
@@ -288,9 +345,26 @@ export default function DashboardClient() {
                   </div>
                 )}
 
-                <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+                {/* per-kid time log */}
+                {openLogFor === k.id && (
+                  <div style={{ marginTop: 14, padding: 14, background: 'var(--surface-2)', borderRadius: 16 }}>
+                    <TimeLogPanel
+                      entries={logFor(k.id)}
+                      lang={lang}
+                      goalMin={k.goal_min || parentPrefs.goalMin}
+                      customSubjects={customSubjects}
+                      compact
+                      maxRows={5}
+                    />
+                  </div>
+                )}
+
+                <div style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <Btn kind="primary" onClick={() => createFor(k.id)} icon={ICONS.spark}>{t('createNew')}</Btn>
                   <button className="qk-btn qk-btn-ghost" onClick={() => openKidHome(k.id)}>{t('open')}</button>
+                  <button className="qk-btn qk-btn-ghost" onClick={() => setOpenLogFor(openLogFor === k.id ? null : k.id)} style={{ fontSize: 13 }}>
+                    {openLogFor === k.id ? t('hideTime') : t('reviewTime')}
+                  </button>
                   <button className="qk-btn qk-btn-ghost" onClick={() => setDeletingKid(k)}
                     style={{ marginLeft: 'auto', color: 'var(--coral)', padding: '0 10px' }} title="Remove kid">
                     {ICONS.trash}

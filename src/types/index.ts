@@ -77,6 +77,8 @@ export interface QuizResult {
   picks: Record<number, number>;
   cards: QuizQuestion[];
   stars: number;
+  /** wall-clock seconds the kid spent on this round */
+  seconds?: number;
 }
 
 export interface GuideSection {
@@ -100,6 +102,43 @@ export interface StudyParams {
   lang: 'en' | 'es';
   contentId?: string;
   assignmentId?: string;
+}
+
+export type StudyActivity = 'quiz' | 'guide' | 'pdf' | 'free';
+
+/** One finished chunk of study time. Mirrors a row of public.study_sessions. */
+export interface TimeLogEntry {
+  id: string;
+  kid_id: string;
+  started_at: string;
+  ended_at: string;
+  seconds: number;
+  minutes: number;
+  subject?: string | null;
+  topic?: string | null;
+  activity?: StudyActivity | string | null;
+  /** true when the row only exists locally (demo mode or Supabase unavailable) */
+  local?: boolean;
+}
+
+export interface StudySuggestion {
+  subject: string;
+  topic: string;
+  reason: string;
+}
+
+export interface GuideExtra {
+  title: string;
+  body: string;
+  examples?: string[];
+  vocab?: Array<{ term: string; meaning: string }>;
+  chart?: {
+    title: string;
+    caption?: string;
+    unit?: string;
+    kind?: 'bar' | 'line';
+    points: Array<{ label: string; value: number }>;
+  };
 }
 
 export type Lang = 'en' | 'es';

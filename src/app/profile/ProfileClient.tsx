@@ -5,15 +5,59 @@ import { Ico, ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
+import { createClient } from '@/lib/supabase/client';
+import { useStudyTimer } from '@/lib/session';
 
 export default function ProfileClient() {
-  const { lang, kids, account, setMode, setActiveKidId, setAccount, setIsDemo, setKids } = useStore();
+  const { lang, kids, account, setMode, setActiveKidId, setAccount, setIsDemo, setKids, isDemo, clearSession } = useStore();
   const t = useT(lang);
   const router = useRouter();
+  const timer = useStudyTimer();
+
+  // A kid arriving here mid-session shouldn't lose the minutes they just studied.
+  React.useEffect(() => {
+    if (timer.running) void timer.end();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // The picker can be the first screen after a reload, so make sure the profiles are loaded.
+  React.useEffect(() => {
+    if (isDemo || kids.length) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data } = await supabase.from('kids').select('*').eq('parent_id', user.id).order('created_at');
+        if (!data || cancelled) return;
+        setKids(data.map((k) => ({
+          id: k.id, parent_id: k.parent_id, name: k.name, grade: k.grade,
+          avatar: k.avatar || 'sprout', color: k.color || '#3F7A4F', code: k.code,
+          streak: k.streak || 0, stars: k.stars || 0, minutes_total: k.minutes_total || 0,
+          weekly: k.weekly_pct || 0, goal_min: k.goal_min || 30,
+          lastSubject: k.last_subject || undefined, recent: [],
+        })));
+      } catch (e) {
+        console.warn('Could not load profiles:', e);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [isDemo, kids.length, setKids]);
 
   const pickParent = () => router.push('/profile/pin');
   const pickKid = (id: string) => { setActiveKidId(id); setMode('kid'); router.push('/kids/home'); };
-  const signOut = () => { setAccount(null); setIsDemo(false); setKids([]); router.push('/'); };
+  const signOut = async () => {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn('Sign out failed:', e);
+    }
+    setAccount(null); setIsDemo(false); setKids([]); clearSession(); setMode('parent');
+    router.push('/');
+  };
 
   return (
     <div className="qk-screen qk-page-enter" style={{ padding: '40px clamp(20px, 5vw, 56px) 56px', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
@@ -53,7 +97,7 @@ export default function ProfileClient() {
             <Ico d={<g><rect x="3" y="7" width="18" height="14" rx="2" /><path d="M8 7V5a4 4 0 018 0v2" /></g>} size={16} />
             <span>{t('useKidCode')}</span>
           </button>
-          <button onClick={signOut} style={{ appearance: 'none', border: 0, background: 'transparent', color: 'var(--ink-3)', fontSize: 14, padding: '10px 16px', cursor: 'pointer' }}>{t('signOut')}</button>
+          <button onClick={() => void signOut()} style={{ appearance: 'none', border: 0, background: 'transparent', color: 'var(--ink-3)', fontSize: 14, padding: '10px 16px', cursor: 'pointer' }}>{t('signOut')}</button>
         </div>
       </div>
     </div>
