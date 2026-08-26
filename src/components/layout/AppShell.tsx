@@ -1,28 +1,34 @@
 'use client';
 import React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Ico, ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
+import { StudyTimerBadge } from '@/components/ui/SessionPill';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
+import { useStudyTimer } from '@/lib/session';
 
 export function AppShell({ children, showNav = true }: { children: React.ReactNode; showNav?: boolean }) {
-  const { lang, setLang, mode, kids, activeKidId, setMode, setActiveKidId, palette, font, setAccount, setKids, setIsDemo } = useStore();
+  const { lang, setLang, mode, kids, activeKidId, setMode, palette, font, setAccount, setKids, setIsDemo, clearSession } = useStore();
   const t = useT(lang);
   const router = useRouter();
+  const pathname = usePathname();
   const activeKid = kids.find((k) => k.id === activeKidId) || kids[0];
   const account = useStore((s) => s.account);
   const isDemo = useStore((s) => s.isDemo);
+  const timer = useStudyTimer();
 
   const handleLogout = async () => {
     const supabase = createClient();
+    if (timer.running) await timer.end();
     await supabase.auth.signOut();
     setAccount(null);
     setKids([]);
     setIsDemo(false);
     setMode('parent');
+    clearSession();
     router.push('/auth');
   };
 
@@ -32,18 +38,15 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
     el.setAttribute('data-font', font);
   }, [palette, font]);
 
-  const switchMode = (next: 'parent' | 'kid') => {
-    if (next === mode) return;
-    if (next === 'kid') {
-      const target = activeKid || kids[0];
-      if (!target) { router.push('/dashboard/add-kid'); return; }
-      setActiveKidId(target.id);
-      setMode('kid');
-      router.push('/kids/home');
-    } else {
-      setMode('parent');
-      router.push(kids.length ? '/dashboard' : '/');
-    }
+  /**
+   * Changing who is using the app always goes through the profile picker, so a kid
+   * can never land in the parent dashboard (or another kid's space) by tapping a
+   * toggle. The picker asks parent-or-kid, and the parent tile asks for the PIN.
+   */
+  const switchUser = async () => {
+    if (!kids.length) { router.push('/dashboard/add-kid'); return; }
+    if (timer.running) await timer.end();
+    router.push('/profile');
   };
 
   return (
@@ -63,18 +66,24 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
             QuizKids
           </Link>
           <div className="qk-chrome-right">
-            {/* role switcher */}
+            {/* live study clock — visible from any screen while a session runs */}
+            {timer.running && pathname !== '/kids/home' && (
+              <StudyTimerBadge lang={lang} timer={timer} onTogglePause={timer.toggle} />
+            )}
+            {/* who's using the app — always via the profile picker */}
             {kids.length > 0 && account && !isDemo && (
-              <div style={{ display: 'inline-flex', padding: 3, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 999, gap: 2, fontSize: 13, fontWeight: 700 }}>
-                <button onClick={() => switchMode('parent')} style={{ appearance: 'none', border: 0, background: mode === 'parent' ? 'var(--ink)' : 'transparent', color: mode === 'parent' ? 'var(--surface)' : 'var(--ink-2)', padding: '5px 12px 5px 10px', borderRadius: 999, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <Ico d={<g><circle cx="12" cy="8" r="4" /><path d="M4 22c0-4 4-6 8-6s8 2 8 6" /></g>} size={13} />
-                  <span>{t('parent')}</span>
-                </button>
-                <button onClick={() => switchMode('kid')} style={{ appearance: 'none', border: 0, background: mode === 'kid' ? 'var(--ink)' : 'transparent', color: mode === 'kid' ? 'var(--surface)' : 'var(--ink-2)', padding: '3px 10px 3px 4px', borderRadius: 999, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  {activeKid ? <Avatar id={activeKid.avatar} size={22} /> : <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--honey-l)', display: 'inline-block' }} />}
-                  <span>{t('kid')}</span>
-                </button>
-              </div>
+              <button onClick={() => void switchUser()} title={t('switchUser')}
+                style={{ appearance: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '3px 12px 3px 3px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 999, fontSize: 13, fontWeight: 700, color: 'var(--ink-2)', cursor: 'pointer' }}>
+                {mode === 'kid' && activeKid
+                  ? <Avatar id={activeKid.avatar} size={24} />
+                  : <span style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--ink)', color: 'var(--surface)', display: 'grid', placeItems: 'center' }}>
+                      <Ico d={<g><circle cx="12" cy="8" r="4" /><path d="M4 22c0-4 4-6 8-6s8 2 8 6" /></g>} size={13} />
+                    </span>}
+                <span>{mode === 'kid' ? (activeKid?.name || t('kid')) : t('parent')}</span>
+                <span style={{ color: 'var(--ink-3)', display: 'inline-flex' }}>
+                  <Ico d={<path d="M6 9l6 6 6-6" />} size={14} />
+                </span>
+              </button>
             )}
             {/* settings gear */}
             {mode === 'parent' && account && !isDemo && (

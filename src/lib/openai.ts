@@ -147,3 +147,114 @@ Return ONLY valid JSON:
   if (!content) throw new Error('No content from OpenAI');
   return JSON.parse(content);
 }
+
+/**
+ * "Learn more" — a deeper pass on a topic the kid is already reading about.
+ * Returns extra sections, each of which may carry worked examples, vocabulary,
+ * and a small dataset the UI renders as a graph example.
+ */
+export async function generateLearnMore(topic: string, grade: string, lang: string, focus?: string) {
+  const openai = getClient();
+  const langLabel = lang === 'es' ? 'Spanish' : 'English';
+  const gradeDesc = gradeContext(grade);
+  const focusLine = focus
+    ? `Go deeper specifically on this part of the topic: "${focus}".`
+    : 'Go deeper on the whole topic, past what a first study guide would cover.';
+
+  const prompt = `A student just read a study guide about "${topic}" and tapped "Learn more". ${focusLine}
+
+Student level: ${gradeDesc}
+Language: ${langLabel}.
+
+Rules:
+- Add NEW information — do not repeat the basics a first guide already covered
+- 2 or 3 extra sections, each 3–5 sentences at the grade's reading level
+- Each section gets 2–3 concrete examples the student can picture
+- Define any new term in kid-friendly words
+- Exactly ONE of the sections must include a "chart" with 3–6 real, roughly accurate
+  data points about the topic, so the student can read a graph about what they studied.
+  Use whole numbers, keep every value in the same unit, and label the unit.
+  Pick "bar" for comparisons between things and "line" for change over time.
+
+Return ONLY valid JSON in this exact format:
+{
+  "extras": [
+    {
+      "title": "Section title",
+      "body": "Deeper explanation at the grade level",
+      "examples": ["Example one", "Example two"],
+      "vocab": [{ "term": "word", "meaning": "kid-friendly definition" }],
+      "chart": {
+        "title": "What the graph shows",
+        "caption": "One sentence on how to read it",
+        "unit": "days",
+        "kind": "bar",
+        "points": [{ "label": "Item", "value": 12 }]
+      }
+    }
+  ]
+}
+Only one section has "chart"; the others omit the field entirely.`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+    temperature: 0.7,
+    max_tokens: 2200,
+  });
+
+  const content = response.choices[0].message.content;
+  if (!content) throw new Error('No content from OpenAI');
+  return JSON.parse(content);
+}
+
+/** Suggestions for what a kid could study next, based on grade and what they've done. */
+export async function generateSuggestions(opts: {
+  grade: string;
+  lang: string;
+  recentTopics?: string[];
+  subjects?: Array<{ id: string; label: string }>;
+  limit?: number;
+}) {
+  const openai = getClient();
+  const { grade, lang, recentTopics = [], subjects = [], limit = 6 } = opts;
+  const langLabel = lang === 'es' ? 'Spanish' : 'English';
+  const gradeDesc = gradeContext(grade);
+  const subjectList = subjects.length
+    ? subjects.map((s) => `"${s.id}" (${s.label})`).join(', ')
+    : '"sci" (Science), "math" (Math), "lang" (Language Arts), "soc" (Social Studies), "art" (Art)';
+  const doneLine = recentTopics.length
+    ? `They have already studied: ${recentTopics.slice(0, 12).map((t) => `"${t}"`).join(', ')}. Do not suggest those again, but you may suggest a natural next step after one of them.`
+    : 'They have not studied anything yet, so start with welcoming, foundational topics.';
+
+  const prompt = `Suggest ${limit} topics a student could study next.
+
+Student level: ${gradeDesc}
+Language for all text you return: ${langLabel}.
+${doneLine}
+
+Choose the "subject" for each suggestion from exactly this list of ids: ${subjectList}.
+Spread the suggestions across at least three different subjects.
+Each "reason" is one short, encouraging sentence (max 12 words) written TO the student.
+Each "topic" is a school-appropriate topic name of 2–5 words, not a question.
+
+Return ONLY valid JSON:
+{
+  "suggestions": [
+    { "subject": "sci", "topic": "Topic name", "reason": "Why this is a good next step" }
+  ]
+}`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+    temperature: 0.8,
+    max_tokens: 900,
+  });
+
+  const content = response.choices[0].message.content;
+  if (!content) throw new Error('No content from OpenAI');
+  return JSON.parse(content);
+}

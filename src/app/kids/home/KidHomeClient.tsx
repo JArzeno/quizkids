@@ -3,25 +3,16 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
-import { SessionPill, useSession, formatElapsed } from '@/components/ui/SessionPill';
+import { SessionPill } from '@/components/ui/SessionPill';
+import { TimeLogPanel } from '@/components/ui/TimeLogPanel';
+import { SuggestionCards, useSuggestions } from '@/components/ui/Suggestions';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
-import type { RecentItem } from '@/types';
-
-const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> = {
-  sci:  { en: 'Science',       es: 'Ciencias',        icon: '🔬' },
-  math: { en: 'Math',          es: 'Matemáticas',     icon: '➗' },
-  lang: { en: 'Language Arts', es: 'Lengua',          icon: '📖' },
-  soc:  { en: 'Social Studies',es: 'Estudios Sociales',icon: '🌎' },
-  art:  { en: 'Art',           es: 'Arte',            icon: '🎨' },
-};
-
-function todayKey(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+import { useStudyTimer, fetchTimeLog, mergeLogs, formatElapsed, dayKey, totalSeconds } from '@/lib/session';
+import { subjectMeta } from '@/lib/topics';
+import type { RecentItem, StudySuggestion, TimeLogEntry } from '@/types';
 
 function relativeDate(iso: string): string {
   const d = new Date(iso);
@@ -35,8 +26,9 @@ function relativeDate(iso: string): string {
 
 export default function KidHomeClient() {
   const {
-    lang, kids, activeKidId, setActiveKidId, setMode, setStudyParams, studyParams,
-    updateKid, isDemo, filterSubject, setFilterSubject, autoStartSession, setAutoStartSession,
+    lang, kids, activeKidId, setMode, setStudyParams, studyParams,
+    isDemo, filterSubject, setFilterSubject, autoStartSession, setAutoStartSession,
+    timeLog, customSubjects, parentPrefs,
   } = useStore();
   const t = useT(lang);
   const router = useRouter();
@@ -44,29 +36,25 @@ export default function KidHomeClient() {
 
   const [dbRecent, setDbRecent] = React.useState<RecentItem[] | null>(null);
   const [loadingHistory, setLoadingHistory] = React.useState(false);
-  const [dbMinutesToday, setDbMinutesToday] = React.useState<number | null>(null);
+  const [dbLog, setDbLog] = React.useState<TimeLogEntry[]>([]);
+  const [showLog, setShowLog] = React.useState(true);
+
+  const timer = useStudyTimer();
 
   React.useEffect(() => { setMode('kid'); }, []);
 
-  // Load minutes studied today from Supabase (source of truth across devices/reloads)
-  React.useEffect(() => {
-    if (!kid || isDemo) { setDbMinutesToday(null); return; }
-    let cancelled = false;
-    const loadToday = async () => {
-      const supabase = createClient();
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-      const { data } = await supabase
-        .from('study_sessions')
-        .select('minutes')
-        .eq('kid_id', kid.id)
-        .gte('started_at', startOfDay.toISOString());
-      if (cancelled) return;
-      setDbMinutesToday((data || []).reduce((acc, s) => acc + (s.minutes || 0), 0));
-    };
-    loadToday();
-    return () => { cancelled = true; };
+  // Study-time log — Supabase is the source of truth, local entries fill the gaps
+  // (demo mode, or a session saved while the network was down).
+  const localLog = React.useMemo(() => timeLog.filter((e) => e.kid_id === kid?.id), [timeLog, kid?.id]);
+  const log = React.useMemo(() => mergeLogs(dbLog, localLog), [dbLog, localLog]);
+
+  const loadLog = React.useCallback(async () => {
+    if (!kid || isDemo) { setDbLog([]); return; }
+    const rows = await fetchTimeLog([kid.id]);
+    setDbLog(rows);
   }, [kid?.id, isDemo]);
+
+  React.useEffect(() => { void loadLog(); }, [loadLog]);
 
   // Load assignments from Supabase
   React.useEffect(() => {
@@ -120,50 +108,27 @@ export default function KidHomeClient() {
     load();
   }, [kid?.id, isDemo]);
 
-  const session = useSession((elapsedMs) => {
-    if (!kid) return;
-    const seconds = Math.round(elapsedMs / 1000);
-    if (seconds <= 0) return;
-    const key = todayKey();
-    const baseSeconds = kid.today_date === key ? (kid.seconds_today || 0) : 0;
-    const minutes = Math.round(elapsedMs / 60000);
-    const minutesTotal = (kid.minutes_total || 0) + minutes;
-    updateKid(kid.id, {
-      seconds_today: baseSeconds + seconds,
-      today_date: key,
-      minutes_total: minutesTotal,
-    });
-    // Persist the session to Supabase so time tracking survives reloads/device changes
-    if (!isDemo && minutes > 0) {
-      const supabase = createClient();
-      const endedAt = new Date();
-      void supabase.from('study_sessions').insert({
-        kid_id: kid.id,
-        minutes,
-        started_at: new Date(endedAt.getTime() - elapsedMs).toISOString(),
-        ended_at: endedAt.toISOString(),
-      });
-      void supabase.from('kids').update({ minutes_total: minutesTotal }).eq('id', kid.id);
-      setDbMinutesToday((prev) => (prev ?? 0) + minutes);
-    }
-  });
+  // Time studied today = logged sessions today + whatever the live clock is showing.
+  const todayLoggedSeconds = React.useMemo(
+    () => totalSeconds(log.filter((e) => dayKey(e.started_at) === dayKey())),
+    [log],
+  );
+  const todayElapsedMs = todayLoggedSeconds * 1000 + (timer.session.kidId === kid?.id ? timer.elapsedMs : 0);
 
-  // Cumulative time studied today = max(DB total, local live total) + the live running session.
-  // DB is authoritative across devices/reloads; local seconds give sub-minute precision right after a session ends.
-  const localTodaySeconds = kid && kid.today_date === todayKey() ? (kid.seconds_today || 0) : 0;
-  const dbTodaySeconds = (dbMinutesToday ?? 0) * 60;
-  const todayBaseMs = Math.max(localTodaySeconds, dbTodaySeconds) * 1000;
-  const todayElapsedMs = todayBaseMs + session.elapsedMs;
-
-  // Auto-start session if signal set by navigate-from-study
+  // Auto-start signal (set when a parent hands the tablet over)
   const autoStartRef = React.useRef(false);
   React.useEffect(() => {
-    if (autoStartSession && !session.running && !autoStartRef.current) {
+    if (autoStartSession && kid && !timer.running && !autoStartRef.current) {
       autoStartRef.current = true;
-      session.start();
+      timer.start({ kidId: kid.id, activity: 'free' });
       setAutoStartSession(false);
     }
-  }, [autoStartSession]);
+  }, [autoStartSession, kid?.id, timer.running]);
+
+  const endSession = async () => {
+    await timer.end();
+    void loadLog();
+  };
 
   // All recent: prefer DB data, fallback to local Zustand
   const allRecent: RecentItem[] = dbRecent ?? kid?.recent ?? [];
@@ -172,22 +137,41 @@ export default function KidHomeClient() {
   const subjects = Array.from(new Set(allRecent.map((r) => r.subject).filter(Boolean))) as string[];
   const filtered = filterSubject ? allRecent.filter((r) => r.subject === filterSubject) : allRecent;
 
-  const openRecent = (r: RecentItem) => {
-    // Auto-start session timer
-    if (!session.running) session.start();
+  const recentTopics = React.useMemo(
+    () => Array.from(new Set(allRecent.map((r) => r.title).filter(Boolean))).slice(0, 12),
+    [allRecent],
+  );
+  const { suggestions, loading: loadingSuggestions, refresh: refreshSuggestions } = useSuggestions({
+    grade: kid?.grade,
+    lang,
+    recentTopics,
+    customSubjects,
+    limit: 6,
+  });
 
+  /** Every way into a study starts the clock, so time is never lost. */
+  const beginStudy = (params: { subject: string; topic: string; contentId?: string; assignmentId?: string }, kind: 'quiz' | 'guide' | 'pdf') => {
+    if (!kid) return;
+    timer.start({ kidId: kid.id, subject: params.subject, topic: params.topic, activity: kind });
     setStudyParams({
       ...studyParams,
-      topic: r.title,
-      subject: r.subject || studyParams.subject,
-      contentId: r.contentId,
-      assignmentId: r.assignmentId,
+      grade: kid.grade,
+      subject: params.subject,
+      topic: params.topic,
+      contentId: params.contentId,
+      assignmentId: params.assignmentId,
     });
-
-    if (r.kind === 'quiz') router.push('/kids/quiz');
-    else if (r.kind === 'guide') router.push('/kids/guide');
-    else router.push('/kids/pdf');
+    router.push(kind === 'quiz' ? '/kids/quiz' : kind === 'guide' ? '/kids/guide' : '/kids/pdf');
   };
+
+  const openRecent = (r: RecentItem) => beginStudy(
+    { subject: r.subject || studyParams.subject, topic: r.title, contentId: r.contentId, assignmentId: r.assignmentId },
+    r.kind,
+  );
+
+  const openSuggestion = (s: StudySuggestion, kind: 'quiz' | 'guide') =>
+    // No contentId: this is a brand-new topic, so it gets generated fresh.
+    beginStudy({ subject: s.subject, topic: s.topic }, kind);
 
   if (!kid) return null;
 
@@ -195,25 +179,24 @@ export default function KidHomeClient() {
     <AppShell>
       <div className="qk-screen qk-page-enter" style={{ padding: '32px clamp(20px, 5vw, 56px) 64px' }}>
         <div style={{ maxWidth: 980, margin: '0 auto' }}>
-          {kids.length > 1 && (
-            <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-              {kids.map((k) => (
-                <button key={k.id} onClick={() => setActiveKidId(k.id)} className="qk-chip"
-                  style={{ padding: kid?.id === k.id ? '5px 14px 5px 5px' : '5px 12px 5px 5px', gap: 8, background: kid?.id === k.id ? 'var(--ink)' : 'var(--surface)', color: kid?.id === k.id ? 'var(--surface)' : 'var(--ink-2)', border: '1.5px solid ' + (kid?.id === k.id ? 'var(--ink)' : 'var(--line)') }}>
-                  <Avatar id={k.avatar} size={28} /><span>{k.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
+          {/* switching kids always goes back through the profile picker */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button onClick={() => router.push('/profile')} className="qk-chip"
+              style={{ padding: '5px 14px 5px 5px', gap: 8, background: 'var(--surface)', color: 'var(--ink-2)', border: '1.5px solid var(--line)' }}>
+              <Avatar id={kid.avatar} size={28} />
+              <span>{kid.name}</span>
+              <span style={{ fontSize: 11, color: 'var(--ink-3)', fontWeight: 700 }}>· {t('whoElse')}</span>
+            </button>
+          </div>
 
           {/* greeting card */}
           <div className="qk-card qk-slide-up" style={{ padding: 'clamp(20px, 4vw, 36px)', display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 24, alignItems: 'center', background: 'linear-gradient(135deg, var(--primary-l) 0%, var(--honey-l) 100%)', borderColor: 'var(--primary)', position: 'relative', overflow: 'hidden' }}>
             <div aria-hidden style={{ position: 'absolute', inset: 0, opacity: .16, backgroundImage: 'radial-gradient(var(--primary) 1.5px, transparent 1.5px)', backgroundSize: '22px 22px' }} />
             <div style={{ position: 'relative' }}>
               <Avatar id={kid.avatar} size={104} ring={kid.color || 'var(--primary)'} />
-              {session.running && (
-                <span style={{ position: 'absolute', right: -4, top: -4, padding: '3px 8px', borderRadius: 999, background: session.paused ? 'var(--honey)' : 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700 }}>
-                  {session.paused ? 'PAUSE' : 'LIVE'}
+              {timer.running && (
+                <span style={{ position: 'absolute', right: -4, top: -4, padding: '3px 8px', borderRadius: 999, background: timer.paused ? 'var(--honey)' : 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700 }}>
+                  {timer.paused ? 'PAUSE' : 'LIVE'}
                 </span>
               )}
             </div>
@@ -244,12 +227,39 @@ export default function KidHomeClient() {
               </div>
             </div>
             <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
-              <SessionPill lang={lang} session={session} onStart={session.start} onTogglePause={() => session.paused ? session.resume() : session.pause()} onEnd={session.end} />
-              <button onClick={() => { setMode('parent'); router.push('/dashboard'); }} style={{ appearance: 'none', border: 0, background: 'transparent', fontSize: 12, color: 'var(--ink-3)', textDecoration: 'underline', cursor: 'pointer' }}>
-                {t('switchToParent')}
+              <SessionPill
+                lang={lang}
+                timer={timer}
+                onStart={() => timer.start({ kidId: kid.id, activity: 'free' })}
+                onTogglePause={timer.toggle}
+                onEnd={endSession}
+              />
+              <button onClick={() => router.push('/profile')} style={{ appearance: 'none', border: 0, background: 'transparent', fontSize: 12, color: 'var(--ink-3)', textDecoration: 'underline', cursor: 'pointer' }}>
+                {t('switchUser')}
               </button>
             </div>
           </div>
+
+          {/* suggestions — what to study next */}
+          <section style={{ marginTop: 28 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+              <div>
+                <h2 className="qk-h2" style={{ margin: 0 }}>✨ {t('suggestTitle')}</h2>
+                <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 2 }}>{t('suggestSub')}</div>
+              </div>
+              <button onClick={refreshSuggestions} className="qk-btn qk-btn-ghost" style={{ fontSize: 13, padding: '8px 12px' }}>
+                {React.cloneElement(ICONS.shuffle as React.ReactElement<{ size?: number }>, { size: 14 })}
+                <span>{loadingSuggestions ? t('suggestLoading') : t('suggestRefresh')}</span>
+              </button>
+            </div>
+            <SuggestionCards
+              suggestions={suggestions}
+              lang={lang}
+              customSubjects={customSubjects}
+              onLearn={(s) => openSuggestion(s, 'guide')}
+              onQuiz={(s) => openSuggestion(s, 'quiz')}
+            />
+          </section>
 
           {/* subject filter */}
           {subjects.length > 1 && (
@@ -264,7 +274,7 @@ export default function KidHomeClient() {
                 {lang === 'es' ? 'Todo' : 'All'}
               </button>
               {subjects.map((subj) => {
-                const info = SUBJECT_LABELS[subj] || { en: subj, es: subj, icon: '📚' };
+                const info = subjectMeta(subj, customSubjects);
                 const on = filterSubject === subj;
                 return (
                   <button key={subj} onClick={() => setFilterSubject(on ? null : subj)}
@@ -295,7 +305,7 @@ export default function KidHomeClient() {
                 const tone = r.kind === 'quiz' ? 'primary' : r.kind === 'guide' ? 'sky' : 'coral';
                 const bg = `var(--${tone === 'primary' ? 'primary-l' : tone + '-l'})`;
                 const fg = `var(--${tone === 'primary' ? 'primary' : tone})`;
-                const subjInfo = r.subject ? (SUBJECT_LABELS[r.subject] || { en: r.subject, es: r.subject, icon: '📚' }) : null;
+                const subjInfo = r.subject ? subjectMeta(r.subject, customSubjects) : null;
                 const isCompleted = r.status === 'completed';
 
                 return (
@@ -342,11 +352,32 @@ export default function KidHomeClient() {
                 <div className="qk-card" style={{ padding: 24, textAlign: 'center', color: 'var(--ink-3)', gridColumn: '1 / -1' }}>
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: 18 }}>{t('kidHomeNothing')}</div>
                   <div style={{ marginTop: 8, fontSize: 14 }}>
-                    {lang === 'es' ? 'Pide a tu papá o mamá que te asigne un estudio.' : 'Ask a parent to assign you a study.'}
+                    {lang === 'es' ? 'O elige una de las sugerencias de arriba.' : 'Or pick one of the suggestions above.'}
                   </div>
                 </div>
               )}
             </div>
+          </section>
+
+          {/* the kid's own time log */}
+          <section style={{ marginTop: 32 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+              <h2 className="qk-h2" style={{ margin: 0 }}>⏱️ {t('timeLog')}</h2>
+              <button onClick={() => setShowLog((v) => !v)} className="qk-btn qk-btn-ghost" style={{ fontSize: 13, padding: '8px 12px' }}>
+                {showLog ? t('hideTime') : t('reviewTime')}
+              </button>
+            </div>
+            {showLog && (
+              <div className="qk-card" style={{ padding: 20 }}>
+                <TimeLogPanel
+                  entries={log}
+                  lang={lang}
+                  goalMin={kid.goal_min || parentPrefs.goalMin}
+                  customSubjects={customSubjects}
+                  sub={t('timeLogSub')}
+                />
+              </div>
+            )}
           </section>
         </div>
       </div>

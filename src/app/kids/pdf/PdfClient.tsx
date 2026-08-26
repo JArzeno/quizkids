@@ -3,10 +3,12 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
 import { Btn } from '@/components/ui/Btn';
+import { StudyTimerBadge } from '@/components/ui/SessionPill';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
+import { useAutoStudySession } from '@/lib/session';
 import type { QuizQuestion } from '@/types';
 
 const FALLBACK: { questions: QuizQuestion[]; bonus: string } = {
@@ -28,6 +30,14 @@ export default function PdfClient() {
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
 
   React.useEffect(() => { setMode('kid'); }, []);
+
+  // Worksheet time counts too — the clock starts with the page.
+  const timer = useAutoStudySession({
+    kidId: kid?.id,
+    subject: studyParams.subject,
+    topic: studyParams.topic,
+    activity: 'pdf',
+  });
 
   const [data, setData] = React.useState<{ questions: QuizQuestion[]; bonus: string } | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -82,7 +92,10 @@ export default function PdfClient() {
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <button className="qk-btn qk-btn-ghost" onClick={() => router.back()}>{ICONS.back} <span>{t('back')}</span></button>
-            <Btn kind="primary" icon={ICONS.printer} onClick={() => window.print()}>{t('print')}</Btn>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }} className="qk-no-print">
+              <StudyTimerBadge lang={lang} timer={timer} onTogglePause={timer.toggle} />
+              <Btn kind="primary" icon={ICONS.printer} onClick={() => window.print()}>{t('print')}</Btn>
+            </div>
           </div>
 
           {loading ? (

@@ -181,6 +181,43 @@ const QK_STRINGS = {
     cancelPlan: 'Cancel plan', upgrade: 'Upgrade', downgrade: 'Downgrade',
     switchToYearly: 'Switch to yearly · save 20%',
     switchToMonthly: 'Switch to monthly',
+    // study timer + time log
+    timerStudying: 'Studying', timerPaused: 'Paused',
+    timeLog: 'Study time log', timeLogSub: 'Every session, saved automatically.',
+    timeLogEmpty: 'No study time yet — start a session and it shows up here.',
+    thisWeekMin: 'this week', last7Days: 'Last 7 days',
+    sessionsCt: 'sessions', avgSession: 'avg session', longestDay: 'best day',
+    minPerDay: 'min per day', goalLine: 'goal',
+    sessionOn: 'Session running', sessionAutoStarted: 'Timer started automatically',
+    endAndSave: 'End & save', savedMin: 'Saved',
+    reviewTime: 'Review study time', hideTime: 'Hide study time',
+    noSessionsYet: 'No sessions logged yet.',
+    activityQuiz: 'Quiz', activityGuide: 'Guide', activityPdf: 'Worksheet', activityFree: 'Study time',
+    // suggestions
+    suggestTitle: 'What to study next', suggestSub: 'Picked for your grade — tap one to start.',
+    suggestRefresh: 'Show me others', suggestStart: 'Start',
+    suggestQuiz: 'Quiz me', suggestLearn: 'Learn it',
+    suggestLoading: 'Finding ideas…',
+    // learn more
+    learnMore: 'Learn more', learnMoreSub: 'Get extra facts, examples, and a graph.',
+    learnMoreLoading: 'Digging deeper…',
+    learnMoreMore: 'Even more', learnMoreDone: "That's everything for now!",
+    learnMoreFailed: "Couldn't load more right now — try again.",
+    examples: 'Examples', newWords: 'New words', graphExample: 'Graph example',
+    deepDive: 'Going deeper',
+    // results
+    resultsBreakdown: 'Question by question', resultsProgress: 'Your quiz history',
+    resultsBySubject: 'Minutes by subject', resultsTimeOnTask: 'Time on this study',
+    resultsMastery: 'Mastery', resultsTrendSub: 'Accuracy on your last rounds',
+    resultsNoHistory: 'This is your first quiz on record — come back for a trend line.',
+    resultsMissed: 'Worth another look', resultsNailed: 'You nailed these',
+    resultsStudyNext: 'Study this next', resultsRound: 'Round',
+    // topics
+    topicsCount: 'topics', topicYours: 'Yours', topicAdded: 'Topic added',
+    topicsEmpty: 'No topics yet — add the first one below.',
+    topicRemove: 'Remove topic',
+    // profile switching
+    switchUser: 'Switch user', whoElse: 'Switch profile',
   },
   es: {
     appName: 'QuizKids', tagline: 'Aprender juntos',
@@ -359,6 +396,43 @@ const QK_STRINGS = {
     cancelPlan: 'Cancelar plan', upgrade: 'Mejorar', downgrade: 'Bajar plan',
     switchToYearly: 'Cambiar a anual · ahorra 20%',
     switchToMonthly: 'Cambiar a mensual',
+    // cronómetro y registro de tiempo
+    timerStudying: 'Estudiando', timerPaused: 'En pausa',
+    timeLog: 'Registro de tiempo', timeLogSub: 'Cada sesión se guarda automáticamente.',
+    timeLogEmpty: 'Aún no hay tiempo de estudio — inicia una sesión y aparecerá aquí.',
+    thisWeekMin: 'esta semana', last7Days: 'Últimos 7 días',
+    sessionsCt: 'sesiones', avgSession: 'sesión promedio', longestDay: 'mejor día',
+    minPerDay: 'min por día', goalLine: 'meta',
+    sessionOn: 'Sesión activa', sessionAutoStarted: 'El cronómetro inició solo',
+    endAndSave: 'Terminar y guardar', savedMin: 'Guardado',
+    reviewTime: 'Ver tiempo de estudio', hideTime: 'Ocultar tiempo',
+    noSessionsYet: 'Todavía no hay sesiones registradas.',
+    activityQuiz: 'Quiz', activityGuide: 'Guía', activityPdf: 'Hoja', activityFree: 'Estudio',
+    // sugerencias
+    suggestTitle: 'Qué estudiar ahora', suggestSub: 'Elegido para tu grado — toca uno para empezar.',
+    suggestRefresh: 'Muéstrame otros', suggestStart: 'Empezar',
+    suggestQuiz: 'Hazme un quiz', suggestLearn: 'Aprenderlo',
+    suggestLoading: 'Buscando ideas…',
+    // aprender más
+    learnMore: 'Aprender más', learnMoreSub: 'Más datos, ejemplos y una gráfica.',
+    learnMoreLoading: 'Buscando más…',
+    learnMoreMore: 'Aún más', learnMoreDone: '¡Eso es todo por ahora!',
+    learnMoreFailed: 'No se pudo cargar más ahora — intenta de nuevo.',
+    examples: 'Ejemplos', newWords: 'Palabras nuevas', graphExample: 'Ejemplo de gráfica',
+    deepDive: 'Profundizando',
+    // resultados
+    resultsBreakdown: 'Pregunta por pregunta', resultsProgress: 'Tu historial de quizzes',
+    resultsBySubject: 'Minutos por materia', resultsTimeOnTask: 'Tiempo en este estudio',
+    resultsMastery: 'Dominio', resultsTrendSub: 'Precisión en tus últimas rondas',
+    resultsNoHistory: 'Este es tu primer quiz registrado — vuelve para ver la tendencia.',
+    resultsMissed: 'Para repasar', resultsNailed: 'Estas te salieron',
+    resultsStudyNext: 'Estudia esto después', resultsRound: 'Ronda',
+    // temas
+    topicsCount: 'temas', topicYours: 'Tuyos', topicAdded: 'Tema agregado',
+    topicsEmpty: 'Aún no hay temas — agrega el primero abajo.',
+    topicRemove: 'Quitar tema',
+    // cambio de perfil
+    switchUser: 'Cambiar usuario', whoElse: 'Cambiar perfil',
   },
 } as const;
 

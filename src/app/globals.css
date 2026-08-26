@@ -342,8 +342,14 @@ input, textarea, select { font-family: inherit; color: inherit; }
 .qk-shake { animation: qk-shake .36s ease; }
 
 /* ---------- responsive ---------- */
+@media (max-width: 900px) {
+  /* charts + their captions stack rather than squeeze */
+  .qk-results-split { grid-template-columns: 1fr !important; }
+  .qk-kid-guide-grid { grid-template-columns: 1fr !important; }
+}
 @media (max-width: 720px) {
   .qk-screen { padding: 20px 16px 56px; }
+  .qk-stack-sm { grid-template-columns: 1fr !important; }
 }
 
 /* ---------- print ---------- */
