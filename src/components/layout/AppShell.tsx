@@ -6,7 +6,7 @@ import { Ico, ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
-import { createClient } from '@/lib/supabase/client';
+import { api } from '@/lib/api';
 
 export function AppShell({ children, showNav = true }: { children: React.ReactNode; showNav?: boolean }) {
   const { lang, setLang, mode, kids, activeKidId, setMode, setActiveKidId, palette, font, setAccount, setKids, setIsDemo } = useStore();
@@ -17,8 +17,13 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
   const isDemo = useStore((s) => s.isDemo);
 
   const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    // Clear the session cookie server-side; a failure here still signs the
+    // browser out locally rather than stranding the user on a half-signed-in UI.
+    try {
+      await api.logout();
+    } catch {
+      /* ignore */
+    }
     setAccount(null);
     setKids([]);
     setIsDemo(false);

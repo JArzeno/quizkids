@@ -7,7 +7,7 @@ import { Btn } from '@/components/ui/Btn';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
-import { createClient } from '@/lib/supabase/client';
+import { api } from '@/lib/api';
 
 type GenType = 'quiz' | 'guide' | 'pdf';
 
@@ -76,24 +76,19 @@ export default function GenerateClient() {
 
       setProgress(100);
 
-      // Save assignment to Supabase (if not demo and kid exists)
+      // Record the assignment (if not demo and kid exists)
       let assignmentId: string | null = null;
       if (!isDemo && kid && contentId) {
         try {
-          const supabase = createClient();
-          const { data: assignment } = await supabase
-            .from('kid_assignments')
-            .insert({
-              kid_id: kid.id,
-              content_id: contentId,
-              subject: studyParams.subject,
-              topic: studyParams.topic,
-              grade: studyParams.grade,
-              type: type === 'pdf' ? 'pdf' : type,
-              status: 'pending',
-            })
-            .select('id')
-            .single();
+          const { assignment } = await api.createAssignment({
+            kid_id: kid.id,
+            content_id: contentId,
+            subject: studyParams.subject,
+            topic: studyParams.topic,
+            grade: studyParams.grade,
+            type: type === 'pdf' ? 'pdf' : type,
+            status: 'pending',
+          });
           assignmentId = assignment?.id ?? null;
         } catch (e) {
           console.warn('Could not save assignment:', e);

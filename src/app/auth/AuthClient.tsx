@@ -7,7 +7,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Btn } from '@/components/ui/Btn';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
-import { createClient } from '@/lib/supabase/client';
+import { api, ApiError, toKid } from '@/lib/api';
 
 export default function AuthClient() {
   const { lang, setAccount, setIsDemo, setKids } = useStore();
@@ -46,51 +46,25 @@ export default function AuthClient() {
     setIsDemo(false);
     setKids([]);
     setError(null);
-    const supabase = createClient();
 
-    if (tab === 'signup') {
-      const { error: err } = await supabase.auth.signUp({
-        email: form.email,
-        password: form.password,
-        options: { data: { name: form.name } },
-      });
-      setLoading(false);
-      if (err) { setError(err.message); return; }
-      setAccount({ name: form.name, email: form.email });
-      router.push('/auth/onboarding');
-    } else {
-      const { data, error: err } = await supabase.auth.signInWithPassword({
-        email: form.email,
-        password: form.password,
-      });
-      setLoading(false);
-      if (err) { setError(err.message); return; }
-      const name = data.user?.user_metadata?.name || data.user?.email || '';
-      setAccount({ name, email: form.email });
-      const { data: kidsData } = await supabase
-        .from('kids')
-        .select('*')
-        .eq('parent_id', data.user.id)
-        .order('created_at');
-      if (kidsData) {
-        setKids(kidsData.map((k) => ({
-          id: k.id,
-          parent_id: k.parent_id,
-          name: k.name,
-          grade: k.grade,
-          avatar: k.avatar || 'sprout',
-          color: k.color || '#3F7A4F',
-          code: k.code,
-          streak: k.streak || 0,
-          stars: k.stars || 0,
-          minutes_total: k.minutes_total || 0,
-          weekly: k.weekly_pct || 0,
-          goal_min: k.goal_min || 30,
-          lastSubject: k.last_subject || undefined,
-          recent: [],
-        })));
+    try {
+      if (tab === 'signup') {
+        await api.signup({ name: form.name, email: form.email, password: form.password });
+        setAccount({ name: form.name, email: form.email });
+        router.push('/auth/onboarding');
+      } else {
+        const { user } = await api.login({ email: form.email, password: form.password });
+        setAccount({ name: user.name || user.email, email: user.email });
+
+        const { kids: kidsData } = await api.listKids();
+        setKids(kidsData.map(toKid));
+
+        router.push('/profile');
       }
-      router.push('/profile');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 

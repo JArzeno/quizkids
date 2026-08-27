@@ -9,7 +9,7 @@ import { Stars, StatCard } from '@/components/ui/Stars';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
-import { createClient } from '@/lib/supabase/client';
+import { api, toKid } from '@/lib/api';
 import type { Kid } from '@/types';
 
 const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> = {
@@ -136,73 +136,54 @@ export default function DashboardClient() {
   React.useEffect(() => {
     if (isDemo) return;
     const load = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase.from('kids').select('*').eq('parent_id', user.id).order('created_at');
-      if (data) {
-        setKids(data.map((k) => ({
-          id: k.id,
-          parent_id: k.parent_id,
-          name: k.name,
-          grade: k.grade,
-          avatar: k.avatar || 'sprout',
-          color: k.color || '#3F7A4F',
-          code: k.code,
-          streak: k.streak || 0,
-          stars: k.stars || 0,
-          minutes_total: k.minutes_total || 0,
-          weekly: k.weekly_pct || 0,
-          goal_min: k.goal_min || 30,
-          lastSubject: k.last_subject || undefined,
-          recent: [],
-        })));
+      let data;
+      try {
+        data = await api.dashboardSummary();
+      } catch {
+        // Signed out or the API is unreachable — leave whatever the store has.
+        return;
+      }
+      const { kids: kidRows, quizResults, studySessions } = data;
+      setKids(kidRows.map(toKid));
 
-        // Load summaries for all kids
-        const kidIds = data.map((k) => k.id);
-        if (kidIds.length > 0) {
-          const [quizRes, sessionRes] = await Promise.all([
-            supabase.from('quiz_results').select('kid_id, subject, topic, correct, total, stars, created_at').in('kid_id', kidIds),
-            supabase.from('study_sessions').select('kid_id, minutes').in('kid_id', kidIds),
-          ]);
+      const kidIds = kidRows.map((k) => k.id);
+      if (kidIds.length > 0) {
+        const newSummaries: Record<string, KidSummary> = {};
+        for (const kidId of kidIds) {
+          const quizzes = quizResults.filter((r) => r.kid_id === kidId);
+          const sessions = studySessions.filter((s) => s.kid_id === kidId);
 
-          const newSummaries: Record<string, KidSummary> = {};
-          for (const kidId of kidIds) {
-            const quizzes = (quizRes.data || []).filter((r) => r.kid_id === kidId);
-            const sessions = (sessionRes.data || []).filter((s) => s.kid_id === kidId);
+          // kids.minutes_total is kept in sync with study_sessions on every session end, so summing both
+          // would double-count going forward; take the max to also cover legacy rows from before that sync existed.
+          const sessionMinutesSum = sessions.reduce((acc, s) => acc + (s.minutes || 0), 0);
+          const kidMinutesTotal = kidRows.find((k) => k.id === kidId)?.minutes_total || 0;
+          const totalMinutes = Math.max(sessionMinutesSum, kidMinutesTotal);
+          const quizzesDone = quizzes.length;
+          const avgScore = quizzesDone > 0
+            ? Math.round(quizzes.reduce((acc, q) => acc + ((q.total || 0) > 0 ? ((q.correct || 0) / (q.total || 1)) * 100 : 0), 0) / quizzesDone)
+            : 0;
 
-            // kids.minutes_total is kept in sync with study_sessions on every session end, so summing both
-            // would double-count going forward; take the max to also cover legacy rows from before that sync existed.
-            const sessionMinutesSum = sessions.reduce((acc, s) => acc + (s.minutes || 0), 0);
-            const kidMinutesTotal = data.find((k) => k.id === kidId)?.minutes_total || 0;
-            const totalMinutes = Math.max(sessionMinutesSum, kidMinutesTotal);
-            const quizzesDone = quizzes.length;
-            const avgScore = quizzesDone > 0
-              ? Math.round(quizzes.reduce((acc, q) => acc + (q.total > 0 ? (q.correct / q.total) * 100 : 0), 0) / quizzesDone)
-              : 0;
+          // Count by subject
+          const subjectCount: Record<string, number> = {};
+          quizzes.forEach((q) => {
+            if (q.subject) subjectCount[q.subject] = (subjectCount[q.subject] || 0) + 1;
+          });
+          const topSubjects = Object.entries(subjectCount)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([subject, count]) => ({ subject, count }));
 
-            // Count by subject
-            const subjectCount: Record<string, number> = {};
-            quizzes.forEach((q) => {
-              if (q.subject) subjectCount[q.subject] = (subjectCount[q.subject] || 0) + 1;
-            });
-            const topSubjects = Object.entries(subjectCount)
-              .sort((a, b) => b[1] - a[1])
-              .slice(0, 3)
-              .map(([subject, count]) => ({ subject, count }));
-
-            // Recent unique topics
-            const seen = new Set<string>();
-            const recentTopics: string[] = [];
-            for (const q of [...quizzes].reverse()) {
-              if (q.topic && !seen.has(q.topic)) { seen.add(q.topic); recentTopics.push(q.topic); }
-              if (recentTopics.length >= 5) break;
-            }
-
-            newSummaries[kidId] = { kidId, totalSessions: sessions.length, totalMinutes, quizzesDone, avgScore, topSubjects, recentTopics };
+          // Recent unique topics
+          const seen = new Set<string>();
+          const recentTopics: string[] = [];
+          for (const q of [...quizzes].reverse()) {
+            if (q.topic && !seen.has(q.topic)) { seen.add(q.topic); recentTopics.push(q.topic); }
+            if (recentTopics.length >= 5) break;
           }
-          setSummaries(newSummaries);
+
+          newSummaries[kidId] = { kidId, totalSessions: sessions.length, totalMinutes, quizzesDone, avgScore, topSubjects, recentTopics };
         }
+        setSummaries(newSummaries);
       }
     };
     load();
@@ -316,8 +297,11 @@ export default function DashboardClient() {
           onCancel={() => setDeletingKid(null)}
           onConfirm={async () => {
             if (!isDemo) {
-              const supabase = createClient();
-              await supabase.from('kids').delete().eq('id', deletingKid.id);
+              try {
+                await api.deleteKid(deletingKid.id);
+              } catch (e) {
+                console.warn('Could not delete kid:', e);
+              }
             }
             removeKid(deletingKid.id);
             setDeletingKid(null);

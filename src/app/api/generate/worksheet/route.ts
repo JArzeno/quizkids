@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateWorksheet } from '@/lib/openai';
-import { createClient } from '@/lib/supabase/server';
+import { queryOne } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,33 +12,31 @@ export async function POST(req: NextRequest) {
 
     // Check cache first
     try {
-      const supabase = await createClient();
-      const { data: cached } = await supabase
-        .from('generated_content')
-        .select('id, content')
-        .eq('type', 'worksheet')
-        .eq('topic', topic)
-        .eq('grade', grade)
-        .eq('lang', lng)
-        .single();
+      const cached = await queryOne<{ id: string; content: object | null }>(
+        `select id, content from generated_content
+          where type = 'worksheet' and topic = $1 and grade = $2 and lang = $3
+          limit 1`,
+        [topic, grade, lng]
+      );
 
       if (cached?.content) {
-        return NextResponse.json({ ...(cached.content as object), contentId: cached.id, cached: true });
+        return NextResponse.json({ ...cached.content, contentId: cached.id, cached: true });
       }
 
       // Generate new
       const data = await generateWorksheet(topic, grade, lng);
 
       // Save to cache
-      const { data: saved } = await supabase
-        .from('generated_content')
-        .insert({ subject: subj, topic, grade, lang: lng, type: 'worksheet', content: data })
-        .select('id')
-        .single();
+      const saved = await queryOne<{ id: string }>(
+        `insert into generated_content (subject, topic, grade, lang, type, content)
+         values ($1, $2, $3, $4, 'worksheet', $5)
+         returning id`,
+        [subj, topic, grade, lng, JSON.stringify(data)]
+      );
 
       return NextResponse.json({ ...data, contentId: saved?.id ?? null, cached: false });
     } catch (dbErr) {
-      console.warn('Supabase cache miss/error, generating fresh:', dbErr);
+      console.warn('Content cache miss/error, generating fresh:', dbErr);
       const data = await generateWorksheet(topic, grade, lng);
       return NextResponse.json({ ...data, contentId: null, cached: false });
     }

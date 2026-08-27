@@ -7,7 +7,7 @@ import { SessionPill, useSession, formatElapsed } from '@/components/ui/SessionP
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
-import { createClient } from '@/lib/supabase/client';
+import { api } from '@/lib/api';
 import type { RecentItem } from '@/types';
 
 const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> = {
@@ -48,70 +48,52 @@ export default function KidHomeClient() {
 
   React.useEffect(() => { setMode('kid'); }, []);
 
-  // Load minutes studied today from Supabase (source of truth across devices/reloads)
+  // Load minutes studied today from the database (source of truth across devices/reloads)
   React.useEffect(() => {
     if (!kid || isDemo) { setDbMinutesToday(null); return; }
     let cancelled = false;
     const loadToday = async () => {
-      const supabase = createClient();
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
-      const { data } = await supabase
-        .from('study_sessions')
-        .select('minutes')
-        .eq('kid_id', kid.id)
-        .gte('started_at', startOfDay.toISOString());
-      if (cancelled) return;
-      setDbMinutesToday((data || []).reduce((acc, s) => acc + (s.minutes || 0), 0));
+      try {
+        const { minutes } = await api.minutesSince(kid.id, startOfDay);
+        if (!cancelled) setDbMinutesToday(minutes);
+      } catch (e) {
+        console.warn('Could not load today\u2019s study time:', e);
+      }
     };
     loadToday();
     return () => { cancelled = true; };
   }, [kid?.id, isDemo]);
 
-  // Load assignments from Supabase
+  // Load assignments from the database
   React.useEffect(() => {
     if (!kid || isDemo) return;
     const load = async () => {
       setLoadingHistory(true);
       try {
-        const supabase = createClient();
-        const { data } = await supabase
-          .from('kid_assignments')
-          .select('id, subject, topic, grade, type, status, assigned_at, content_id')
-          .eq('kid_id', kid.id)
-          .order('assigned_at', { ascending: false })
-          .limit(40);
+        const { assignments, results } = await api.listAssignments(kid.id);
 
-        if (data) {
-          const items: RecentItem[] = data.map((row) => ({
-            kind: (row.type === 'worksheet' ? 'pdf' : row.type) as 'quiz' | 'guide' | 'pdf',
-            title: row.topic,
-            when: relativeDate(row.assigned_at),
-            score: 0,
-            subject: row.subject,
-            contentId: row.content_id ?? undefined,
-            assignmentId: row.id,
-            status: row.status as 'pending' | 'completed',
-          }));
+        const items: RecentItem[] = assignments.map((row) => ({
+          kind: (row.type === 'worksheet' ? 'pdf' : row.type) as 'quiz' | 'guide' | 'pdf',
+          title: row.topic || '',
+          when: relativeDate(row.assigned_at),
+          score: 0,
+          subject: row.subject || undefined,
+          contentId: row.content_id ?? undefined,
+          assignmentId: row.id,
+          status: row.status as 'pending' | 'completed',
+        }));
 
-          // Merge quiz scores from quiz_results
-          const { data: results } = await supabase
-            .from('quiz_results')
-            .select('assignment_id, stars, correct, total')
-            .eq('kid_id', kid.id);
-
-          if (results) {
-            const scoreMap = new Map(results.map((r) => [r.assignment_id, r]));
-            items.forEach((item) => {
-              if (item.assignmentId && scoreMap.has(item.assignmentId)) {
-                const r = scoreMap.get(item.assignmentId)!;
-                item.score = r.stars ?? 0;
-              }
-            });
+        // Merge quiz scores from quiz_results
+        const scoreMap = new Map(results.map((r) => [r.assignment_id, r]));
+        items.forEach((item) => {
+          if (item.assignmentId && scoreMap.has(item.assignmentId)) {
+            item.score = scoreMap.get(item.assignmentId)!.stars ?? 0;
           }
+        });
 
-          setDbRecent(items);
-        }
+        setDbRecent(items);
       } catch (e) {
         console.warn('Could not load assignments:', e);
       }
@@ -133,17 +115,20 @@ export default function KidHomeClient() {
       today_date: key,
       minutes_total: minutesTotal,
     });
-    // Persist the session to Supabase so time tracking survives reloads/device changes
+    // Persist the session so time tracking survives reloads/device changes
     if (!isDemo && minutes > 0) {
-      const supabase = createClient();
       const endedAt = new Date();
-      void supabase.from('study_sessions').insert({
-        kid_id: kid.id,
-        minutes,
-        started_at: new Date(endedAt.getTime() - elapsedMs).toISOString(),
-        ended_at: endedAt.toISOString(),
-      });
-      void supabase.from('kids').update({ minutes_total: minutesTotal }).eq('id', kid.id);
+      void api
+        .logStudySession({
+          kid_id: kid.id,
+          minutes,
+          started_at: new Date(endedAt.getTime() - elapsedMs).toISOString(),
+          ended_at: endedAt.toISOString(),
+        })
+        .catch((e) => console.warn('Could not save study session:', e));
+      void api
+        .updateKid(kid.id, { minutes_total: minutesTotal })
+        .catch((e) => console.warn('Could not update study total:', e));
       setDbMinutesToday((prev) => (prev ?? 0) + minutes);
     }
   });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateQuiz } from '@/lib/openai';
-import { createClient } from '@/lib/supabase/server';
+import { queryOne } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,35 +13,32 @@ export async function POST(req: NextRequest) {
 
     // Check cache first
     try {
-      const supabase = await createClient();
-      const { data: cached } = await supabase
-        .from('generated_content')
-        .select('id, content')
-        .eq('type', 'quiz')
-        .eq('topic', topic)
-        .eq('grade', grade)
-        .eq('difficulty', diff)
-        .eq('lang', lng)
-        .single();
+      const cached = await queryOne<{ id: string; content: object | null }>(
+        `select id, content from generated_content
+          where type = 'quiz' and topic = $1 and grade = $2 and difficulty = $3 and lang = $4
+          limit 1`,
+        [topic, grade, diff, lng]
+      );
 
       if (cached?.content) {
-        return NextResponse.json({ ...(cached.content as object), contentId: cached.id, cached: true });
+        return NextResponse.json({ ...cached.content, contentId: cached.id, cached: true });
       }
 
       // Generate new
       const data = await generateQuiz(topic, grade, diff, lng);
 
       // Save to cache
-      const { data: saved } = await supabase
-        .from('generated_content')
-        .insert({ subject: subj, topic, grade, difficulty: diff, lang: lng, type: 'quiz', content: data })
-        .select('id')
-        .single();
+      const saved = await queryOne<{ id: string }>(
+        `insert into generated_content (subject, topic, grade, difficulty, lang, type, content)
+         values ($1, $2, $3, $4, $5, 'quiz', $6)
+         returning id`,
+        [subj, topic, grade, diff, lng, JSON.stringify(data)]
+      );
 
       return NextResponse.json({ ...data, contentId: saved?.id ?? null, cached: false });
     } catch (dbErr) {
       // DB unavailable — generate without caching
-      console.warn('Supabase cache miss/error, generating fresh:', dbErr);
+      console.warn('Content cache miss/error, generating fresh:', dbErr);
       const data = await generateQuiz(topic, grade, diff, lng);
       return NextResponse.json({ ...data, contentId: null, cached: false });
     }

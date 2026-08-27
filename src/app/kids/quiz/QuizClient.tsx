@@ -7,7 +7,7 @@ import { Btn } from '@/components/ui/Btn';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
-import { createClient } from '@/lib/supabase/client';
+import { api } from '@/lib/api';
 import type { QuizQuestion } from '@/types';
 
 const FALLBACK_QUIZ: QuizQuestion[] = [
@@ -45,17 +45,11 @@ export default function QuizClient() {
       setLoading(true);
       startedAt.current = Date.now();
       try {
-        // If we have a cached contentId, load from Supabase directly
+        // If we have a cached contentId, fetch that exact content
         if (studyParams.contentId && !isDemo) {
           try {
-            const supabase = createClient();
-            const { data } = await supabase
-              .from('generated_content')
-              .select('content')
-              .eq('id', studyParams.contentId)
-              .single();
-            if (data?.content) {
-              const content = data.content as { questions?: QuizQuestion[] };
+            const { content } = await api.getContent<{ questions?: QuizQuestion[] }>(studyParams.contentId);
+            if (content) {
               const limit = difficulty === 'easy' ? 6 : 8;
               setCards((content.questions || FALLBACK_QUIZ).slice(0, limit));
               setLoading(false);
@@ -111,31 +105,24 @@ export default function QuizClient() {
       const result = { total: cards.length, correct, picks, cards, stars };
       setQuizResult(result);
 
-      // Save quiz result to Supabase
+      // Save quiz result (the API marks the linked assignment completed too)
       if (!isDemo && kid) {
-        const supabase = createClient();
         const pct = Math.round((correct / cards.length) * 100);
         const goldStars = pct >= 90 ? 5 : pct >= 75 ? 4 : pct >= 60 ? 3 : pct >= 40 ? 2 : 1;
-        supabase.from('quiz_results').insert({
-          kid_id: kid.id,
-          assignment_id: studyParams.assignmentId ?? null,
-          subject: studyParams.subject,
-          topic: studyParams.topic,
-          grade: studyParams.grade,
-          difficulty,
-          total: cards.length,
-          correct,
-          stars: goldStars,
-          lang,
-        }).then(() => {
-          // Mark assignment as completed
-          if (studyParams.assignmentId) {
-            supabase.from('kid_assignments')
-              .update({ status: 'completed' })
-              .eq('id', studyParams.assignmentId)
-              .then(() => {});
-          }
-        });
+        void api
+          .saveQuizResult({
+            kid_id: kid.id,
+            assignment_id: studyParams.assignmentId ?? null,
+            subject: studyParams.subject,
+            topic: studyParams.topic,
+            grade: studyParams.grade,
+            difficulty,
+            total: cards.length,
+            correct,
+            stars: goldStars,
+            lang,
+          })
+          .catch((e) => console.warn('Could not save quiz result:', e));
       }
 
       router.push('/kids/results');

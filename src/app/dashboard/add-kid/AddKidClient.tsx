@@ -7,7 +7,7 @@ import { Btn } from '@/components/ui/Btn';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
-import { createClient } from '@/lib/supabase/client';
+import { api } from '@/lib/api';
 
 const STEPS = 4;
 const COLORS = [['#3F7A4F', 'leaf'], ['#E29A2B', 'honey'], ['#E26D5A', 'coral'], ['#6BA8C9', 'sky'], ['#B14F8C', 'berry'], ['#7A5AE0', 'violet']];
@@ -28,32 +28,31 @@ export default function AddKidClient() {
 
   const finish = async () => {
     const code = (draft.name.toUpperCase().replace(/[^A-Z]/g, '') + '12345').slice(0, 6);
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
 
-    if (user) {
-      const { data, error } = await supabase
-        .from('kids')
-        .insert({
-          parent_id: user.id,
-          name: draft.name.trim() || 'New kid',
-          grade: draft.grade || 'K',
-          avatar: draft.avatar || 'sprout',
-          color: draft.color,
-          code,
-          signature: draft.signature || null,
-        })
-        .select()
-        .single();
-      if (!error && data) {
-        addKid({ id: data.id, parent_id: user.id, name: data.name, grade: data.grade, avatar: data.avatar, color: data.color, code: data.code, streak: 0, stars: 0, minutes_total: 0, weekly: 0, goal_min: 30, recent: [], signature: draft.signature });
-        setActiveKidId(data.id);
-      }
-    } else {
+    // Signed-in parents get a row in Postgres; demo/offline users get a local-only kid.
+    let saved = false;
+    try {
+      const { kid } = await api.createKid({
+        name: draft.name.trim() || 'New kid',
+        grade: draft.grade || 'K',
+        avatar: draft.avatar || 'sprout',
+        color: draft.color,
+        code,
+        signature: draft.signature || null,
+      });
+      addKid({ id: kid.id, parent_id: kid.parent_id, name: kid.name, grade: kid.grade, avatar: kid.avatar || 'sprout', color: kid.color || draft.color, code: kid.code || code, streak: 0, stars: 0, minutes_total: 0, weekly: 0, goal_min: 30, recent: [], signature: draft.signature });
+      setActiveKidId(kid.id);
+      saved = true;
+    } catch (e) {
+      console.warn('Could not save kid to the database:', e);
+    }
+
+    if (!saved) {
       const id = (draft.name.trim().toLowerCase() || 'kid') + '-' + Math.random().toString(36).slice(2, 5);
       addKid({ id, parent_id: 'demo', name: draft.name.trim() || 'New kid', grade: draft.grade || 'K', avatar: draft.avatar || 'sprout', color: draft.color, code, streak: 0, stars: 0, minutes_total: 0, weekly: 0, goal_min: 30, recent: [], signature: draft.signature });
       setActiveKidId(id);
     }
+
     router.push('/dashboard');
   };
 

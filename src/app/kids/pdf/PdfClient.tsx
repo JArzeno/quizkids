@@ -6,7 +6,7 @@ import { Btn } from '@/components/ui/Btn';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
-import { createClient } from '@/lib/supabase/client';
+import { api } from '@/lib/api';
 import type { QuizQuestion } from '@/types';
 
 const FALLBACK: { questions: QuizQuestion[]; bonus: string } = {
@@ -39,14 +39,11 @@ export default function PdfClient() {
         // Try loading from cached contentId first
         if (studyParams.contentId && !isDemo) {
           try {
-            const supabase = createClient();
-            const { data: cached } = await supabase
-              .from('generated_content')
-              .select('content')
-              .eq('id', studyParams.contentId)
-              .single();
-            if (cached?.content) {
-              setData(cached.content as { questions: QuizQuestion[]; bonus: string });
+            const { content } = await api.getContent<{ questions: QuizQuestion[]; bonus: string }>(
+              studyParams.contentId
+            );
+            if (content) {
+              setData(content);
               setLoading(false);
               return;
             }

@@ -8,7 +8,7 @@ import { ImgPlaceholder } from '@/components/ui/Stars';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
-import { createClient } from '@/lib/supabase/client';
+import { api } from '@/lib/api';
 import type { Guide } from '@/types';
 
 const FALLBACK: Guide = {
@@ -38,17 +38,12 @@ export default function GuideClient() {
     const fetchGuide = async () => {
       setLoading(true);
       try {
-        // If we have a cached contentId, load from Supabase directly
+        // If we have a cached contentId, fetch that exact content
         if (studyParams.contentId && !isDemo) {
           try {
-            const supabase = createClient();
-            const { data } = await supabase
-              .from('generated_content')
-              .select('content')
-              .eq('id', studyParams.contentId)
-              .single();
-            if (data?.content) {
-              setGuide(data.content as Guide);
+            const { content } = await api.getContent<Guide>(studyParams.contentId);
+            if (content) {
+              setGuide(content);
               setLoading(false);
               return;
             }

@@ -8,7 +8,7 @@ import { StatCard } from '@/components/ui/Stars';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
-import { createClient } from '@/lib/supabase/client';
+import { api } from '@/lib/api';
 
 export default function ResultsClient() {
   const { lang, kids, activeKidId, quizResult, studyParams, gamification, setQuizResult, updateKid, isDemo } = useStore();
@@ -30,23 +30,20 @@ export default function ResultsClient() {
       });
     }
 
-    // Save to Supabase (once)
+    // Persist to the database (once)
     if (!isDemo && kid && !savedRef.current) {
       savedRef.current = true;
-      const supabase = createClient();
 
       // Update kid stars in DB
-      supabase.from('kids')
-        .update({ stars: (kid.stars || 0) + goldStars, last_subject: studyParams.subject })
-        .eq('id', kid.id)
-        .then(() => {});
+      void api
+        .updateKid(kid.id, { stars: (kid.stars || 0) + goldStars, last_subject: studyParams.subject })
+        .catch((e) => console.warn('Could not update kid stars:', e));
 
       // Mark assignment completed (in case QuizClient didn't save it)
       if (studyParams.assignmentId) {
-        supabase.from('kid_assignments')
-          .update({ status: 'completed' })
-          .eq('id', studyParams.assignmentId)
-          .then(() => {});
+        void api
+          .completeAssignment(studyParams.assignmentId)
+          .catch((e) => console.warn('Could not complete assignment:', e));
       }
 
       // Update recent item status in local store
