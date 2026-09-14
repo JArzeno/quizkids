@@ -127,7 +127,7 @@ function KidSummaryPanel({ kid, summary, lang }: { kid: Kid; summary: KidSummary
 }
 
 export default function DashboardClient() {
-  const { lang, kids, account, setActiveKidId, setMode, gamification, removeKid, setKids, isDemo } = useStore();
+  const { lang, kids, account, setActiveKidId, gamification, removeKid, setKids, isDemo } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const [deletingKid, setDeletingKid] = React.useState<Kid | null>(null);
@@ -212,7 +212,7 @@ export default function DashboardClient() {
   const totalMin = kids.reduce((a, k) => a + (k.minutes_total || 0), 0);
   const longest = Math.max(0, ...kids.map((k) => k.streak || 0));
 
-  const openKidHome = (id: string) => { setActiveKidId(id); setMode('kid'); router.push('/kids/home'); };
+  const openKidDetail = (id: string) => { setActiveKidId(id); router.push('/dashboard/kid/' + id); };
   const createFor = (id: string) => { setActiveKidId(id); router.push('/dashboard/picker'); };
 
   return (
@@ -290,7 +290,7 @@ export default function DashboardClient() {
 
                 <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
                   <Btn kind="primary" onClick={() => createFor(k.id)} icon={ICONS.spark}>{t('createNew')}</Btn>
-                  <button className="qk-btn qk-btn-ghost" onClick={() => openKidHome(k.id)}>{t('open')}</button>
+                  <button className="qk-btn qk-btn-ghost" onClick={() => openKidDetail(k.id)}>{t('viewDetails')}</button>
                   <button className="qk-btn qk-btn-ghost" onClick={() => setDeletingKid(k)}
                     style={{ marginLeft: 'auto', color: 'var(--coral)', padding: '0 10px' }} title="Remove kid">
                     {ICONS.trash}
