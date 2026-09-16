@@ -25,8 +25,19 @@ export default function PickerClient() {
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
   const [custom, setCustom] = React.useState('');
+  const [customTopics, setCustomTopics] = React.useState<string[]>([]);
 
   const topics = (TOPICS_BY_SUBJECT[studyParams.subject]?.[lang] || TOPICS_BY_SUBJECT.sci[lang]) as string[];
+  // merge in any custom topics the kid/parent has typed in, so they stay visible as chips
+  const allTopics = [...topics, ...customTopics.filter((ct) => !topics.includes(ct))];
+
+  // keep an already-selected custom topic visible if we land on this page with one set
+  React.useEffect(() => {
+    if (studyParams.topic && !topics.includes(studyParams.topic) && !customTopics.includes(studyParams.topic)) {
+      setCustomTopics((prev) => [...prev, studyParams.topic]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const selectKid = (id: string) => {
     const k = kids.find((k) => k.id === id);
@@ -78,7 +89,7 @@ export default function PickerClient() {
                 const bg = `var(--${s.tone === 'primary' ? 'primary-l' : s.tone + '-l'})`;
                 const fg = `var(--${s.tone === 'primary' ? 'primary' : s.tone})`;
                 return (
-                  <button key={s.id} onClick={() => setStudyParams({ ...studyParams, subject: s.id, topic: '' })} className="qk-wiggle"
+                  <button key={s.id} onClick={() => { setStudyParams({ ...studyParams, subject: s.id, topic: '' }); setCustomTopics([]); }} className="qk-wiggle"
                     style={{ appearance: 'none', textAlign: 'left', padding: '18px 16px', borderRadius: 18, background: on ? bg : 'var(--surface)', border: '2px solid ' + (on ? fg : 'var(--line)'), cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, boxShadow: on ? 'var(--shadow)' : 'var(--shadow-sm)', transition: 'all .15s ease' }}>
                     <div style={{ width: 44, height: 44, borderRadius: 14, background: bg, color: fg, display: 'grid', placeItems: 'center', fontSize: 24 }}>{s.icon}</div>
                     <div>
@@ -91,7 +102,7 @@ export default function PickerClient() {
               {(customSubjects || []).map((s) => {
                 const on = studyParams.subject === s.id;
                 return (
-                  <button key={s.id} onClick={() => setStudyParams({ ...studyParams, subject: s.id, topic: '' })} className="qk-wiggle"
+                  <button key={s.id} onClick={() => { setStudyParams({ ...studyParams, subject: s.id, topic: '' }); setCustomTopics([]); }} className="qk-wiggle"
                     style={{ appearance: 'none', textAlign: 'left', padding: '18px 16px', borderRadius: 18, background: on ? s.color + '22' : 'var(--surface)', border: '2px solid ' + (on ? s.color : 'var(--line)'), cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, boxShadow: on ? 'var(--shadow)' : 'var(--shadow-sm)', transition: 'all .15s ease' }}>
                     <div style={{ width: 44, height: 44, borderRadius: 14, background: s.color + '22', color: s.color, display: 'grid', placeItems: 'center', fontSize: 24 }}>{s.icon}</div>
                     <div>
@@ -119,14 +130,27 @@ export default function PickerClient() {
           <section style={{ marginTop: 28 }}>
             <div className="qk-label" style={{ marginBottom: 12, fontSize: 14 }}>{t('topic')}</div>
             <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
-              {topics.map((topic) => {
+              {allTopics.map((topic) => {
                 const on = studyParams.topic === topic;
-                return <button key={topic} onClick={() => setStudyParams({ ...studyParams, topic })} style={{ appearance: 'none', padding: '14px 14px', textAlign: 'left', background: on ? 'var(--primary-l)' : 'var(--surface)', border: '1.5px solid ' + (on ? 'var(--primary)' : 'var(--line)'), borderRadius: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, fontSize: 15, color: 'var(--ink)', boxShadow: on ? 'var(--shadow-sm)' : 'none', transition: 'all .15s ease' }}><span style={{ flex: 1 }}>{topic}</span>{on && <span style={{ color: 'var(--primary)' }}>{ICONS.check}</span>}</button>;
+                const isCustom = customTopics.includes(topic) && !topics.includes(topic);
+                return (
+                  <button key={topic} onClick={() => setStudyParams({ ...studyParams, topic })} style={{ appearance: 'none', padding: '14px 14px', textAlign: 'left', background: on ? 'var(--primary-l)' : 'var(--surface)', border: '1.5px solid ' + (on ? 'var(--primary)' : 'var(--line)'), borderRadius: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, fontSize: 15, color: 'var(--ink)', boxShadow: on ? 'var(--shadow-sm)' : 'none', transition: 'all .15s ease' }}>
+                    <span style={{ flex: 1 }}>{topic}</span>
+                    {isCustom && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{lang === 'es' ? 'Personal' : 'Custom'}</span>}
+                    {on && <span style={{ color: 'var(--primary)' }}>{ICONS.check}</span>}
+                  </button>
+                );
               })}
             </div>
             <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
               <input className="qk-input" placeholder={t('customTopicPh')} value={custom} onChange={(e) => setCustom(e.target.value)} style={{ flex: 1 }} />
-              <Btn kind="ghost" icon={ICONS.plus} onClick={() => { if (custom.trim()) { setStudyParams({ ...studyParams, topic: custom.trim() }); setCustom(''); } }}>{t('customTopic')}</Btn>
+              <Btn kind="ghost" icon={ICONS.plus} onClick={() => {
+                const val = custom.trim();
+                if (!val) return;
+                setStudyParams({ ...studyParams, topic: val });
+                setCustomTopics((prev) => (prev.includes(val) ? prev : [...prev, val]));
+                setCustom('');
+              }}>{t('customTopic')}</Btn>
             </div>
           </section>
 

@@ -41,8 +41,8 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
       setMode('kid');
       router.push('/kids/home');
     } else {
-      setMode('parent');
-      router.push(kids.length ? '/dashboard' : '/');
+      // Netflix-style: leaving a kid profile back to parent needs the PIN
+      router.push('/profile/pin');
     }
   };
 

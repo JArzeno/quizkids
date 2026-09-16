@@ -185,7 +185,7 @@ export default function QuizClient() {
             <div style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 700 }}>{t('card')} {i + 1} / {cards.length}</div>
             <div style={{ fontSize: 13, color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{studyParams.topic}</div>
           </div>
-          <div className="qk-progress"><span style={{ width: `${(i / cards.length) * 100}%` }} /></div>
+          <div className="qk-progress"><span style={{ width: `${((i + 1) / cards.length) * 100}%` }} /></div>
         </div>
 
         <div style={{ flex: 1, display: 'grid', placeItems: 'center', padding: '24px 22px' }}>

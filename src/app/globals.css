@@ -240,7 +240,7 @@ input, textarea, select { font-family: inherit; color: inherit; }
 }
 .qk-progress > span {
   display: block; height: 100%;
-  background: linear-gradient(90deg, var(--primary), #6BB07A);
+  background: var(--primary);
   border-radius: 999px;
   /* transitions.dev smooth progress */
   transition: width .5s cubic-bezier(.2,.7,.2,1);
