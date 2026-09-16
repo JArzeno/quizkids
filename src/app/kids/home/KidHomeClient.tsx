@@ -245,9 +245,6 @@ export default function KidHomeClient() {
             </div>
             <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
               <SessionPill lang={lang} session={session} onStart={session.start} onTogglePause={() => session.paused ? session.resume() : session.pause()} onEnd={session.end} />
-              <button onClick={() => { setMode('parent'); router.push('/dashboard'); }} style={{ appearance: 'none', border: 0, background: 'transparent', fontSize: 12, color: 'var(--ink-3)', textDecoration: 'underline', cursor: 'pointer' }}>
-                {t('switchToParent')}
-              </button>
             </div>
           </div>
 
