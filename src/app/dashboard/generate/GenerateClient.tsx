@@ -25,7 +25,6 @@ export default function GenerateClient() {
 
   const [genState, setGenState] = React.useState<GenType | null>(null);
   const [progress, setProgress] = React.useState(0);
-  const [done, setDone] = React.useState<GenResult | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
   const difficultyLabel = { easy: lang === 'es' ? 'Fácil' : 'Easy', medium: lang === 'es' ? 'Medio' : 'Medium', hard: lang === 'es' ? 'Difícil' : 'Hard' }[difficulty];
@@ -115,10 +114,9 @@ export default function GenerateClient() {
         updateKid(kid.id, { recent: [newItem, ...(kid.recent || [])].slice(0, 20) });
       }
 
+      // Open it automatically — no extra click needed once it's ready
       setTimeout(() => {
-        setGenState(null);
-        setDone({ contentId, cached: data.cached ?? false, type });
-        setProgress(0);
+        openContent({ contentId, cached: data.cached ?? false, type });
       }, 400);
     } catch (err) {
       clearInterval(interval);
@@ -143,7 +141,7 @@ export default function GenerateClient() {
     <AppShell>
       <div className="qk-screen qk-page-enter">
         <div style={{ maxWidth: 980, margin: '0 auto' }}>
-          <button className="qk-btn qk-btn-ghost" onClick={() => { setDone(null); router.push('/dashboard/picker'); }}>
+          <button className="qk-btn qk-btn-ghost" onClick={() => router.push('/dashboard/picker')}>
             {ICONS.back} <span>{t('back')}</span>
           </button>
 
@@ -173,35 +171,8 @@ export default function GenerateClient() {
             </div>
           )}
 
-          {/* Success banner */}
-          {done && kid && (
-            <div className="qk-card qk-slide-up" style={{ marginTop: 20, padding: '24px 28px', display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', background: 'linear-gradient(135deg, var(--primary-l) 0%, var(--honey-l) 100%)', borderColor: 'var(--primary)' }}>
-              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                {ICONS.check}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 20 }}>
-                  {lang === 'es' ? `¡Listo para ${kid.name}!` : `Ready for ${kid.name}!`}
-                </div>
-                <div style={{ fontSize: 14, color: 'var(--ink-2)', marginTop: 4 }}>
-                  {done.cached
-                    ? (lang === 'es' ? 'Contenido guardado encontrado · sin créditos usados.' : 'Saved content found · no credits used.')
-                    : (lang === 'es' ? `Aparecerá en el feed de ${kid.name}.` : `Added to ${kid.name}'s feed.`)}
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
-                <Btn kind="primary" icon={ICONS.cards} onClick={() => openContent(done)}>
-                  {lang === 'es' ? `Abrir como ${kid.name}` : `Open as ${kid.name}`}
-                </Btn>
-                <button className="qk-btn qk-btn-ghost" onClick={() => { setDone(null); router.push('/dashboard'); }}>
-                  {lang === 'es' ? 'Volver' : 'Back to dashboard'}
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Cards */}
-          <div className="qk-stagger" style={{ marginTop: 28, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18, opacity: done ? 0.45 : 1, pointerEvents: done ? 'none' : undefined }}>
+          <div className="qk-stagger" style={{ marginTop: 28, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18, opacity: genState ? 0.45 : 1, pointerEvents: genState ? 'none' : undefined }}>
             {([
               { id: 'quiz' as GenType, title: t('genQuiz'), sub: t('genQuizSub'), tone: 'primary', icon: ICONS.cards },
               { id: 'guide' as GenType, title: t('genGuide'), sub: t('genGuideSub'), tone: 'sky', icon: ICONS.book },

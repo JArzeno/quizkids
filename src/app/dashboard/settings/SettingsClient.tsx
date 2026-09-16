@@ -9,6 +9,14 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 
+const BUILTIN_SUBJECTS = [
+  { id: 'sci', icon: '🔬' },
+  { id: 'math', icon: '➗' },
+  { id: 'lang', icon: '📖' },
+  { id: 'soc', icon: '🌎' },
+  { id: 'art', icon: '🎨' },
+];
+
 export default function SettingsClient() {
   const store = useStore();
   const { lang, setLang, account, setAccount, kids, setKids, updateKid, removeKid, parentPrefs, setParentPrefs, parentPin, setParentPin, customSubjects, setCustomSubjects, plan, setPlan, palette, setPalette, gamification, setGamification, difficulty, setDifficulty, setMode, setIsDemo } = store;
@@ -40,6 +48,7 @@ export default function SettingsClient() {
                   { id: 'sec-account', label: t('settingsAccount') },
                   { id: 'sec-billing', label: t('settingsBilling') },
                   { id: 'sec-kids', label: t('settingsKids') },
+                  { id: 'sec-subjects', label: t('settingsSubjects') },
                   { id: 'sec-security', label: t('settingsSecurity') },
                   { id: 'sec-prefs', label: t('settingsPrefs') },
                   { id: 'sec-danger', label: t('settingsDanger'), coral: true },
@@ -112,6 +121,45 @@ export default function SettingsClient() {
                 </div>
               </section>
 
+              {/* SUBJECTS */}
+              <section id="sec-subjects" className="qk-card" style={{ padding: '22px 24px', scrollMarginTop: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+                  <h2 className="qk-h2">{t('settingsSubjects')}</h2>
+                  <Btn kind="ghost" icon={ICONS.plus} onClick={() => setShowAddSubject((v) => !v)}>{t('addCustomSubject')}</Btn>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
+                  {BUILTIN_SUBJECTS.map((s) => (
+                    <div key={s.id} className="qk-card" style={{ padding: 14, boxShadow: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 38, height: 38, borderRadius: 12, background: 'var(--surface-2)', display: 'grid', placeItems: 'center', fontSize: 20 }}>{s.icon}</div>
+                      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15 }}>{t(s.id)}</div>
+                    </div>
+                  ))}
+                  {(customSubjects || []).map((s) => (
+                    <div key={s.id} className="qk-card" style={{ padding: 14, boxShadow: 'none', display: 'flex', alignItems: 'center', gap: 10, background: s.color + '22', border: '1px solid ' + s.color }}>
+                      <div style={{ width: 38, height: 38, borderRadius: 12, background: 'var(--surface)', color: s.color, display: 'grid', placeItems: 'center', fontSize: 20 }}>{s.icon}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15 }}>{s.name}</div>
+                        <div style={{ fontSize: 11, color: s.color, fontWeight: 700 }}>{lang === 'es' ? 'PERSONAL' : 'CUSTOM'}</div>
+                      </div>
+                      <button onClick={() => setCustomSubjects(customSubjects.filter((x) => x.id !== s.id))} style={{ appearance: 'none', border: 0, background: 'transparent', color: 'var(--ink-3)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
+                        {React.cloneElement(ICONS.trash as React.ReactElement<{ size?: number }>, { size: 14 })}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {showAddSubject && (
+                  <AddSubjectPanel
+                    lang={lang}
+                    onCancel={() => setShowAddSubject(false)}
+                    onAdd={(s) => {
+                      setCustomSubjects([...(customSubjects || []), { ...s, id: 'cus-' + Math.random().toString(36).slice(2, 7) }]);
+                      setShowAddSubject(false);
+                      fireToast(t('saved'));
+                    }}
+                  />
+                )}
+              </section>
+
               {/* SECURITY */}
               <section id="sec-security" className="qk-card" style={{ padding: '22px 24px', scrollMarginTop: 24 }}>
                 <h2 className="qk-h2" style={{ marginBottom: 18 }}>{t('settingsSecurity')}</h2>
@@ -172,6 +220,55 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div className="qk-label">{label}</div>
       {children}
+    </div>
+  );
+}
+
+function AddSubjectPanel({ lang, onCancel, onAdd }: { lang: 'en' | 'es'; onCancel: () => void; onAdd: (s: { name: string; icon: string; color: string }) => void }) {
+  const t = useT(lang);
+  const ICONS_GRID = ['🤖', '💻', '🔤', '🎵', '🌱', '🧪', '🎭', '🧮', '✏️', '🌍', '⚽', '🍳', '🦖', '🎨'];
+  const COLORS = ['#3F7A4F', '#E29A2B', '#E26D5A', '#6BA8C9', '#B14F8C', '#7A5AE0', '#2F7C8A', '#5A9F58'];
+  const [name, setName] = React.useState('');
+  const [icon, setIcon] = React.useState(ICONS_GRID[0]);
+  const [color, setColor] = React.useState(COLORS[0]);
+
+  return (
+    <div className="qk-card" style={{ marginTop: 14, padding: 18, background: 'var(--surface-2)', boxShadow: 'none', border: '1.5px dashed var(--primary)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17 }}>{t('addCustomSubject')}</div>
+        <button onClick={onCancel} className="qk-btn qk-btn-ghost" style={{ padding: '4px 8px', fontSize: 13 }}>{t('cancel')}</button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 14, alignItems: 'center' }}>
+        <div style={{ width: 64, height: 64, borderRadius: 18, background: 'var(--surface)', color, display: 'grid', placeItems: 'center', fontSize: 32, border: '2px solid ' + color }}>{icon}</div>
+        <input className="qk-input" placeholder={t('customSubjectPh')} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <div className="qk-label" style={{ marginBottom: 8 }}>{t('customSubjectIcon')}</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {ICONS_GRID.map((i) => (
+            <button key={i} onClick={() => setIcon(i)} style={{ appearance: 'none', border: '2px solid ' + (i === icon ? color : 'transparent'), background: 'var(--surface)', width: 40, height: 40, borderRadius: 10, fontSize: 20, cursor: 'pointer' }}>{i}</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <div className="qk-label" style={{ marginBottom: 8 }}>{t('customSubjectColor')}</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {COLORS.map((c) => (
+            <button key={c} onClick={() => setColor(c)} aria-label={c}
+              style={{ width: 34, height: 34, borderRadius: '50%', background: c, border: '3px solid ' + (color === c ? 'var(--ink)' : 'transparent'), cursor: 'pointer', padding: 0 }} />
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 18, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+        <Btn kind="primary" icon={ICONS.plus} disabled={!name.trim()} style={{ opacity: name.trim() ? 1 : .5 }}
+          onClick={() => onAdd({ name: name.trim(), icon, color })}>
+          {t('addCustomSubject')}
+        </Btn>
+      </div>
     </div>
   );
 }
