@@ -1,7 +1,7 @@
 'use client';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Kid, ParentPrefs, QuizResult, StudyParams, Lang } from '@/types';
+import type { Kid, ParentPrefs, QuizResult, StudyParams, Lang, ImportedLesson } from '@/types';
 
 interface AppState {
   // lang
@@ -42,6 +42,10 @@ interface AppState {
   // study params (for picker → generate → quiz/guide/pdf flow)
   studyParams: StudyParams;
   setStudyParams: (p: StudyParams) => void;
+
+  // last imported class (PDF / photos → analysis), so the parent can come back to it
+  importedLesson: ImportedLesson | null;
+  setImportedLesson: (l: ImportedLesson | null) => void;
 
   // quiz result (for quiz → results)
   quizResult: QuizResult | null;
@@ -125,6 +129,9 @@ export const useStore = create<AppState>()(
 
       studyParams: { subject: 'sci', topic: 'Solar System & Planets', grade: '3', difficulty: 'medium', lang: 'en' },
       setStudyParams: (studyParams) => set({ studyParams }),
+
+      importedLesson: null,
+      setImportedLesson: (importedLesson) => set({ importedLesson }),
 
       quizResult: null,
       setQuizResult: (quizResult) => set({ quizResult }),

@@ -66,6 +66,7 @@ export default function GuideClient() {
             grade: studyParams.grade,
             lang,
             subject: studyParams.subject,
+            source: studyParams.source,
           }),
         });
         if (res.ok) setGuide(await res.json());

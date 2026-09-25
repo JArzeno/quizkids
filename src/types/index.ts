@@ -100,6 +100,17 @@ export interface StudyParams {
   lang: 'en' | 'es';
   contentId?: string;
   assignmentId?: string;
+  /** Study notes extracted from an imported class (PDF / photos); grounds generation in that material */
+  source?: string;
+}
+
+export interface ImportedLesson {
+  title: string;
+  subject: string;
+  summary: string;
+  keyPoints: string[];
+  vocabulary: { term: string; def: string }[];
+  notes: string;
 }
 
 export type Lang = 'en' | 'es';
