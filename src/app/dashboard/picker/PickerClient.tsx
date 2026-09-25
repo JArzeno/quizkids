@@ -94,7 +94,7 @@ export default function PickerClient() {
                     <div style={{ width: 44, height: 44, borderRadius: 14, background: bg, color: fg, display: 'grid', placeItems: 'center', fontSize: 24 }}>{s.icon}</div>
                     <div>
                       <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>{t(s.id)}</div>
-                      <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{s.id === 'sci' ? (lang === 'es' ? '8 temas' : '8 topics') : (lang === 'es' ? 'próximamente' : 'coming soon')}</div>
+                      <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{(TOPICS_BY_SUBJECT[s.id]?.[lang] || TOPICS_BY_SUBJECT.sci[lang]).length} {lang === 'es' ? 'temas' : 'topics'}</div>
                     </div>
                   </button>
                 );

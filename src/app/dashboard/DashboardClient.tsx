@@ -10,6 +10,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
+import { computeStreak, computeWeeklyPct } from '@/lib/streak';
 import type { Kid } from '@/types';
 
 const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> = {
@@ -26,6 +27,14 @@ function gradeLabel(grade: string, lang: string) {
   return (lang === 'es' ? 'Grado ' : 'Grade ') + grade;
 }
 
+interface QuizHistoryRow {
+  subject: string | null;
+  topic: string | null;
+  correct: number | null;
+  total: number | null;
+  created_at: string;
+}
+
 interface KidSummary {
   kidId: string;
   totalSessions: number;
@@ -34,39 +43,51 @@ interface KidSummary {
   avgScore: number;  // 0–100
   topSubjects: Array<{ subject: string; count: number }>;
   recentTopics: string[];
+  streak: number;
+  weeklyPct: number;
+  history: QuizHistoryRow[];
 }
 
-function DeleteKidModal({ kid, onCancel, onConfirm }: { kid: Kid; onCancel: () => void; onConfirm: () => void }) {
-  const [typed, setTyped] = React.useState('');
-  const canDelete = typed === 'DELETE';
-  React.useEffect(() => { setTyped(''); }, [kid.id]);
+function relativeDate(iso: string, lang: string) {
+  const then = new Date(iso);
+  const days = Math.floor((Date.now() - then.getTime()) / 86400000);
+  if (days <= 0) return lang === 'es' ? 'Hoy' : 'Today';
+  if (days === 1) return lang === 'es' ? 'Ayer' : 'Yesterday';
+  if (days < 7) return lang === 'es' ? `Hace ${days} días` : `${days} days ago`;
+  return then.toLocaleDateString(lang === 'es' ? 'es-DO' : 'en-US', { month: 'short', day: 'numeric' });
+}
 
+function HistoryModal({ kid, history, lang, onClose }: { kid: Kid; history: QuizHistoryRow[]; lang: string; onClose: () => void }) {
+  const t = useT(lang as 'en' | 'es');
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,.45)', backdropFilter: 'blur(4px)', display: 'grid', placeItems: 'center', padding: 24 }} onClick={onCancel}>
-      <div className="qk-card" style={{ width: '100%', maxWidth: 420, padding: 28 }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 14, background: 'var(--coral-l)', color: 'var(--coral)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>{ICONS.trash}</div>
-          <div>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18 }}>Remove {kid.name}?</div>
-            <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 2 }}>This will delete all their progress and history.</div>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,.45)', backdropFilter: 'blur(4px)', display: 'grid', placeItems: 'center', padding: 24 }} onClick={onClose}>
+      <div className="qk-card" style={{ width: '100%', maxWidth: 460, maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: 24 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <Avatar id={kid.avatar} size={40} ring={kid.color} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17 }}>{t('history')}</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{kid.name}</div>
           </div>
+          <button className="qk-btn qk-btn-ghost" onClick={onClose} style={{ padding: '8px 10px' }}>{ICONS.x}</button>
         </div>
-        <div style={{ padding: '12px 14px', background: 'var(--coral-l)', borderRadius: 12, marginBottom: 20, fontSize: 13, color: 'var(--coral)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Avatar id={kid.avatar} size={28} />
-          <span>{kid.name} · {gradeLabel(kid.grade, 'en')}</span>
-        </div>
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 8 }}>
-            Type <strong style={{ fontFamily: 'ui-monospace, monospace', color: 'var(--coral)' }}>DELETE</strong> to confirm:
-          </div>
-          <input className="qk-input" placeholder="DELETE" value={typed} onChange={e => setTyped(e.target.value)} autoFocus style={{ fontFamily: 'ui-monospace, monospace', letterSpacing: '.1em' }} />
-        </div>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button className="qk-btn qk-btn-ghost" onClick={onCancel}>Cancel</button>
-          <button className="qk-btn" disabled={!canDelete} onClick={canDelete ? onConfirm : undefined}
-            style={{ background: canDelete ? 'var(--coral)' : 'var(--surface-2)', color: canDelete ? '#fff' : 'var(--ink-3)', cursor: canDelete ? 'pointer' : 'not-allowed', opacity: canDelete ? 1 : 0.7, transition: 'background .2s, color .2s' }}>
-            {ICONS.trash}<span>Remove kid</span>
-          </button>
+        <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {history.length === 0 ? (
+            <div style={{ fontSize: 13, color: 'var(--ink-3)', padding: '20px 0', textAlign: 'center' }}>{t('historyEmpty')}</div>
+          ) : history.map((h, i) => {
+            const info = h.subject ? (SUBJECT_LABELS[h.subject] || { en: h.subject, es: h.subject, icon: '📚' }) : null;
+            const pct = (h.total || 0) > 0 ? Math.round(((h.correct || 0) / (h.total || 1)) * 100) : 0;
+            return (
+              <div key={`${h.created_at}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', background: 'var(--surface-2)', borderRadius: 12 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--primary-l)', color: 'var(--primary-d)', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 15 }}>
+                  {info ? info.icon : ICONS.cards}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.topic || '—'}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{relativeDate(h.created_at, lang)} · {h.correct || 0}/{h.total || 0} · {pct}%</div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -127,10 +148,10 @@ function KidSummaryPanel({ kid, summary, lang }: { kid: Kid; summary: KidSummary
 }
 
 export default function DashboardClient() {
-  const { lang, kids, account, setActiveKidId, gamification, removeKid, setKids, isDemo } = useStore();
+  const { lang, kids, account, setActiveKidId, gamification, setKids, isDemo } = useStore();
   const t = useT(lang);
   const router = useRouter();
-  const [deletingKid, setDeletingKid] = React.useState<Kid | null>(null);
+  const [historyKid, setHistoryKid] = React.useState<Kid | null>(null);
   const [summaries, setSummaries] = React.useState<Record<string, KidSummary>>({});
 
   React.useEffect(() => {
@@ -163,9 +184,10 @@ export default function DashboardClient() {
         if (kidIds.length > 0) {
           const [quizRes, sessionRes] = await Promise.all([
             supabase.from('quiz_results').select('kid_id, subject, topic, correct, total, stars, created_at').in('kid_id', kidIds),
-            supabase.from('study_sessions').select('kid_id, minutes').in('kid_id', kidIds),
+            supabase.from('study_sessions').select('kid_id, minutes, started_at').in('kid_id', kidIds),
           ]);
 
+          const sevenDaysAgo = Date.now() - 7 * 86400000;
           const newSummaries: Record<string, KidSummary> = {};
           for (const kidId of kidIds) {
             const quizzes = (quizRes.data || []).filter((r) => r.kid_id === kidId);
@@ -199,7 +221,22 @@ export default function DashboardClient() {
               if (recentTopics.length >= 5) break;
             }
 
-            newSummaries[kidId] = { kidId, totalSessions: sessions.length, totalMinutes, quizzesDone, avgScore, topSubjects, recentTopics };
+            // Streak: consecutive days with a quiz or a study session
+            const streak = computeStreak([
+              ...quizzes.map((q) => q.created_at),
+              ...sessions.map((s) => s.started_at),
+            ]);
+
+            // Weekly progress: minutes studied in the last 7 days vs. the kid's daily goal
+            const last7Minutes = sessions
+              .filter((s) => s.started_at && new Date(s.started_at).getTime() >= sevenDaysAgo)
+              .reduce((acc, s) => acc + (s.minutes || 0), 0);
+            const goalMin = data.find((k) => k.id === kidId)?.goal_min || 30;
+            const weeklyPct = computeWeeklyPct(last7Minutes, goalMin);
+
+            const history = [...quizzes].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).slice(0, 20);
+
+            newSummaries[kidId] = { kidId, totalSessions: sessions.length, totalMinutes, quizzesDone, avgScore, topSubjects, recentTopics, streak, weeklyPct, history };
           }
           setSummaries(newSummaries);
         }
@@ -210,7 +247,9 @@ export default function DashboardClient() {
 
   const totalStars = kids.reduce((a, k) => a + (k.stars || 0), 0);
   const totalMin = kids.reduce((a, k) => a + (k.minutes_total || 0), 0);
-  const longest = Math.max(0, ...kids.map((k) => k.streak || 0));
+  const streakFor = (k: Kid) => (isDemo ? (k.streak || 0) : (summaries[k.id]?.streak ?? 0));
+  const weeklyFor = (k: Kid) => (isDemo ? (k.weekly || 0) : (summaries[k.id]?.weeklyPct ?? 0));
+  const longest = Math.max(0, ...kids.map(streakFor));
 
   const openKidDetail = (id: string) => { setActiveKidId(id); router.push('/dashboard/kid/' + id); };
   const createFor = (id: string) => { setActiveKidId(id); router.push('/dashboard/picker'); };
@@ -253,7 +292,7 @@ export default function DashboardClient() {
                   </div>
                   {gamification !== 'minimal' && (
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--coral)', fontWeight: 700 }}>{ICONS.flame}{k.streak || 0}</div>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--coral)', fontWeight: 700 }}>{ICONS.flame}{streakFor(k)}</div>
                       <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{t('streak')}</div>
                     </div>
                   )}
@@ -262,9 +301,9 @@ export default function DashboardClient() {
                 <div style={{ marginTop: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--ink-3)', marginBottom: 6 }}>
                     <span>{lang === 'es' ? 'Progreso semanal' : 'Weekly progress'}</span>
-                    <span>{k.weekly || 0}%</span>
+                    <span>{weeklyFor(k)}%</span>
                   </div>
-                  <div className="qk-progress"><span style={{ width: (k.weekly || 0) + '%' }} /></div>
+                  <div className="qk-progress"><span style={{ width: weeklyFor(k) + '%' }} /></div>
                 </div>
 
                 {/* Study summary */}
@@ -288,12 +327,13 @@ export default function DashboardClient() {
                   </div>
                 )}
 
-                <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-                  <Btn kind="primary" onClick={() => createFor(k.id)} icon={ICONS.spark}>{t('createNew')}</Btn>
-                  <button className="qk-btn qk-btn-ghost" onClick={() => openKidDetail(k.id)}>{t('viewDetails')}</button>
-                  <button className="qk-btn qk-btn-ghost" onClick={() => setDeletingKid(k)}
-                    style={{ marginLeft: 'auto', color: 'var(--coral)', padding: '0 10px' }} title="Remove kid">
-                    {ICONS.trash}
+                <div style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'nowrap' }}>
+                  <Btn kind="primary" onClick={() => createFor(k.id)} icon={ICONS.spark} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t('createNew')}</Btn>
+                  <button className="qk-btn qk-btn-ghost" onClick={() => openKidDetail(k.id)} title={t('viewDetails')} style={{ padding: '0 12px', flexShrink: 0 }}>
+                    {ICONS.eye}
+                  </button>
+                  <button className="qk-btn qk-btn-ghost" onClick={() => setHistoryKid(k)} title={t('history')} style={{ padding: '0 12px', flexShrink: 0 }}>
+                    {ICONS.clock}
                   </button>
                 </div>
               </div>
@@ -310,18 +350,12 @@ export default function DashboardClient() {
         </div>
       </div>
 
-      {deletingKid && (
-        <DeleteKidModal
-          kid={deletingKid}
-          onCancel={() => setDeletingKid(null)}
-          onConfirm={async () => {
-            if (!isDemo) {
-              const supabase = createClient();
-              await supabase.from('kids').delete().eq('id', deletingKid.id);
-            }
-            removeKid(deletingKid.id);
-            setDeletingKid(null);
-          }}
+      {historyKid && (
+        <HistoryModal
+          kid={historyKid}
+          history={summaries[historyKid.id]?.history || []}
+          lang={lang}
+          onClose={() => setHistoryKid(null)}
         />
       )}
     </AppShell>
