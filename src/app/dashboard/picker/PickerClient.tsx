@@ -91,6 +91,17 @@ export default function PickerClient() {
             <span style={{ color: 'var(--ink-3)' }}>{ICONS.next}</span>
           </button>
 
+          {/* google classroom */}
+          <button onClick={() => router.push('/dashboard/classroom')} className="qk-card qk-card-interactive"
+            style={{ appearance: 'none', width: '100%', marginTop: 12, padding: 18, display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', cursor: 'pointer', border: '1.5px dashed var(--line)' }}>
+            <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--primary-l)', color: 'var(--primary)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>{ICONS.book}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, color: 'var(--ink)' }}>Google Classroom</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>{lang === 'es' ? 'Conecta su cuenta escolar y crea material de estudio de sus tareas y anuncios.' : 'Connect their school account and build study material from their assignments and announcements.'}</div>
+            </div>
+            <span style={{ color: 'var(--ink-3)' }}>{ICONS.next}</span>
+          </button>
+
           {/* subject */}
           <section style={{ marginTop: 28 }}>
             <div className="qk-label" style={{ marginBottom: 12, fontSize: 14 }}>{t('subject')}</div>
