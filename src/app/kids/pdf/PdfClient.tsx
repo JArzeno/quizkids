@@ -9,7 +9,7 @@ import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import type { QuizQuestion } from '@/types';
 
-const FALLBACK: { questions: QuizQuestion[]; bonus: string } = {
+const FALLBACK_EN: { questions: QuizQuestion[]; bonus: string } = {
   questions: [
     { q: 'How many planets are in our solar system?', choices: ['6', '7', '8', '9'], a: 2, hint: '' },
     { q: 'Which planet is closest to the Sun?', choices: ['Mercury', 'Venus', 'Earth', 'Mars'], a: 0, hint: '' },
@@ -21,9 +21,22 @@ const FALLBACK: { questions: QuizQuestion[]; bonus: string } = {
   bonus: 'Draw your favorite planet and write 2 things you learned.',
 };
 
+const FALLBACK_ES: { questions: QuizQuestion[]; bonus: string } = {
+  questions: [
+    { q: '¿Cuántos planetas hay en nuestro sistema solar?', choices: ['6', '7', '8', '9'], a: 2, hint: '' },
+    { q: '¿Qué planeta está más cerca del Sol?', choices: ['Mercurio', 'Venus', 'Tierra', 'Marte'], a: 0, hint: '' },
+    { q: '¿Cuál es el planeta más grande?', choices: ['Saturno', 'Júpiter', 'Neptuno', 'Tierra'], a: 1, hint: '' },
+    { q: '¿En qué planeta vivimos?', choices: ['Marte', 'Venus', 'Tierra', 'Saturno'], a: 2, hint: '' },
+    { q: '¿Qué planeta tiene los anillos más famosos?', choices: ['Urano', 'Saturno', 'Marte', 'Mercurio'], a: 1, hint: '' },
+    { q: '¿Qué es el Sol?', choices: ['Un planeta', 'Una estrella', 'Una luna', 'Un cometa'], a: 1, hint: '' },
+  ],
+  bonus: 'Dibuja tu planeta favorito y escribe 2 cosas que aprendiste.',
+};
+
 export default function PdfClient() {
   const { lang, kids, activeKidId, studyParams, setMode, isDemo } = useStore();
   const t = useT(lang);
+  const FALLBACK = lang === 'es' ? FALLBACK_ES : FALLBACK_EN;
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
 
@@ -42,10 +55,11 @@ export default function PdfClient() {
             const supabase = createClient();
             const { data: cached } = await supabase
               .from('generated_content')
-              .select('content')
+              .select('content, lang')
               .eq('id', studyParams.contentId)
               .single();
-            if (cached?.content) {
+            // Only reuse assigned content if it is in the account's current language
+            if (cached?.content && (cached.lang || 'en') === lang) {
               setData(cached.content as { questions: QuizQuestion[]; bonus: string });
               setLoading(false);
               return;

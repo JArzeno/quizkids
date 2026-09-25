@@ -52,7 +52,7 @@ export default function AuthClient() {
       const { error: err } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
-        options: { data: { name: form.name } },
+        options: { data: { name: form.name, lang } },
       });
       setLoading(false);
       if (err) { setError(err.message); return; }
@@ -66,6 +66,8 @@ export default function AuthClient() {
       setLoading(false);
       if (err) { setError(err.message); return; }
       const name = data.user?.user_metadata?.name || data.user?.email || '';
+      const savedLang = data.user?.user_metadata?.lang;
+      if (savedLang === 'en' || savedLang === 'es') useStore.setState((s) => ({ lang: savedLang, studyParams: { ...s.studyParams, lang: savedLang } }));
       setAccount({ name, email: form.email });
       const { data: kidsData } = await supabase
         .from('kids')

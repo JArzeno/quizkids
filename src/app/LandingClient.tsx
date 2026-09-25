@@ -24,6 +24,8 @@ export default function LandingClient() {
     setCheckedAuth(true);
   }, [account, isDemo, router]);
 
+  React.useEffect(() => { document.documentElement.lang = lang; }, [lang]);
+
   const scrollTo = (id: string) => {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });

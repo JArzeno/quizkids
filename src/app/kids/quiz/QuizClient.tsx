@@ -10,7 +10,7 @@ import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import type { QuizQuestion } from '@/types';
 
-const FALLBACK_QUIZ: QuizQuestion[] = [
+const FALLBACK_QUIZ_EN: QuizQuestion[] = [
   { q: 'How many planets are in our solar system?', choices: ['6', '7', '8', '9'], a: 2, hint: "Pluto is now a 'dwarf planet'." },
   { q: 'Which planet is closest to the Sun?', choices: ['Mercury', 'Venus', 'Earth', 'Mars'], a: 0, hint: 'It is also the smallest.' },
   { q: 'Which is the largest planet?', choices: ['Saturn', 'Jupiter', 'Neptune', 'Earth'], a: 1, hint: 'It has a giant red spot.' },
@@ -21,9 +21,21 @@ const FALLBACK_QUIZ: QuizQuestion[] = [
   { q: 'What is the Sun?', choices: ['A planet', 'A star', 'A moon', 'A comet'], a: 1, hint: 'It makes its own light.' },
 ];
 
+const FALLBACK_QUIZ_ES: QuizQuestion[] = [
+  { q: '¿Cuántos planetas hay en nuestro sistema solar?', choices: ['6', '7', '8', '9'], a: 2, hint: "Plutón ahora es un 'planeta enano'." },
+  { q: '¿Qué planeta está más cerca del Sol?', choices: ['Mercurio', 'Venus', 'Tierra', 'Marte'], a: 0, hint: 'También es el más pequeño.' },
+  { q: '¿Cuál es el planeta más grande?', choices: ['Saturno', 'Júpiter', 'Neptuno', 'Tierra'], a: 1, hint: 'Tiene una gran mancha roja.' },
+  { q: '¿En qué planeta vivimos?', choices: ['Marte', 'Venus', 'Tierra', 'Saturno'], a: 2, hint: 'Desde el espacio se ve azul.' },
+  { q: '¿Qué planeta tiene los anillos más famosos?', choices: ['Urano', 'Saturno', 'Marte', 'Mercurio'], a: 1, hint: 'Están hechos de hielo y roca.' },
+  { q: '¿Cómo se llama el satélite natural de la Tierra?', choices: ['Sol', 'Estrella', 'Luna', 'Cometa'], a: 2, hint: 'Brilla de noche.' },
+  { q: "¿Qué planeta es conocido como el 'Planeta Rojo'?", choices: ['Mercurio', 'Venus', 'Marte', 'Júpiter'], a: 2, hint: 'El óxido lo hace rojo.' },
+  { q: '¿Qué es el Sol?', choices: ['Un planeta', 'Una estrella', 'Una luna', 'Un cometa'], a: 1, hint: 'Produce su propia luz.' },
+];
+
 export default function QuizClient() {
   const { lang, kids, activeKidId, studyParams, difficulty, gamification, setQuizResult, setMode, isDemo } = useStore();
   const t = useT(lang);
+  const FALLBACK_QUIZ = lang === 'es' ? FALLBACK_QUIZ_ES : FALLBACK_QUIZ_EN;
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
 
@@ -51,10 +63,11 @@ export default function QuizClient() {
             const supabase = createClient();
             const { data } = await supabase
               .from('generated_content')
-              .select('content')
+              .select('content, lang')
               .eq('id', studyParams.contentId)
               .single();
-            if (data?.content) {
+            // Only reuse assigned content if it is in the account's current language
+            if (data?.content && (data.lang || 'en') === lang) {
               const content = data.content as { questions?: QuizQuestion[] };
               const limit = difficulty === 'easy' ? 6 : 8;
               setCards((content.questions || FALLBACK_QUIZ).slice(0, limit));

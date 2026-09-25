@@ -26,6 +26,19 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
     router.push('/auth');
   };
 
+  // Pull the language saved on the account (e.g. changed on another device)
+  React.useEffect(() => {
+    if (!account || isDemo) return;
+    createClient().auth.getUser().then(({ data }) => {
+      const saved = data.user?.user_metadata?.lang;
+      if ((saved === 'en' || saved === 'es') && saved !== useStore.getState().lang) {
+        useStore.setState((s) => ({ lang: saved, studyParams: { ...s.studyParams, lang: saved } }));
+      }
+    }).catch(() => {});
+  }, [account?.email, isDemo]);
+
+  React.useEffect(() => { document.documentElement.lang = lang; }, [lang]);
+
   React.useEffect(() => {
     const el = document.documentElement;
     el.setAttribute('data-palette', palette);

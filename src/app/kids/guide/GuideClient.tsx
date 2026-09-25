@@ -11,7 +11,7 @@ import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import type { Guide } from '@/types';
 
-const FALLBACK: Guide = {
+const FALLBACK_EN: Guide = {
   intro: 'Our solar system is a giant family. The Sun sits in the middle, and 8 planets travel around it in big circles called orbits.',
   sections: [
     { title: 'The Sun is a star', body: 'The Sun is a huge ball of glowing gas. It gives us light and warmth. Without it, plants couldn\'t grow!', tone: 'honey', key: 'The Sun is a star — not a planet.' },
@@ -22,9 +22,21 @@ const FALLBACK: Guide = {
   fact: 'If you could drive a car to the Moon at highway speed, it would take you about 5 months without stopping!',
 };
 
+const FALLBACK_ES: Guide = {
+  intro: 'Nuestro sistema solar es una gran familia. El Sol está en el centro y 8 planetas viajan a su alrededor en grandes círculos llamados órbitas.',
+  sections: [
+    { title: 'El Sol es una estrella', body: 'El Sol es una enorme bola de gas brillante. Nos da luz y calor. ¡Sin él, las plantas no podrían crecer!', tone: 'honey', key: 'El Sol es una estrella, no un planeta.' },
+    { title: 'Los 8 planetas', body: 'En orden desde el Sol: Mercurio, Venus, Tierra, Marte, Júpiter, Saturno, Urano y Neptuno. Los primeros cuatro son pequeños y rocosos. Los últimos cuatro son grandes bolas de gas.', tone: 'primary', key: '8 planetas giran alrededor del Sol.' },
+    { title: 'La Tierra es nuestro hogar', body: 'La Tierra es el tercer planeta desde el Sol. Es el único que conocemos que tiene plantas, animales y personas.', tone: 'sky', key: 'La Tierra es el único planeta con vida que conocemos.' },
+    { title: 'Los anillos de Saturno', body: 'Saturno tiene miles de anillos hechos de hielo y roca. Otros planetas de gas también tienen anillos, pero los de Saturno son los más fáciles de ver.', tone: 'coral', key: 'Los anillos de Saturno son de hielo y roca.' },
+  ],
+  fact: '¡Si pudieras ir en carro a la Luna a velocidad de autopista, tardarías unos 5 meses sin parar!',
+};
+
 export default function GuideClient() {
   const { lang, kids, activeKidId, studyParams, gamification, setMode, isDemo } = useStore();
   const t = useT(lang);
+  const FALLBACK = lang === 'es' ? FALLBACK_ES : FALLBACK_EN;
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
 
@@ -44,10 +56,11 @@ export default function GuideClient() {
             const supabase = createClient();
             const { data } = await supabase
               .from('generated_content')
-              .select('content')
+              .select('content, lang')
               .eq('id', studyParams.contentId)
               .single();
-            if (data?.content) {
+            // Only reuse assigned content if it is in the account's current language
+            if (data?.content && (data.lang || 'en') === lang) {
               setGuide(data.content as Guide);
               setLoading(false);
               return;

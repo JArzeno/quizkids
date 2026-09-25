@@ -178,8 +178,13 @@ export default function SettingsClient() {
                   <Row label={t('appLanguage')}>
                     <div style={{ display: 'flex', gap: 8 }}>
                       {[{ id: 'en', label: 'English', flag: '🇺🇸' }, { id: 'es', label: 'Español', flag: '🇪🇸' }].map((l) => (
-                        <button key={l.id} onClick={() => setLang(l.id as 'en' | 'es')} className={`qk-chip${lang === l.id ? ' on' : ''}`}><span>{l.flag}</span><span>{l.label}</span></button>
+                        <button key={l.id} onClick={() => { setLang(l.id as 'en' | 'es'); fireToast(l.id === 'es' ? 'Guardado' : 'Saved'); }} className={`qk-chip${lang === l.id ? ' on' : ''}`}><span>{l.flag}</span><span>{l.label}</span></button>
                       ))}
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 6 }}>
+                      {lang === 'es'
+                        ? 'Se guarda en tu cuenta. Los quizzes, guías de estudio y hojas de trabajo se generan en este idioma.'
+                        : 'Saved on your account. Quizzes, study guides, and worksheets are generated in this language.'}
                     </div>
                   </Row>
                   <Row label={lang === 'es' ? 'Tema de color' : 'Color theme'}>
