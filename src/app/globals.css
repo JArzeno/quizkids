@@ -101,6 +101,43 @@ input, textarea, select { font-family: inherit; color: inherit; }
 }
 .qk-iconbtn:hover { background: var(--surface-2); }
 
+/* ---------- user menu ---------- */
+.qk-user { position: relative; }
+.qk-user-btn {
+  appearance: none; border: 1px solid var(--line); background: var(--surface);
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 3px 10px 3px 3px; border-radius: 999px; cursor: pointer;
+  color: var(--ink-2); font-size: 14px; font-weight: 700;
+}
+.qk-user-btn:hover, .qk-user-btn.on { background: var(--surface-2); }
+.qk-user-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.qk-user-initials {
+  display: inline-grid; place-items: center; flex: none;
+  border-radius: 50%; background: var(--primary); color: var(--surface); font-weight: 700;
+}
+.qk-user-menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 20;
+  min-width: 240px; max-width: calc(100vw - 32px);
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 16px; box-shadow: var(--shadow-sm, 0 8px 24px rgba(0,0,0,.12));
+  padding: 6px;
+}
+.qk-user-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 10px 12px; margin-bottom: 4px; border-bottom: 1px solid var(--line);
+}
+.qk-user-head-name { font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qk-user-head-email { font-size: 13px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qk-user-item {
+  appearance: none; border: 0; background: transparent; width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px; border-radius: 10px; cursor: pointer;
+  font-size: 14px; font-weight: 600; color: var(--ink-2); text-decoration: none; text-align: left;
+}
+.qk-user-item:hover { background: var(--surface-2); }
+.qk-user-logout { color: var(--coral); }
+@media (max-width: 640px) { .qk-user-name { display: none; } }
+
 /* ---------- screen / page ---------- */
 .qk-screen {
   min-height: calc(100dvh - 65px);
