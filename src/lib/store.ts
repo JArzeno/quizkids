@@ -1,11 +1,13 @@
 'use client';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createClient } from '@/lib/supabase/client';
 import type { Kid, ParentPrefs, QuizResult, StudyParams, Lang, ImportedLesson } from '@/types';
 
 interface AppState {
   // lang
   lang: Lang;
+  /** Changes the language and saves it on the signed-in account */
   setLang: (l: Lang) => void;
 
   // demo mode
@@ -96,9 +98,15 @@ export const DEMO_KIDS: Kid[] = [
 
 export const useStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       lang: 'en',
-      setLang: (lang) => set({ lang }),
+      setLang: (lang) => {
+        set((s) => ({ lang, studyParams: { ...s.studyParams, lang } }));
+        const { account, isDemo } = get();
+        if (account && !isDemo) {
+          createClient().auth.updateUser({ data: { lang } }).catch((e) => console.warn('Could not save language:', e));
+        }
+      },
 
       isDemo: false,
       setIsDemo: (isDemo) => set({ isDemo }),

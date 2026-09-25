@@ -19,6 +19,12 @@ function gradeContext(grade: string): string {
   return `Grade ${grade} (age ~${parseInt(grade) + 5}–${parseInt(grade) + 6}). Use vocabulary and complexity appropriate for this grade level.`;
 }
 
+/** Strict output-language rule, so everything the kid sees matches the account language */
+function languageRule(lang: string): string {
+  const label = lang === 'es' ? 'Spanish' : 'English';
+  return `Language: ${label}. Write EVERY piece of text (questions, answer choices, hints, titles, explanations, facts, activities) in ${label}, even if the topic name or the class material is written in another language — translate the topic as needed. Only exception: if the subject itself is a foreign language (e.g. a French class), keep the target-language words and examples being taught as they are.`;
+}
+
 const MAX_SOURCE_CHARS = 12000;
 
 /** Prompt block that grounds generation in material imported from the kid's actual class */
@@ -35,7 +41,6 @@ ${source.slice(0, MAX_SOURCE_CHARS)}
 
 export async function generateQuiz(topic: string, grade: string, difficulty: string, lang: string, source?: string) {
   const openai = getClient();
-  const langLabel = lang === 'es' ? 'Spanish' : 'English';
   const cardCount = difficulty === 'easy' ? 6 : 8;
   const diffLabel = difficulty === 'easy' ? 'simple and straightforward' : difficulty === 'hard' ? 'challenging with tricky distractors and nuanced distinctions' : 'moderately challenging';
   const gradeDesc = gradeContext(grade);
@@ -43,7 +48,7 @@ export async function generateQuiz(topic: string, grade: string, difficulty: str
   const prompt = `Generate ${cardCount} multiple-choice flashcard questions about "${topic}" for a student at: ${gradeDesc}
 
 Questions must be ${diffLabel} and exactly appropriate for that grade level — not too easy, not too hard.
-Language: ${langLabel}.
+${languageRule(lang)}
 
 Rules:
 - Vocabulary must match the grade level described above
@@ -79,12 +84,11 @@ The "a" field is the 0-based index of the correct answer in choices.`;
 
 export async function generateGuide(topic: string, grade: string, lang: string, source?: string) {
   const openai = getClient();
-  const langLabel = lang === 'es' ? 'Spanish' : 'English';
   const gradeDesc = gradeContext(grade);
 
   const prompt = `Create an educational study guide about "${topic}" for a student at: ${gradeDesc}
 
-Language: ${langLabel}.
+${languageRule(lang)}
 
 Rules:
 - Every sentence must match the reading level and vocabulary of that grade
@@ -124,12 +128,11 @@ Keep language simple and engaging for the grade level.`;
 
 export async function generateWorksheet(topic: string, grade: string, lang: string, source?: string) {
   const openai = getClient();
-  const langLabel = lang === 'es' ? 'Spanish' : 'English';
   const gradeDesc = gradeContext(grade);
 
   const prompt = `Create 6 printable worksheet questions about "${topic}" for a student at: ${gradeDesc}
 
-Language: ${langLabel}.
+${languageRule(lang)}
 
 Rules:
 - Questions must match vocabulary and complexity for that grade level
