@@ -59,6 +59,7 @@ export default function GenerateClient() {
         subject: studyParams.subject,
       };
       if (type === 'quiz') body.difficulty = difficulty;
+      if (studyParams.source) body.source = studyParams.source;
 
       const res = await fetch(apiPath, {
         method: 'POST',
@@ -141,7 +142,7 @@ export default function GenerateClient() {
     <AppShell>
       <div className="qk-screen qk-page-enter">
         <div style={{ maxWidth: 980, margin: '0 auto' }}>
-          <button className="qk-btn qk-btn-ghost" onClick={() => router.push('/dashboard/picker')}>
+          <button className="qk-btn qk-btn-ghost" onClick={() => router.push(studyParams.source ? '/dashboard/import' : '/dashboard/picker')}>
             {ICONS.back} <span>{t('back')}</span>
           </button>
 
@@ -150,6 +151,11 @@ export default function GenerateClient() {
               <span className="qk-eyebrow">{t(studyParams.subject)} · {gradeLabel()}</span>
               <h1 className="qk-h1" style={{ marginTop: 10 }}>{studyParams.topic}</h1>
               <p className="qk-sub">{t('genSub')}</p>
+              {studyParams.source && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '4px 10px', borderRadius: 999, background: 'var(--honey-l)', color: 'var(--honey)', fontSize: 12, fontWeight: 700 }}>
+                  {ICONS.pdf} {lang === 'es' ? 'Basado en tu clase importada' : 'Based on your imported class'}
+                </span>
+              )}
             </div>
             {kid && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px 8px 8px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)' }}>

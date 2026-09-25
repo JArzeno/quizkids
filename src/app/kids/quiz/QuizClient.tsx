@@ -76,6 +76,7 @@ export default function QuizClient() {
             difficulty,
             lang,
             subject: studyParams.subject,
+            source: studyParams.source,
           }),
         });
         if (res.ok) {

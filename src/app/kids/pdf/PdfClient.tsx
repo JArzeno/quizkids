@@ -64,6 +64,7 @@ export default function PdfClient() {
             grade: studyParams.grade,
             lang,
             subject: studyParams.subject,
+            source: studyParams.source,
           }),
         });
         if (res.ok) setData(await res.json());

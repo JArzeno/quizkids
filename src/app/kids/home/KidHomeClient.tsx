@@ -182,6 +182,7 @@ export default function KidHomeClient() {
       subject: r.subject || studyParams.subject,
       contentId: r.contentId,
       assignmentId: r.assignmentId,
+      source: undefined,
     });
 
     if (r.kind === 'quiz') router.push('/kids/quiz');

@@ -80,6 +80,17 @@ export default function PickerClient() {
             </section>
           )}
 
+          {/* import a real class */}
+          <button onClick={() => router.push('/dashboard/import')} className="qk-card qk-card-interactive"
+            style={{ appearance: 'none', width: '100%', marginTop: 24, padding: 18, display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', cursor: 'pointer', border: '1.5px dashed var(--line)' }}>
+            <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--honey-l)', color: 'var(--honey)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>{ICONS.pdf}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, color: 'var(--ink)' }}>{lang === 'es' ? 'Importar una clase' : 'Import a class'}</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>{lang === 'es' ? 'Sube un PDF o fotos del cuaderno y creamos guías y exámenes de esa clase.' : 'Upload a PDF or photos of notes and we build guides and tests from that exact class.'}</div>
+            </div>
+            <span style={{ color: 'var(--ink-3)' }}>{ICONS.next}</span>
+          </button>
+
           {/* subject */}
           <section style={{ marginTop: 28 }}>
             <div className="qk-label" style={{ marginBottom: 12, fontSize: 14 }}>{t('subject')}</div>
@@ -89,7 +100,7 @@ export default function PickerClient() {
                 const bg = `var(--${s.tone === 'primary' ? 'primary-l' : s.tone + '-l'})`;
                 const fg = `var(--${s.tone === 'primary' ? 'primary' : s.tone})`;
                 return (
-                  <button key={s.id} onClick={() => { setStudyParams({ ...studyParams, subject: s.id, topic: '' }); setCustomTopics([]); }} className="qk-wiggle"
+                  <button key={s.id} onClick={() => { setStudyParams({ ...studyParams, subject: s.id, topic: '', source: undefined }); setCustomTopics([]); }} className="qk-wiggle"
                     style={{ appearance: 'none', textAlign: 'left', padding: '18px 16px', borderRadius: 18, background: on ? bg : 'var(--surface)', border: '2px solid ' + (on ? fg : 'var(--line)'), cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, boxShadow: on ? 'var(--shadow)' : 'var(--shadow-sm)', transition: 'all .15s ease' }}>
                     <div style={{ width: 44, height: 44, borderRadius: 14, background: bg, color: fg, display: 'grid', placeItems: 'center', fontSize: 24 }}>{s.icon}</div>
                     <div>
@@ -102,7 +113,7 @@ export default function PickerClient() {
               {(customSubjects || []).map((s) => {
                 const on = studyParams.subject === s.id;
                 return (
-                  <button key={s.id} onClick={() => { setStudyParams({ ...studyParams, subject: s.id, topic: '' }); setCustomTopics([]); }} className="qk-wiggle"
+                  <button key={s.id} onClick={() => { setStudyParams({ ...studyParams, subject: s.id, topic: '', source: undefined }); setCustomTopics([]); }} className="qk-wiggle"
                     style={{ appearance: 'none', textAlign: 'left', padding: '18px 16px', borderRadius: 18, background: on ? s.color + '22' : 'var(--surface)', border: '2px solid ' + (on ? s.color : 'var(--line)'), cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, boxShadow: on ? 'var(--shadow)' : 'var(--shadow-sm)', transition: 'all .15s ease' }}>
                     <div style={{ width: 44, height: 44, borderRadius: 14, background: s.color + '22', color: s.color, display: 'grid', placeItems: 'center', fontSize: 24 }}>{s.icon}</div>
                     <div>
@@ -134,7 +145,7 @@ export default function PickerClient() {
                 const on = studyParams.topic === topic;
                 const isCustom = customTopics.includes(topic) && !topics.includes(topic);
                 return (
-                  <button key={topic} onClick={() => setStudyParams({ ...studyParams, topic })} style={{ appearance: 'none', padding: '14px 14px', textAlign: 'left', background: on ? 'var(--primary-l)' : 'var(--surface)', border: '1.5px solid ' + (on ? 'var(--primary)' : 'var(--line)'), borderRadius: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, fontSize: 15, color: 'var(--ink)', boxShadow: on ? 'var(--shadow-sm)' : 'none', transition: 'all .15s ease' }}>
+                  <button key={topic} onClick={() => setStudyParams({ ...studyParams, topic, source: undefined })} style={{ appearance: 'none', padding: '14px 14px', textAlign: 'left', background: on ? 'var(--primary-l)' : 'var(--surface)', border: '1.5px solid ' + (on ? 'var(--primary)' : 'var(--line)'), borderRadius: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, fontSize: 15, color: 'var(--ink)', boxShadow: on ? 'var(--shadow-sm)' : 'none', transition: 'all .15s ease' }}>
                     <span style={{ flex: 1 }}>{topic}</span>
                     {isCustom && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{lang === 'es' ? 'Personal' : 'Custom'}</span>}
                     {on && <span style={{ color: 'var(--primary)' }}>{ICONS.check}</span>}
@@ -147,7 +158,7 @@ export default function PickerClient() {
               <Btn kind="ghost" icon={ICONS.plus} onClick={() => {
                 const val = custom.trim();
                 if (!val) return;
-                setStudyParams({ ...studyParams, topic: val });
+                setStudyParams({ ...studyParams, topic: val, source: undefined });
                 setCustomTopics((prev) => (prev.includes(val) ? prev : [...prev, val]));
                 setCustom('');
               }}>{t('customTopic')}</Btn>
