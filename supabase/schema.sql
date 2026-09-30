@@ -203,3 +203,5 @@ create policy "plan_items_delete" on public.kid_plan_items
   for delete using (kid_id in (select id from public.kids where parent_id = auth.uid()));
 
 -- Adaptive plan (see migrations/006_adaptive_plan.sql): kid_plan_items.position is numeric, kid_plan_items.review boolean, kid_subjects.level_updated_at timestamptz
+
+-- Parent controls (see migrations/007_parent_controls.sql): kid_subjects.paused boolean, kid_plan_items.goal_id nullable (manual items)

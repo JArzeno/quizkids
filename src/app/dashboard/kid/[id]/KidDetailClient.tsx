@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/client';
 import { subjectOptions, levelLabel, fromRow } from '@/lib/subjects';
 import { goalFromRow } from '@/lib/goals';
 import GoalsSection from './GoalsSection';
+import PlanSection from './PlanSection';
 import type { Kid, KidSubject } from '@/types';
 
 const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> = {
@@ -334,6 +335,17 @@ export default function KidDetailClient() {
     updateKid(kid.id, { subjects: kidSubjects.map((s) => s.subject === id ? { ...s, lang: l } : s) });
   };
 
+  const togglePause = async (id: string) => {
+    if (!kid) return;
+    const paused = !kidSubjects.find((s) => s.subject === id)?.paused;
+    setSubjectError(false);
+    if (!isDemo) {
+      const { error } = await createClient().from('kid_subjects').update({ paused }).eq('kid_id', kid.id).eq('subject', id);
+      if (error) { setSubjectError(true); return; }
+    }
+    updateKid(kid.id, { subjects: kidSubjects.map((s) => s.subject === id ? { ...s, paused } : s) });
+  };
+
   const saveFocus = async (id: string) => {
     if (!kid) return;
     const focus = focusDraft.trim();
@@ -402,7 +414,7 @@ export default function KidDetailClient() {
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button className="qk-btn qk-btn-ghost" onClick={openKidHome}>{t('kidView')}</button>
-              <Btn kind="primary" icon={ICONS.spark} onClick={createFor}>{t('createNew')}</Btn>
+              <Btn kind="ghost" icon={ICONS.spark} onClick={createFor}>{t('createNew')}</Btn>
             </div>
           </div>
 
@@ -454,6 +466,7 @@ export default function KidDetailClient() {
                               {placed && ks.level != null ? `${t('placeEstLevel')} ${levelLabel(ks.level, lang)} · ${ks.placementAccuracy ?? 0}%` : t('placeNotTaken')}
                             </div>
                           </div>
+                          <button className="qk-btn qk-btn-ghost" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => togglePause(ks.subject)} title={lang === 'es' ? 'Las materias en pausa no entran al plan diario' : 'Paused subjects are left out of the daily plan'}>{ks.paused ? (lang === 'es' ? '▶ Reanudar' : '▶ Resume') : (lang === 'es' ? '⏸ Pausar' : '⏸ Pause')}</button>
                           <button aria-label={t('removeSubject')} title={t('removeSubject')} onClick={() => removeSubject(ks.subject)} style={{ appearance: 'none', border: 0, background: 'transparent', color: 'var(--ink-3)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>{ICONS.trash}</button>
                         </div>
                         {editingFocus === ks.subject ? (
@@ -489,6 +502,10 @@ export default function KidDetailClient() {
 
           <div style={{ marginTop: 24 }}>
             <GoalsSection kid={kid} quizzes={quizzes} />
+          </div>
+
+          <div style={{ marginTop: 24 }}>
+            <PlanSection kid={kid} quizzes={quizzes} sessions={sessions} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginTop: 24, alignItems: 'start' }}>

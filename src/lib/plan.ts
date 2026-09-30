@@ -42,20 +42,37 @@ export interface PlanChanges {
  * - anything not finished simply stays at the front of its goal's queue, so missed days roll over
  * - a goal's final test is only handed out once everything else in that goal is done
  */
-export function planToday(items: PlanItem[], goals: KidGoal[], budgetMin: number, today: Date): PlanChanges {
+export interface PlanOptions {
+  /** Hand out again even if today already has items (used to regenerate the day) */
+  force?: boolean;
+  /** Items to leave out of this run */
+  avoid?: Set<string>;
+  /** Subjects the parent paused: they get no items, but keep their goals and queues */
+  paused?: Set<string>;
+}
+
+export function planToday(items: PlanItem[], goals: KidGoal[], budgetMin: number, today: Date, opts: PlanOptions = {}): PlanChanges {
   const active = goals.filter((g) => g.status === 'active');
   const activeIds = new Set(active.map((g) => g.id));
-  const remove = items.filter((i) => i.status === 'pending' && !activeIds.has(i.goalId)).map((i) => i.id);
+  // Items a parent added by hand (no goal) are never cleaned up here
+  const remove = items.filter((i) => i.status === 'pending' && i.goalId && !activeIds.has(i.goalId)).map((i) => i.id);
 
   const create: NewItem[] = [];
   active.forEach((g) => { if (!items.some((i) => i.goalId === g.id)) create.push(...buildQueue(g)); });
 
   const key = dateKey(today);
   const assign: string[] = [];
-  if (!isWeekday(today) || items.some((i) => i.planDate === key)) return { create, assign, remove };
+  const alreadyHanded = items.some((i) => i.goalId && i.planDate === key);
+  if (!isWeekday(today) || (alreadyHanded && !opts.force)) return { create, assign, remove };
 
   // Queue per goal (existing pending items only; brand new queues are handed out on the next sync)
-  const queues = active.map((g) => items.filter((i) => i.goalId === g.id && i.status === 'pending').sort((a, b) => a.position - b.position));
+  const schedulable = active.filter((g) => !opts.paused?.has(g.subject));
+  const pendingLeft = new Map<string, number>();
+  const queues = schedulable.map((g) => {
+    const all = items.filter((i) => i.goalId === g.id && i.status === 'pending').sort((a, b) => a.position - b.position);
+    pendingLeft.set(g.id, all.length);
+    return all.filter((i) => !opts.avoid?.has(i.id));
+  });
   let used = 0;
   let picked = 0;
   let progressed = true;
@@ -64,11 +81,11 @@ export function planToday(items: PlanItem[], goals: KidGoal[], budgetMin: number
     for (const q of queues) {
       const next = q[0];
       if (!next) continue;
-      const isTest = next.type === 'test';
       // The final test waits until everything else in that goal is done
-      if (isTest && q.length > 1) continue;
+      if (next.type === 'test' && (pendingLeft.get(next.goalId!) || 0) > 1) continue;
       if (picked > 0 && used + next.minutes > budgetMin) continue;
       q.shift();
+      pendingLeft.set(next.goalId!, (pendingLeft.get(next.goalId!) || 1) - 1);
       assign.push(next.id);
       used += next.minutes;
       picked += 1;
@@ -82,7 +99,7 @@ export function planToday(items: PlanItem[], goals: KidGoal[], budgetMin: number
 function itemFromRow(r: Record<string, unknown>): PlanItem {
   return {
     id: r.id as string,
-    goalId: r.goal_id as string,
+    goalId: (r.goal_id as string) || undefined,
     subject: r.subject as string,
     topic: r.topic as string,
     type: r.type as PlanItemType,
@@ -161,7 +178,8 @@ export async function syncTodayPlan(kid: Kid, isDemo: boolean, today = new Date(
     items = (fresh.data || []).map(itemFromRow);
   }
 
-  const c = planToday(items, goals, budget, today);
+  const paused = new Set(subjects.filter((x) => x.paused).map((x) => x.subject));
+  const c = planToday(items, goals, budget, today, { paused });
   const key = dateKey(today);
 
   if (c.remove.length) await supabase.from('kid_plan_items').delete().in('id', c.remove);
@@ -179,7 +197,7 @@ export async function syncTodayPlan(kid: Kid, isDemo: boolean, today = new Date(
     items = (fresh.data || []).map(itemFromRow);
     // Fresh queues were just created; hand out today's items from them
     if (c.create.length && !items.some((i) => i.planDate === key)) {
-      const c2 = planToday(items, goals, budget, today);
+      const c2 = planToday(items, goals, budget, today, { paused });
       if (c2.assign.length) {
         await supabase.from('kid_plan_items').update({ plan_date: key }).in('id', c2.assign);
         items = items.map((i) => (c2.assign.includes(i.id) ? { ...i, planDate: key } : i));
@@ -232,4 +250,76 @@ export async function prepareItem(kid: Kid, item: PlanItem, subject: KidSubject 
 export async function completePlanItem(id: string, isDemo: boolean) {
   if (isDemo || id.startsWith('demo-')) return;
   await createClient().from('kid_plan_items').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', id);
+}
+
+export interface RegenResult { unassign: string[]; assign: string[] }
+
+/**
+ * Pure: picks a different set for today. Today's unfinished plan items go back to the queue and are left out of
+ * this run, so the next items are handed out instead (the skipped ones come first tomorrow). Finished items stay
+ * and count against the daily minutes. If nothing else is left, the same items are handed out again.
+ */
+export function regeneratePlan(items: PlanItem[], goals: KidGoal[], budgetMin: number, today: Date, paused: Set<string>): RegenResult {
+  const key = dateKey(today);
+  const todays = items.filter((i) => i.goalId && i.planDate === key);
+  const unassign = todays.filter((i) => i.status === 'pending').map((i) => i.id);
+  const usedMin = todays.filter((i) => i.status === 'completed').reduce((a, i) => a + i.minutes, 0);
+  const left = budgetMin - usedMin;
+  if (left <= 0 || unassign.length === 0) return { unassign: [], assign: [] };
+
+  const back = items.map((i) => (unassign.includes(i.id) ? { ...i, planDate: undefined } : i));
+  let assign = planToday(back, goals, left, today, { force: true, avoid: new Set(unassign), paused }).assign;
+  if (assign.length === 0) assign = planToday(back, goals, left, today, { force: true, paused }).assign;
+  return { unassign, assign };
+}
+
+/** Parent action: hand out a different set of items for today */
+export async function regenerateToday(kid: Kid, isDemo: boolean, today = new Date()): Promise<PlanItem[]> {
+  const budget = kid.goal_min || 30;
+  const key = dateKey(today);
+  let items: PlanItem[];
+  let goals: KidGoal[];
+  let paused: Set<string>;
+
+  if (isDemo) {
+    items = kid.planItems || [];
+    goals = kid.goals || [];
+    paused = new Set((kid.subjects || []).filter((x) => x.paused).map((x) => x.subject));
+  } else {
+    const supabase = createClient();
+    const [g, s, p] = await Promise.all([
+      supabase.from('kid_goals').select('*').eq('kid_id', kid.id),
+      supabase.from('kid_subjects').select('*').eq('kid_id', kid.id),
+      supabase.from('kid_plan_items').select('*').eq('kid_id', kid.id).order('position'),
+    ]);
+    goals = (g.data || []).map(goalFromRow);
+    paused = new Set((s.data || []).map(fromRow).filter((x) => x.paused).map((x) => x.subject));
+    items = (p.data || []).map(itemFromRow);
+  }
+
+  const r = regeneratePlan(items, goals, budget, today, paused);
+  if (r.unassign.length === 0) return items;
+  if (!isDemo) {
+    const supabase = createClient();
+    await supabase.from('kid_plan_items').update({ plan_date: null }).in('id', r.unassign);
+    if (r.assign.length) await supabase.from('kid_plan_items').update({ plan_date: key }).in('id', r.assign);
+  }
+  return items.map((i) => (r.assign.includes(i.id) ? { ...i, planDate: key } : r.unassign.includes(i.id) ? { ...i, planDate: undefined } : i));
+}
+
+/** Parent action: add one item by hand to today's plan */
+export async function addManualItem(kid: Kid, input: { subject: string; topic: string; type: 'guide' | 'quiz' | 'pdf' }, isDemo: boolean, today = new Date()): Promise<PlanItem | null> {
+  const base = { subject: input.subject, topic: input.topic, type: input.type, position: 0, minutes: ITEM_MINUTES[input.type], planDate: dateKey(today), status: 'pending' as const };
+  if (isDemo) return { id: 'demo-' + Math.random().toString(36).slice(2, 9), ...base };
+  const { data, error } = await createClient().from('kid_plan_items').insert({
+    kid_id: kid.id, goal_id: null, subject: base.subject, topic: base.topic, type: base.type, position: 0, minutes: base.minutes, plan_date: base.planDate,
+  }).select('*').single();
+  if (error || !data) { console.warn('Could not add item:', error); return null; }
+  return itemFromRow(data);
+}
+
+/** Every plan item of a kid (for the parent's week view) */
+export async function loadKidPlanItems(kidId: string): Promise<PlanItem[]> {
+  const { data } = await createClient().from('kid_plan_items').select('*').eq('kid_id', kidId).order('position').limit(600);
+  return (data || []).map(itemFromRow);
 }

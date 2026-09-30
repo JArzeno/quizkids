@@ -137,6 +137,8 @@ export interface KidSubject {
   placedAt?: string;
   /** When the level was last adjusted from quiz results */
   levelUpdatedAt?: string;
+  /** Left out of the daily plan while true */
+  paused?: boolean;
 }
 
 /** band: -1 = below the kid's grade, 0 = at grade, 1 = above grade */
@@ -171,7 +173,8 @@ export type PlanItemType = 'guide' | 'quiz' | 'pdf' | 'test';
 
 export interface PlanItem {
   id: string;
-  goalId: string;
+  /** Undefined for items a parent added by hand */
+  goalId?: string;
   subject: string;
   topic: string;
   type: PlanItemType;

@@ -50,5 +50,6 @@ export function fromRow(r: Record<string, unknown>): KidSubject {
     placementAccuracy: r.placement_accuracy == null ? undefined : (r.placement_accuracy as number),
     placedAt: (r.placed_at as string) || undefined,
     levelUpdatedAt: (r.level_updated_at as string) || undefined,
+    paused: r.paused === true,
   };
 }
