@@ -49,5 +49,6 @@ export function fromRow(r: Record<string, unknown>): KidSubject {
     weakTopics: (r.weak_topics as string[]) || [],
     placementAccuracy: r.placement_accuracy == null ? undefined : (r.placement_accuracy as number),
     placedAt: (r.placed_at as string) || undefined,
+    levelUpdatedAt: (r.level_updated_at as string) || undefined,
   };
 }

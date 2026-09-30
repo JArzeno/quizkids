@@ -135,6 +135,8 @@ export interface KidSubject {
   weakTopics?: string[];
   placementAccuracy?: number;
   placedAt?: string;
+  /** When the level was last adjusted from quiz results */
+  levelUpdatedAt?: string;
 }
 
 /** band: -1 = below the kid's grade, 0 = at grade, 1 = above grade */
@@ -178,5 +180,7 @@ export interface PlanItem {
   /** yyyy-mm-dd of the weekday it was handed out for; undefined = still queued */
   planDate?: string;
   contentId?: string;
-  status: 'pending' | 'completed';
+  /** Extra practice added because of a weak result (or a retake) */
+  review?: boolean;
+  status: 'pending' | 'completed' | 'skipped';
 }

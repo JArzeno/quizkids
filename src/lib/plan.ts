@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { goalFromRow } from '@/lib/goals';
 import { fromRow, gradeToNumber } from '@/lib/subjects';
+import { adaptQueue, latestAccuracy, nextSubjectState, type ResultRow } from '@/lib/adapt';
 import type { Kid, KidGoal, KidSubject, PlanItem, PlanItemType } from '@/types';
 
 export const ITEM_MINUTES: Record<PlanItemType, number> = { guide: 8, quiz: 6, pdf: 10, test: 10 };
@@ -85,10 +86,11 @@ function itemFromRow(r: Record<string, unknown>): PlanItem {
     subject: r.subject as string,
     topic: r.topic as string,
     type: r.type as PlanItemType,
-    position: r.position as number,
+    position: Number(r.position),
     minutes: (r.minutes as number) || 8,
     planDate: (r.plan_date as string) || undefined,
     contentId: (r.content_id as string) || undefined,
+    review: (r.review as boolean) || undefined,
     status: (r.status as PlanItem['status']) || 'pending',
   };
 }
@@ -97,6 +99,7 @@ export interface TodayPlan {
   items: PlanItem[];
   goals: KidGoal[];
   subjects: KidSubject[];
+  results: ResultRow[];
 }
 
 /** Loads goals + subjects + plan items, creates/hands out what is missing, and returns everything fresh */
@@ -115,18 +118,48 @@ export async function syncTodayPlan(kid: Kid, isDemo: boolean, today = new Date(
       next = [...next, ...c.create.map((n) => ({ ...n, id: 'demo-' + Math.random().toString(36).slice(2, 9) }))];
       next = next.map((i) => (c.assign.includes(i.id) ? { ...i, planDate: key } : i));
     }
-    return { items: next, goals, subjects: kid.subjects || [] };
+    return { items: next, goals, subjects: kid.subjects || [], results: [] };
   }
 
   const supabase = createClient();
-  const [g, s, p] = await Promise.all([
+  const [g, s, p, q] = await Promise.all([
     supabase.from('kid_goals').select('*').eq('kid_id', kid.id).order('created_at'),
     supabase.from('kid_subjects').select('*').eq('kid_id', kid.id).order('created_at'),
     supabase.from('kid_plan_items').select('*').eq('kid_id', kid.id).order('position'),
+    supabase.from('quiz_results').select('subject, topic, correct, total, created_at').eq('kid_id', kid.id).order('created_at', { ascending: false }).limit(500),
   ]);
   const goals = (g.data || []).map(goalFromRow);
-  const subjects = (s.data || []).map(fromRow);
+  let subjects = (s.data || []).map(fromRow);
   let items = (p.data || []).map(itemFromRow);
+  const results = (q.data || []) as ResultRow[];
+
+  // 1. Learn from results: keep each subject's level and strong / weak topics current
+  const gradeNum = gradeToNumber(kid.grade);
+  const updated: KidSubject[] = [];
+  subjects = subjects.map((ks) => {
+    const { next, changed } = nextSubjectState(ks, results, gradeNum);
+    if (changed) updated.push(next);
+    return next;
+  });
+  for (const ks of updated) {
+    await supabase.from('kid_subjects').update({
+      level: ks.level ?? null, strong_topics: ks.strongTopics ?? [], weak_topics: ks.weakTopics ?? [], level_updated_at: ks.levelUpdatedAt ?? null,
+    }).eq('kid_id', kid.id).eq('subject', ks.subject);
+  }
+
+  // 2. Adjust the queues: skip what is mastered, add review after weak results, retake after a failed test
+  const adj = adaptQueue(items, goals, results);
+  if (adj.skip.length) await supabase.from('kid_plan_items').update({ status: 'skipped' }).in('id', adj.skip);
+  if (adj.insert.length) {
+    const { error } = await supabase.from('kid_plan_items').insert(
+      adj.insert.map((n) => ({ kid_id: kid.id, goal_id: n.goalId, subject: n.subject, topic: n.topic, type: n.type, position: n.position, minutes: n.minutes, review: !!n.review })),
+    );
+    if (error && error.code !== '23505') console.warn('Could not add review items:', error);
+  }
+  if (adj.skip.length || adj.insert.length) {
+    const fresh = await supabase.from('kid_plan_items').select('*').eq('kid_id', kid.id).order('position');
+    items = (fresh.data || []).map(itemFromRow);
+  }
 
   const c = planToday(items, goals, budget, today);
   const key = dateKey(today);
@@ -153,18 +186,20 @@ export async function syncTodayPlan(kid: Kid, isDemo: boolean, today = new Date(
       }
     }
   }
-  return { items, goals, subjects };
+  return { items, goals, subjects, results };
 }
 
 /** Difficulty for generated quizzes: easier when the placement level is below the kid's grade */
-export function difficultyFor(kid: Kid, subject: KidSubject | undefined): 'easy' | 'medium' {
-  return subject?.level != null && subject.level < gradeToNumber(kid.grade) ? 'easy' : 'medium';
+export function difficultyFor(kid: Kid, subject: KidSubject | undefined): 'easy' | 'medium' | 'hard' {
+  if (subject?.level == null) return 'medium';
+  const grade = gradeToNumber(kid.grade);
+  return subject.level < grade ? 'easy' : subject.level > grade ? 'hard' : 'medium';
 }
 
 const ROUTE: Record<PlanItemType, string> = { guide: '/api/generate/guide', quiz: '/api/generate/quiz', pdf: '/api/generate/worksheet', test: '/api/generate/quiz' };
 
 /** Generates (or fetches cached) content for one plan item and stores its content id */
-export async function prepareItem(kid: Kid, item: PlanItem, subject: KidSubject | undefined, isDemo: boolean, fallbackLang: string): Promise<PlanItem> {
+export async function prepareItem(kid: Kid, item: PlanItem, subject: KidSubject | undefined, isDemo: boolean, fallbackLang: string, results: ResultRow[] = []): Promise<PlanItem> {
   if (item.contentId) return item;
   try {
     const res = await fetch(ROUTE[item.type], {
@@ -175,7 +210,12 @@ export async function prepareItem(kid: Kid, item: PlanItem, subject: KidSubject 
         grade: kid.grade,
         lang: subject?.lang || fallbackLang,
         subject: item.subject,
-        difficulty: item.type === 'test' ? 'hard' : difficultyFor(kid, subject),
+        difficulty: item.type === 'test' ? (item.review ? 'medium' : 'hard') : item.review ? 'easy' : difficultyFor(kid, subject),
+        // Review material and retakes are personalised (and never taken from the shared cache)
+        ...(item.review ? {
+          variant: item.id,
+          context: { level: subject?.level, weak: subject?.weakTopics, strong: subject?.strongTopics, lastScore: latestAccuracy(results, item.subject, item.topic) ?? undefined, review: true },
+        } : {}),
       }),
     });
     if (!res.ok) return item;

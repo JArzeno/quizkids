@@ -19,22 +19,23 @@ export function goalFromRow(r: Record<string, unknown>): KidGoal {
   };
 }
 
-interface QuizLike { subject: string | null; topic: string | null; correct: number | null; total: number | null }
+interface QuizLike { subject: string | null; topic: string | null; correct: number | null; total: number | null; created_at?: string }
 
 const norm = (s: string) => s.trim().toLowerCase();
 
-/** A goal topic counts as mastered when the kid's average on quizzes for it (in this subject) is at least 70% */
-export function goalProgress(goal: KidGoal, quizzes: QuizLike[]): { pct: number; mastered: string[]; testPassed: boolean } {
+/** A goal topic counts as mastered when the kid's most recent quiz on it (in this subject) is at least 70%, so review can lift a weak start */
+export function goalProgress(goal: KidGoal, quizzes: QuizLike[]): { pct: number; mastered: string[]; testPassed: boolean; testAttempted: boolean } {
   const mastered = goal.topics.filter((topic) => {
-    const rows = quizzes.filter((q) => q.subject === goal.subject && q.topic && norm(q.topic) === norm(topic) && (q.total || 0) > 0);
+    const rows = quizzes.filter((q) => q.subject === goal.subject && q.topic && norm(q.topic) === norm(topic) && (q.total || 0) > 0)
+      .sort((a, b) => (a.created_at! < b.created_at! ? -1 : 1));
     if (rows.length === 0) return false;
-    const avg = rows.reduce((a, q) => a + ((q.correct || 0) / (q.total || 1)) * 100, 0) / rows.length;
-    return avg >= MASTERY;
+    const last = rows[rows.length - 1];
+    return ((last.correct || 0) / (last.total || 1)) * 100 >= MASTERY;
   });
   // The final test in the daily plan is a quiz named after the goal itself
   const tests = quizzes.filter((q) => q.subject === goal.subject && q.topic && norm(q.topic) === norm(goal.title) && (q.total || 0) > 0);
   const testPassed = tests.some((q) => ((q.correct || 0) / (q.total || 1)) * 100 >= MASTERY);
-  return { pct: goal.topics.length ? Math.round((mastered.length / goal.topics.length) * 100) : 0, mastered, testPassed };
+  return { pct: goal.topics.length ? Math.round((mastered.length / goal.topics.length) * 100) : 0, mastered, testPassed, testAttempted: tests.length > 0 };
 }
 
 /** Asks the AI for the next goal for a subject (nothing is saved) */

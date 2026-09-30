@@ -1,15 +1,18 @@
 import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { generateQuiz } from '@/lib/openai';
+import { generateQuiz, parseContext } from '@/lib/openai';
 import { createClient } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
   try {
-    const { topic, grade, source, difficulty, lang, subject } = await req.json();
+    const { topic, grade, source, difficulty, lang, subject, variant, context } = await req.json();
     if (!topic || !grade) return NextResponse.json({ error: 'Missing topic or grade' }, { status: 400 });
 
     const diff = difficulty || 'medium';
     const lng = lang || 'en';
+    const ctx = parseContext(context);
+    // A variant is a personalised request (review / retake): never served from, or mistaken for, the shared cache
+    const isVariant = typeof variant === 'string' && variant.length > 0;
     const subj = subject || 'sci';
     // Imported class material: cache per exact material, not just per topic
     const src: string | undefined = typeof source === 'string' && source.trim() ? source.trim() : undefined;
@@ -27,14 +30,14 @@ export async function POST(req: NextRequest) {
         .eq('difficulty', diff)
         .eq('lang', lng);
       if (sourceHash) cacheQuery = cacheQuery.eq('source_hash', sourceHash);
-      const { data: cached } = await cacheQuery.single();
+      const { data: cached } = isVariant ? { data: null } : await cacheQuery.order('created_at').limit(1).maybeSingle();
 
       if (cached?.content) {
         return NextResponse.json({ ...(cached.content as object), contentId: cached.id, cached: true });
       }
 
       // Generate new
-      const data = await generateQuiz(topic, grade, diff, lng, src);
+      const data = await generateQuiz(topic, grade, diff, lng, src, ctx);
 
       // Save to cache
       const { data: saved } = await supabase
@@ -47,7 +50,7 @@ export async function POST(req: NextRequest) {
     } catch (dbErr) {
       // DB unavailable — generate without caching
       console.warn('Supabase cache miss/error, generating fresh:', dbErr);
-      const data = await generateQuiz(topic, grade, diff, lng, src);
+      const data = await generateQuiz(topic, grade, diff, lng, src, ctx);
       return NextResponse.json({ ...data, contentId: null, cached: false });
     }
   } catch (err) {

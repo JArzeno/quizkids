@@ -67,7 +67,7 @@ export default function KidHomeClient() {
         if (cancelled) return;
         subjectLangs.current = Object.fromEntries(plan.subjects.map((s) => [s.subject, s.lang || 'en']));
         if (isDemo) updateKid(kid.id, { planItems: plan.items });
-        let today = plan.items.filter((i) => i.planDate === key).sort((a, b) => a.position - b.position);
+        let today = plan.items.filter((i) => i.planDate === key && i.status !== 'skipped').sort((a, b) => a.position - b.position);
         setPlanItems(today);
         setPlanState('ready');
 
@@ -75,7 +75,7 @@ export default function KidHomeClient() {
         for (const item of today) {
           if (cancelled) return;
           if (item.status === 'completed' || item.contentId) continue;
-          const ready = await prepareItem(kid, item, plan.subjects.find((s) => s.subject === item.subject), isDemo, lang);
+          const ready = await prepareItem(kid, item, plan.subjects.find((s) => s.subject === item.subject), isDemo, lang, plan.results);
           if (cancelled) return;
           today = today.map((i) => (i.id === ready.id ? ready : i));
           setPlanItems(today);
@@ -342,7 +342,7 @@ export default function KidHomeClient() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
-                          {info.icon} {info.label} · {item.type === 'guide' ? t('genGuide') : item.type === 'pdf' ? t('genPdf') : item.type === 'test' ? t('planFinalTest') : t('genQuiz')} · {item.minutes} {t('planMin')}
+                          {info.icon} {info.label} · {item.review && `${t('planReview')} · `}{item.type === 'guide' ? t('genGuide') : item.type === 'pdf' ? t('genPdf') : item.type === 'test' ? t('planFinalTest') : t('genQuiz')} · {item.minutes} {t('planMin')}
                         </div>
                         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, lineHeight: 1.25, textDecoration: done ? 'line-through' : 'none' }}>{item.topic}</div>
                       </div>

@@ -25,6 +25,41 @@ function languageRule(lang: string): string {
   return `Language: ${label}. Write EVERY piece of text (questions, answer choices, hints, titles, explanations, facts, activities) in ${label}, even if the topic name or the class material is written in another language — translate the topic as needed. Only exception: if the subject itself is a foreign language (e.g. a French class), keep the target-language words and examples being taught as they are.`;
 }
 
+/** What we know about how this kid is doing, used to tailor review material and retakes */
+export interface StudentContext {
+  level?: number;
+  weak?: string[];
+  strong?: string[];
+  /** Score (0-100) on the previous attempt at this topic */
+  lastScore?: number;
+  review?: boolean;
+}
+
+export function parseContext(v: unknown): StudentContext | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const c = v as Record<string, unknown>;
+  const list = (x: unknown) => (Array.isArray(x) ? x.filter((i): i is string => typeof i === 'string').map((i) => i.slice(0, 80)).slice(0, 8) : undefined);
+  return {
+    level: Number.isInteger(c.level) ? (c.level as number) : undefined,
+    weak: list(c.weak),
+    strong: list(c.strong),
+    lastScore: typeof c.lastScore === 'number' ? Math.round(Math.min(100, Math.max(0, c.lastScore))) : undefined,
+    review: c.review === true,
+  };
+}
+
+/** Prompt block describing the student, so the material fits where they really are */
+function studentBlock(ctx?: StudentContext): string {
+  if (!ctx) return '';
+  const lines: string[] = [];
+  if (ctx.level != null) lines.push(`- Working at about grade level ${ctx.level === 0 ? 'K' : ctx.level} in this subject.`);
+  if (ctx.weak?.length) lines.push(`- Struggles with: ${ctx.weak.join(', ')}.`);
+  if (ctx.strong?.length) lines.push(`- Strong at: ${ctx.strong.join(', ')}.`);
+  if (ctx.lastScore != null) lines.push(`- Scored ${ctx.lastScore}% on the last attempt at this topic.`);
+  if (ctx.review) lines.push('- This is a REVIEW after a weak result: use simpler wording, smaller steps, and NEW examples and questions that differ from a standard lesson on the topic. Rebuild the basics before anything tricky.');
+  return lines.length ? `\nAbout the student:\n${lines.join('\n')}\n` : '';
+}
+
 const MAX_SOURCE_CHARS = 12000;
 
 /** Prompt block that grounds generation in material imported from the kid's actual class */
@@ -39,7 +74,7 @@ ${source.slice(0, MAX_SOURCE_CHARS)}
 `;
 }
 
-export async function generateQuiz(topic: string, grade: string, difficulty: string, lang: string, source?: string) {
+export async function generateQuiz(topic: string, grade: string, difficulty: string, lang: string, source?: string, ctx?: StudentContext) {
   const openai = getClient();
   const cardCount = difficulty === 'easy' ? 6 : 8;
   const diffLabel = difficulty === 'easy' ? 'simple and straightforward' : difficulty === 'hard' ? 'challenging with tricky distractors and nuanced distinctions' : 'moderately challenging';
@@ -55,7 +90,7 @@ Rules:
 - Kindergarten and 1st grade: use pictures-in-words ("the big yellow star"), very short questions
 - 4th grade and above: include one or two questions that require applying knowledge, not just recalling it
 - Hard difficulty: include distractors that are plausible but clearly wrong to someone who studied the topic
-${sourceBlock(source)}
+${studentBlock(ctx)}${sourceBlock(source)}
 Return ONLY valid JSON in this exact format:
 {
   "questions": [
@@ -82,7 +117,7 @@ The "a" field is the 0-based index of the correct answer in choices.`;
   return JSON.parse(content);
 }
 
-export async function generateGuide(topic: string, grade: string, lang: string, source?: string) {
+export async function generateGuide(topic: string, grade: string, lang: string, source?: string, ctx?: StudentContext) {
   const openai = getClient();
   const gradeDesc = gradeContext(grade);
 
@@ -96,7 +131,7 @@ Rules:
 - 3rd–5th grade: 2–3 sentences per section, introduce subject terms with a quick definition
 - 6th grade and above: 3–4 sentences, include comparisons, cause/effect, and real-world applications
 - The "key" field is one memorable sentence — the #1 takeaway
-${sourceBlock(source)}
+${studentBlock(ctx)}${sourceBlock(source)}
 Return ONLY valid JSON in this exact format:
 {
   "intro": "A 1–2 sentence friendly introduction at the grade level",
@@ -126,7 +161,7 @@ Keep language simple and engaging for the grade level.`;
   return JSON.parse(content);
 }
 
-export async function generateWorksheet(topic: string, grade: string, lang: string, source?: string) {
+export async function generateWorksheet(topic: string, grade: string, lang: string, source?: string, ctx?: StudentContext) {
   const openai = getClient();
   const gradeDesc = gradeContext(grade);
 
@@ -138,7 +173,7 @@ Rules:
 - Questions must match vocabulary and complexity for that grade level
 - Mix question types when appropriate for the grade (multiple choice, fill-in-the-blank, short answer)
 - The bonus activity should be hands-on and grade-appropriate (draw, label, write a sentence, etc.)
-${sourceBlock(source)}
+${studentBlock(ctx)}${sourceBlock(source)}
 Return ONLY valid JSON:
 {
   "questions": [

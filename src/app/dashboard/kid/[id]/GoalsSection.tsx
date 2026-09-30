@@ -9,7 +9,7 @@ import { subjectOptions } from '@/lib/subjects';
 import { goalProgress, requestGoalDraft, saveGoal } from '@/lib/goals';
 import type { GoalDraft, Kid, KidGoal } from '@/types';
 
-interface QuizLike { subject: string | null; topic: string | null; correct: number | null; total: number | null }
+interface QuizLike { subject: string | null; topic: string | null; correct: number | null; total: number | null; created_at?: string }
 
 interface Form { subject: string; goalId: string | null; title: string; topics: string; weeks: number }
 
@@ -174,14 +174,15 @@ export default function GoalsSection({ kid, quizzes }: { kid: Kid; quizzes: Quiz
                         </div>
                         <div className="qk-progress"><span style={{ width: prog.pct + '%' }} /></div>
                       </div>
-                      {prog.pct === 100 && !prog.testPassed && <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary-d)' }}>{t('goalReady')}</div>}
+                      {prog.testAttempted && !prog.testPassed && <div style={{ fontSize: 12, fontWeight: 700, color: '#7C5410' }}>{t('goalReviewing')}</div>}
+                      {prog.pct === 100 && !prog.testAttempted && <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary-d)' }}>{t('goalReady')}</div>}
                       <div style={{ display: 'grid', gap: 3, fontSize: 12 }}>
                         {active.topics.map((tp) => (
                           <div key={tp} style={{ color: prog.mastered.includes(tp) ? 'var(--primary-d)' : 'var(--ink-2)' }}>{prog.mastered.includes(tp) ? '✓' : '○'} {tp}</div>
                         ))}
                       </div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button className="qk-btn qk-btn-ghost" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => complete(active)} disabled={working}>{ICONS.check}<span>{t('goalComplete')}</span></button>
+                        <button className="qk-btn qk-btn-ghost" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => complete(active)} disabled={working || (prog.testAttempted && !prog.testPassed)}>{ICONS.check}<span>{t('goalComplete')}</span></button>
                         <button className="qk-btn qk-btn-ghost" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => openForm(ks.subject, active)}>{t('goalEdit')}</button>
                         <button className="qk-btn qk-btn-ghost" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => remove(active)}>{ICONS.trash}<span>{t('goalDelete')}</span></button>
                       </div>
