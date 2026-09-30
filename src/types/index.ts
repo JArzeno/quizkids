@@ -16,6 +16,7 @@ export interface Kid {
   weekly?: number;
   lastSubject?: string;
   recent?: RecentItem[];
+  subjects?: KidSubject[];
   created_at?: string;
 }
 
@@ -114,3 +115,23 @@ export interface ImportedLesson {
 }
 
 export type Lang = 'en' | 'es';
+
+/** A subject a kid studies, with the result of its placement quiz once taken */
+export interface KidSubject {
+  subject: string;
+  /** Language the subject is studied in */
+  lang?: 'en' | 'es' | 'fr';
+  focus?: string;
+  /** Estimated grade level for this subject (0 = K); undefined until placement is taken */
+  level?: number;
+  strongTopics?: string[];
+  weakTopics?: string[];
+  placementAccuracy?: number;
+  placedAt?: string;
+}
+
+/** band: -1 = below the kid's grade, 0 = at grade, 1 = above grade */
+export interface PlacementQuestion extends QuizQuestion {
+  band: -1 | 0 | 1;
+  topic: string;
+}

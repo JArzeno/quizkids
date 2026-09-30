@@ -11,6 +11,7 @@ import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { computeStreak, computeWeeklyPct } from '@/lib/streak';
+import { fromRow } from '@/lib/subjects';
 import type { Kid } from '@/types';
 
 const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> = {
@@ -162,6 +163,7 @@ export default function DashboardClient() {
       if (!user) return;
       const { data } = await supabase.from('kids').select('*').eq('parent_id', user.id).order('created_at');
       if (data) {
+        const { data: subjRows } = await supabase.from('kid_subjects').select('*').in('kid_id', data.map((k) => k.id)).order('created_at');
         setKids(data.map((k) => ({
           id: k.id,
           parent_id: k.parent_id,
@@ -177,6 +179,7 @@ export default function DashboardClient() {
           goal_min: k.goal_min || 30,
           lastSubject: k.last_subject || undefined,
           recent: [],
+          subjects: (subjRows || []).filter((r) => r.kid_id === k.id).map(fromRow),
         })));
 
         // Load summaries for all kids

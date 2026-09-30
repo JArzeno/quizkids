@@ -21,7 +21,7 @@ function gradeContext(grade: string): string {
 
 /** Strict output-language rule, so everything the kid sees matches the account language */
 function languageRule(lang: string): string {
-  const label = lang === 'es' ? 'Spanish' : 'English';
+  const label = lang === 'es' ? 'Spanish' : lang === 'fr' ? 'French' : 'English';
   return `Language: ${label}. Write EVERY piece of text (questions, answer choices, hints, titles, explanations, facts, activities) in ${label}, even if the topic name or the class material is written in another language — translate the topic as needed. Only exception: if the subject itself is a foreign language (e.g. a French class), keep the target-language words and examples being taught as they are.`;
 }
 
@@ -158,6 +158,48 @@ Return ONLY valid JSON:
     response_format: { type: 'json_object' },
     temperature: 0.7,
     max_tokens: 1500,
+  });
+
+  const content = response.choices[0].message.content;
+  if (!content) throw new Error('No content from OpenAI');
+  return JSON.parse(content);
+}
+
+/** Placement quiz: 9 questions spread across grades below / at / above the kid's grade, each tagged with a skill */
+export async function generatePlacement(subject: string, focus: string | undefined, grade: string, lang: string) {
+  const openai = getClient();
+  const gradeDesc = gradeContext(grade);
+
+  const prompt = `Create a 9-question multiple-choice PLACEMENT quiz for the subject "${subject}"${focus ? ` (parent's focus: "${focus}")` : ''}. The student is enrolled at: ${gradeDesc}
+
+The goal is to find where the student really is in this subject, so spread the difficulty:
+- 3 questions one grade level BELOW the student's grade (band -1)
+- 3 questions AT the student's grade (band 0)
+- 3 questions one grade level ABOVE the student's grade (band 1)
+Order them from easiest to hardest. Cover different skills within the subject${focus ? ', leaning toward the parent focus' : ''}, and give each question a short skill name in "topic" (2-4 words, reused when two questions test the same skill).
+${languageRule(lang)}
+
+Return ONLY valid JSON in this exact format:
+{
+  "questions": [
+    {
+      "q": "Question text",
+      "choices": ["A", "B", "C", "D"],
+      "a": 0,
+      "hint": "A short hint",
+      "band": -1,
+      "topic": "Short skill name"
+    }
+  ]
+}
+The "a" field is the 0-based index of the correct answer in choices. Shuffle the position of correct answers.`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+    temperature: 0.6,
+    max_tokens: 2500,
   });
 
   const content = response.choices[0].message.content;

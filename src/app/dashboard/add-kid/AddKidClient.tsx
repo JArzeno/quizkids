@@ -8,20 +8,33 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
+import { subjectOptions } from '@/lib/subjects';
+import type { KidSubject } from '@/types';
 
-const STEPS = 4;
+const STEPS = 5;
 const COLORS = [['#3F7A4F', 'leaf'], ['#E29A2B', 'honey'], ['#E26D5A', 'coral'], ['#6BA8C9', 'sky'], ['#B14F8C', 'berry'], ['#7A5AE0', 'violet']];
 
 export default function AddKidClient() {
-  const { lang, kids, addKid, setActiveKidId } = useStore();
+  const { lang, kids, addKid, setActiveKidId, customSubjects } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const [step, setStep] = React.useState(0);
   const [draft, setDraft] = React.useState({ name: '', grade: '', avatar: '', color: '#3F7A4F', signature: '' });
+  // subject id -> optional focus note; presence of the key means the subject is selected
+  const [subjects, setSubjects] = React.useState<Record<string, string>>({});
+  const [subjectLangs, setSubjectLangs] = React.useState<Record<string, 'en' | 'es' | 'fr'>>({});
+  const subjectList = subjectOptions(lang, customSubjects);
+  const toggleSubject = (id: string) => setSubjects((cur) => {
+    const next = { ...cur };
+    if (id in next) delete next[id]; else next[id] = '';
+    return next;
+  });
+  const kidSubjects: KidSubject[] = Object.entries(subjects).map(([subject, focus]) => ({ subject, lang: subjectLangs[subject] || (subject === 'fr' ? 'fr' : lang), focus: focus.trim() || undefined }));
 
   const canNext = [
     () => draft.name.trim().length > 0,
     () => !!draft.grade,
+    () => Object.keys(subjects).length > 0,
     () => !!draft.avatar,
     () => true,
   ][step]();
@@ -46,12 +59,16 @@ export default function AddKidClient() {
         .select()
         .single();
       if (!error && data) {
-        addKid({ id: data.id, parent_id: user.id, name: data.name, grade: data.grade, avatar: data.avatar, color: data.color, code: data.code, streak: 0, stars: 0, minutes_total: 0, weekly: 0, goal_min: 30, recent: [], signature: draft.signature });
+        if (kidSubjects.length > 0) {
+          const { error: subjErr } = await supabase.from('kid_subjects').insert(kidSubjects.map((ks) => ({ kid_id: data.id, subject: ks.subject, lang: ks.lang ?? 'en', focus: ks.focus ?? null })));
+          if (subjErr) console.warn('Could not save subjects:', subjErr);
+        }
+        addKid({ id: data.id, parent_id: user.id, name: data.name, grade: data.grade, avatar: data.avatar, color: data.color, code: data.code, streak: 0, stars: 0, minutes_total: 0, weekly: 0, goal_min: 30, recent: [], signature: draft.signature, subjects: kidSubjects });
         setActiveKidId(data.id);
       }
     } else {
       const id = (draft.name.trim().toLowerCase() || 'kid') + '-' + Math.random().toString(36).slice(2, 5);
-      addKid({ id, parent_id: 'demo', name: draft.name.trim() || 'New kid', grade: draft.grade || 'K', avatar: draft.avatar || 'sprout', color: draft.color, code, streak: 0, stars: 0, minutes_total: 0, weekly: 0, goal_min: 30, recent: [], signature: draft.signature });
+      addKid({ id, parent_id: 'demo', name: draft.name.trim() || 'New kid', grade: draft.grade || 'K', avatar: draft.avatar || 'sprout', color: draft.color, code, streak: 0, stars: 0, minutes_total: 0, weekly: 0, goal_min: 30, recent: [], signature: draft.signature, subjects: kidSubjects });
       setActiveKidId(id);
     }
     router.push('/dashboard');
@@ -100,6 +117,44 @@ export default function AddKidClient() {
 
             {step === 2 && (
               <div>
+                <h2 className="qk-h2">{t('subjectsStep').replace('{name}', draft.name.trim() || (lang === 'es' ? 'tu peque' : 'your kid'))}</h2>
+                <p className="qk-sub" style={{ marginTop: 6, marginBottom: 20 }}>{t('subjectsStepSub')}</p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+                  {subjectList.map((s) => {
+                    const on = s.id in subjects;
+                    return (
+                      <button key={s.id} onClick={() => toggleSubject(s.id)} style={{ appearance: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 16, background: on ? 'var(--primary-l)' : 'var(--surface-2)', border: '2px solid ' + (on ? 'var(--primary)' : 'transparent'), cursor: 'pointer', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: 'var(--ink)', textAlign: 'left' }}>
+                        <span style={{ fontSize: 22 }}>{s.icon}</span>
+                        <span style={{ flex: 1 }}>{s.label}</span>
+                        {on && <span style={{ color: 'var(--primary)' }}>{ICONS.check}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                {Object.keys(subjects).length > 0 ? (
+                  <div style={{ marginTop: 22, display: 'grid', gap: 10 }}>
+                    {Object.keys(subjects).map((id) => {
+                      const s = subjectList.find((x) => x.id === id);
+                      if (!s) return null;
+                      return (
+                        <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 20, width: 28, textAlign: 'center' }}>{s.icon}</span>
+                          <input className="qk-input" placeholder={`${s.label} · ${t('focusPh')}`} value={subjects[id]} maxLength={120} onChange={(e) => setSubjects({ ...subjects, [id]: e.target.value })} style={{ fontSize: 14 }} />
+                          <select className="qk-input" aria-label={t('subjectLang')} value={subjectLangs[id] || (id === 'fr' ? 'fr' : lang)} onChange={(e) => setSubjectLangs({ ...subjectLangs, [id]: e.target.value as 'en' | 'es' | 'fr' })} style={{ width: 'auto', fontSize: 14 }}>
+                            <option value="en">English</option><option value="es">Español</option><option value="fr">Français</option>
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 18, fontSize: 13, color: 'var(--ink-3)' }}>{t('subjectsNeedOne')}</div>
+                )}
+              </div>
+            )}
+
+            {step === 3 && (
+              <div>
                 <h2 className="qk-h2">{t('onbAvatar')}</h2>
                 <p className="qk-sub" style={{ marginTop: 6, marginBottom: 20 }}>{lang === 'es' ? 'Elige un amiguito que les represente.' : 'Pick a little friend to represent them.'}</p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
@@ -116,7 +171,7 @@ export default function AddKidClient() {
               </div>
             )}
 
-            {step === 3 && (
+            {step === 4 && (
               <div>
                 <h2 className="qk-h2">{t('onbSig')}</h2>
                 <p className="qk-sub" style={{ marginTop: 6, marginBottom: 20 }}>{t('onbSigSub')}</p>

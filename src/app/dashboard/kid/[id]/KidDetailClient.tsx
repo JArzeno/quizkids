@@ -10,7 +10,8 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
-import type { Kid } from '@/types';
+import { subjectOptions, levelLabel, fromRow } from '@/lib/subjects';
+import type { Kid, KidSubject } from '@/types';
 
 const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> = {
   sci:  { en: 'Science',        es: 'Ciencias',          icon: '🔬' },
@@ -152,7 +153,7 @@ function AccuracyRow({ label, icon, meta, accuracy, tone }: { label: string; ico
 export default function KidDetailClient() {
   const params = useParams<{ id: string }>();
   const kidId = typeof params?.id === 'string' ? params.id : Array.isArray(params?.id) ? params.id[0] : '';
-  const { lang, kids, gamification, setActiveKidId, setMode, isDemo } = useStore();
+  const { lang, kids, gamification, setActiveKidId, setMode, isDemo, updateKid, customSubjects } = useStore();
   const t = useT(lang);
   const router = useRouter();
 
@@ -195,7 +196,7 @@ export default function KidDetailClient() {
       setLoading(true);
       try {
         const supabase = createClient();
-        const [quizRes, sessionRes, assignRes] = await Promise.all([
+        const [quizRes, sessionRes, assignRes, subjRes] = await Promise.all([
           supabase.from('quiz_results')
             .select('subject, topic, grade, difficulty, total, correct, stars, created_at')
             .eq('kid_id', kidId).order('created_at', { ascending: false }).limit(300),
@@ -205,8 +206,10 @@ export default function KidDetailClient() {
           supabase.from('kid_assignments')
             .select('id, subject, topic, type, status, assigned_at')
             .eq('kid_id', kidId).order('assigned_at', { ascending: false }).limit(40),
+          supabase.from('kid_subjects').select('*').eq('kid_id', kidId).order('created_at'),
         ]);
         if (cancelled) return;
+        if (subjRes.data) updateKid(kidId, { subjects: subjRes.data.map(fromRow) });
         setQuizzes((quizRes.data as QuizRow[]) || []);
         setSessions((sessionRes.data as SessionRow[]) || []);
         setAssignments((assignRes.data as AssignmentRow[]) || []);
@@ -288,6 +291,62 @@ export default function KidDetailClient() {
   const weeklyGoal = goalMin * 7;
   const weeklyPct = Math.min(100, Math.round((last7Minutes / Math.max(1, weeklyGoal)) * 100));
 
+  const kidSubjects: KidSubject[] = kid?.subjects || [];
+  const subjectChoices = subjectOptions(lang, customSubjects);
+  const [addingSubject, setAddingSubject] = React.useState(false);
+  const [editingFocus, setEditingFocus] = React.useState<string | null>(null);
+  const [focusDraft, setFocusDraft] = React.useState('');
+  const [subjectError, setSubjectError] = React.useState(false);
+
+  const addSubject = async (id: string) => {
+    if (!kid || kidSubjects.some((s) => s.subject === id)) return;
+    setSubjectError(false);
+    if (!isDemo) {
+      const { error } = await createClient().from('kid_subjects').insert({ kid_id: kid.id, subject: id });
+      if (error) { setSubjectError(true); return; }
+    }
+    updateKid(kid.id, { subjects: [...kidSubjects, { subject: id }] });
+    setAddingSubject(false);
+  };
+
+  const removeSubject = async (id: string) => {
+    if (!kid) return;
+    setSubjectError(false);
+    if (!isDemo) {
+      const { error } = await createClient().from('kid_subjects').delete().eq('kid_id', kid.id).eq('subject', id);
+      if (error) { setSubjectError(true); return; }
+    }
+    updateKid(kid.id, { subjects: kidSubjects.filter((s) => s.subject !== id) });
+  };
+
+  const setSubjectLang = async (id: string, l: 'en' | 'es' | 'fr') => {
+    if (!kid) return;
+    setSubjectError(false);
+    if (!isDemo) {
+      const { error } = await createClient().from('kid_subjects').update({ lang: l }).eq('kid_id', kid.id).eq('subject', id);
+      if (error) { setSubjectError(true); return; }
+    }
+    updateKid(kid.id, { subjects: kidSubjects.map((s) => s.subject === id ? { ...s, lang: l } : s) });
+  };
+
+  const saveFocus = async (id: string) => {
+    if (!kid) return;
+    const focus = focusDraft.trim();
+    setSubjectError(false);
+    if (!isDemo) {
+      const { error } = await createClient().from('kid_subjects').update({ focus: focus || null }).eq('kid_id', kid.id).eq('subject', id);
+      if (error) { setSubjectError(true); return; }
+    }
+    updateKid(kid.id, { subjects: kidSubjects.map((s) => s.subject === id ? { ...s, focus: focus || undefined } : s) });
+    setEditingFocus(null);
+  };
+
+  const startPlacement = (id: string) => {
+    if (!kid) return;
+    setActiveKidId(kid.id);
+    router.push(`/kids/placement/${encodeURIComponent(id)}`);
+  };
+
   const openKidHome = () => {
     if (!kid) return;
     setActiveKidId(kid.id);
@@ -359,6 +418,69 @@ export default function KidDetailClient() {
               <div className="qk-progress"><span style={{ width: '60%', animation: 'qk-pulse 1.2s ease infinite' }} /></div>
             </div>
           )}
+
+          <div style={{ marginTop: 24 }}>
+            <Section
+              title={t('kidSubjects')}
+              action={<button className="qk-btn qk-btn-ghost" style={{ fontSize: 13, padding: '6px 10px' }} onClick={() => setAddingSubject((v) => !v)}>{ICONS.plus}<span>{t('addSubject')}</span></button>}
+            >
+              {subjectError && <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600, fontSize: 13 }}>{t('placeError')}</div>}
+              {addingSubject && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {subjectChoices.filter((c) => !kidSubjects.some((s) => s.subject === c.id)).map((c) => (
+                    <button key={c.id} className="qk-chip" onClick={() => addSubject(c.id)}>{c.icon} {c.label}</button>
+                  ))}
+                </div>
+              )}
+              {kidSubjects.length === 0 ? (
+                <EmptyNote text={t('kidSubjectsEmpty')} />
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
+                  {kidSubjects.map((ks) => {
+                    const info = subjectChoices.find((c) => c.id === ks.subject) || { id: ks.subject, label: ks.subject, icon: '📚' };
+                    const placed = !!ks.placedAt;
+                    return (
+                      <div key={ks.subject} style={{ padding: 14, background: 'var(--surface-2)', borderRadius: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 22 }}>{info.icon}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15 }}>{info.label}</div>
+                            <div style={{ fontSize: 12, color: placed ? 'var(--primary-d)' : 'var(--ink-3)', fontWeight: placed ? 700 : 400 }}>
+                              {placed && ks.level != null ? `${t('placeEstLevel')} ${levelLabel(ks.level, lang)} · ${ks.placementAccuracy ?? 0}%` : t('placeNotTaken')}
+                            </div>
+                          </div>
+                          <button aria-label={t('removeSubject')} title={t('removeSubject')} onClick={() => removeSubject(ks.subject)} style={{ appearance: 'none', border: 0, background: 'transparent', color: 'var(--ink-3)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>{ICONS.trash}</button>
+                        </div>
+                        {editingFocus === ks.subject ? (
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <input className="qk-input" value={focusDraft} maxLength={120} placeholder={t('focusPh')} onChange={(e) => setFocusDraft(e.target.value)} style={{ fontSize: 13 }} />
+                            <button className="qk-btn qk-btn-ghost" style={{ fontSize: 13 }} onClick={() => saveFocus(ks.subject)}>{t('saveFocus')}</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => { setEditingFocus(ks.subject); setFocusDraft(ks.focus || ''); }} style={{ appearance: 'none', border: 0, background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer', fontSize: 12, color: 'var(--ink-3)' }}>
+                            {ks.focus ? `🎯 ${ks.focus}` : t('editFocus')}
+                          </button>
+                        )}
+                        <label style={{ fontSize: 12, color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {t('subjectLang')}
+                          <select value={ks.lang || 'en'} onChange={(e) => setSubjectLang(ks.subject, e.target.value as 'en' | 'es' | 'fr')} style={{ fontSize: 12, padding: '3px 6px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--ink)' }}>
+                            <option value="en">English</option><option value="es">Español</option><option value="fr">Français</option>
+                          </select>
+                        </label>
+                        {placed && ((ks.strongTopics?.length || 0) > 0 || (ks.weakTopics?.length || 0) > 0) && (
+                          <div style={{ fontSize: 12, color: 'var(--ink-2)', display: 'grid', gap: 2 }}>
+                            {(ks.strongTopics?.length || 0) > 0 && <div>💪 {ks.strongTopics!.join(', ')}</div>}
+                            {(ks.weakTopics?.length || 0) > 0 && <div>🎯 {ks.weakTopics!.join(', ')}</div>}
+                          </div>
+                        )}
+                        <Btn kind={placed ? 'ghost' : 'primary'} icon={ICONS.spark} onClick={() => startPlacement(ks.subject)}>{placed ? t('placeRetake') : t('placeTake')}</Btn>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Section>
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginTop: 24, alignItems: 'start' }}>
             {/* time studied */}
