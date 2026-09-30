@@ -9,6 +9,7 @@ import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { subjectInfo, subjectPromptName, levelLabel } from '@/lib/subjects';
+import { requestGoalDraft, saveGoal } from '@/lib/goals';
 import { scorePlacement, type PlacementOutcome } from '@/lib/placement';
 import type { PlacementQuestion } from '@/types';
 
@@ -89,7 +90,16 @@ export default function PlacementClient() {
     if (saved) {
       const entry = { subject, lang: subjectLang, focus, level: result.level, strongTopics: result.strongTopics, weakTopics: result.weakTopics, placementAccuracy: result.accuracy, placedAt };
       const others = (kid.subjects || []).filter((s) => s.subject !== subject);
-      updateKid(kid.id, { subjects: [...others, entry] });
+      const nextSubjects = [...others, entry];
+      updateKid(kid.id, { subjects: nextSubjects });
+
+      // Suggest a first goal (the parent approves it on the kid page); skip if the subject already has one
+      const goals = kid.goals || [];
+      if (!goals.some((g) => g.subject === subject && (g.status === 'active' || g.status === 'proposed'))) {
+        const draft = await requestGoalDraft({ ...kid, subjects: nextSubjects }, subject, lang, customSubjects);
+        const goal = draft && await saveGoal(kid.id, subject, draft, 'proposed', isDemo, goals);
+        if (goal) updateKid(kid.id, { goals: [...goals, goal] });
+      }
     }
     setSaveFailed(!saved);
     setOutcome(result);

@@ -17,6 +17,7 @@ export interface Kid {
   lastSubject?: string;
   recent?: RecentItem[];
   subjects?: KidSubject[];
+  goals?: KidGoal[];
   created_at?: string;
 }
 
@@ -134,4 +135,26 @@ export interface KidSubject {
 export interface PlacementQuestion extends QuizQuestion {
   band: -1 | 0 | 1;
   topic: string;
+}
+
+export interface KidGoal {
+  id: string;
+  subject: string;
+  title: string;
+  description?: string;
+  /** Ordered topic names the goal covers; quiz results on these topics drive progress */
+  topics: string[];
+  weeks?: number;
+  targetDate?: string;
+  /** proposed = waiting for the parent to approve */
+  status: 'proposed' | 'active' | 'completed';
+  createdAt?: string;
+  completedAt?: string;
+}
+
+export interface GoalDraft {
+  title: string;
+  description?: string;
+  topics: string[];
+  weeks?: number;
 }

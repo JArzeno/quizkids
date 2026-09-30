@@ -207,6 +207,41 @@ The "a" field is the 0-based index of the correct answer in choices. Shuffle the
   return JSON.parse(content);
 }
 
+/** Proposes the next learning goal for one subject, based on the kid's level and what they have already done */
+export async function generateGoal(input: {
+  subject: string; grade: string; level?: number; focus?: string;
+  strong?: string[]; weak?: string[]; done?: string[]; lang: string;
+}) {
+  const openai = getClient();
+  const gradeDesc = gradeContext(input.grade);
+
+  const prompt = `Propose ONE learning goal for a student in the subject "${input.subject}". The student is enrolled at: ${gradeDesc}
+${input.level != null ? `A placement quiz put them at roughly grade level ${input.level === 0 ? 'K' : input.level} in this subject.\n` : ''}${input.focus ? `The parent wants the focus to be: "${input.focus}"\n` : ''}${input.strong?.length ? `Strong at: ${input.strong.join(', ')}\n` : ''}${input.weak?.length ? `Needs practice in: ${input.weak.join(', ')}\n` : ''}${input.done?.length ? `Goals already completed (do NOT repeat, build on them): ${input.done.join('; ')}\n` : ''}
+Pick the most useful next goal: start where the student really is (their level, not only their grade), address weak areas first, and keep it achievable in 1-4 weeks of short daily study.
+${languageRule(input.lang)}
+
+Rules:
+- "title": a clear, motivating goal in one sentence, max 80 characters (e.g. "Add and subtract fractions with unlike denominators")
+- "description": 1-2 plain sentences explaining what the student will be able to do
+- "topics": 3-6 short, specific topic names (2-6 words each), ordered from foundation to goal. Each must work as the topic of a quiz on its own.
+- "weeks": integer 1-4
+
+Return ONLY valid JSON:
+{ "title": "...", "description": "...", "topics": ["..."], "weeks": 2 }`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+    temperature: 0.6,
+    max_tokens: 600,
+  });
+
+  const content = response.choices[0].message.content;
+  if (!content) throw new Error('No content from OpenAI');
+  return JSON.parse(content);
+}
+
 export interface ImportFile {
   kind: 'image' | 'pdf';
   name: string;

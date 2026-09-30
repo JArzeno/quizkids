@@ -11,6 +11,8 @@ import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { subjectOptions, levelLabel, fromRow } from '@/lib/subjects';
+import { goalFromRow } from '@/lib/goals';
+import GoalsSection from './GoalsSection';
 import type { Kid, KidSubject } from '@/types';
 
 const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> = {
@@ -19,6 +21,7 @@ const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> =
   lang: { en: 'Language Arts',  es: 'Lengua',            icon: '📖' },
   soc:  { en: 'Social Studies', es: 'Estudios Sociales', icon: '🌎' },
   art:  { en: 'Art',            es: 'Arte',              icon: '🎨' },
+  fr:   { en: 'French',         es: 'Francés',           icon: '🇫🇷' },
 };
 
 function subjectInfo(subject: string) {
@@ -196,7 +199,7 @@ export default function KidDetailClient() {
       setLoading(true);
       try {
         const supabase = createClient();
-        const [quizRes, sessionRes, assignRes, subjRes] = await Promise.all([
+        const [quizRes, sessionRes, assignRes, subjRes, goalRes] = await Promise.all([
           supabase.from('quiz_results')
             .select('subject, topic, grade, difficulty, total, correct, stars, created_at')
             .eq('kid_id', kidId).order('created_at', { ascending: false }).limit(300),
@@ -207,9 +210,11 @@ export default function KidDetailClient() {
             .select('id, subject, topic, type, status, assigned_at')
             .eq('kid_id', kidId).order('assigned_at', { ascending: false }).limit(40),
           supabase.from('kid_subjects').select('*').eq('kid_id', kidId).order('created_at'),
+          supabase.from('kid_goals').select('*').eq('kid_id', kidId).order('created_at'),
         ]);
         if (cancelled) return;
         if (subjRes.data) updateKid(kidId, { subjects: subjRes.data.map(fromRow) });
+        if (goalRes.data) updateKid(kidId, { goals: goalRes.data.map(goalFromRow) });
         setQuizzes((quizRes.data as QuizRow[]) || []);
         setSessions((sessionRes.data as SessionRow[]) || []);
         setAssignments((assignRes.data as AssignmentRow[]) || []);
@@ -480,6 +485,10 @@ export default function KidDetailClient() {
                 </div>
               )}
             </Section>
+          </div>
+
+          <div style={{ marginTop: 24 }}>
+            <GoalsSection kid={kid} quizzes={quizzes} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginTop: 24, alignItems: 'start' }}>
