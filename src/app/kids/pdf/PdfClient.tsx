@@ -5,6 +5,7 @@ import { ICONS } from '@/components/ui/Icons';
 import { Btn } from '@/components/ui/Btn';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
+import { completePlanItem } from '@/lib/plan';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import type { QuizQuestion } from '@/types';
@@ -35,6 +36,8 @@ const FALLBACK_ES: { questions: QuizQuestion[]; bonus: string } = {
 
 export default function PdfClient() {
   const { lang, kids, activeKidId, studyParams, setMode, isDemo } = useStore();
+  const contentLang = studyParams.contentLang ?? lang;
+  const [marked, setMarked] = React.useState(false);
   const t = useT(lang);
   const FALLBACK = lang === 'es' ? FALLBACK_ES : FALLBACK_EN;
   const router = useRouter();
@@ -59,7 +62,7 @@ export default function PdfClient() {
               .eq('id', studyParams.contentId)
               .single();
             // Only reuse assigned content if it is in the account's current language
-            if (cached?.content && (cached.lang || 'en') === lang) {
+            if (cached?.content && (cached.lang || 'en') === contentLang) {
               setData(cached.content as { questions: QuizQuestion[]; bonus: string });
               setLoading(false);
               return;
@@ -76,7 +79,7 @@ export default function PdfClient() {
           body: JSON.stringify({
             topic: studyParams.topic,
             grade: studyParams.grade,
-            lang,
+            lang: contentLang,
             subject: studyParams.subject,
             source: studyParams.source,
           }),
@@ -89,7 +92,7 @@ export default function PdfClient() {
       setLoading(false);
     };
     fetchWorksheet();
-  }, [studyParams.topic, studyParams.grade, studyParams.contentId, lang]);
+  }, [studyParams.topic, studyParams.grade, studyParams.contentId, lang, contentLang]);
 
   return (
     <AppShell>
@@ -97,7 +100,12 @@ export default function PdfClient() {
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <button className="qk-btn qk-btn-ghost" onClick={() => router.back()}>{ICONS.back} <span>{t('back')}</span></button>
-            <Btn kind="primary" icon={ICONS.printer} onClick={() => window.print()}>{t('print')}</Btn>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {studyParams.planItemId && (
+                <Btn kind="ghost" icon={ICONS.check} disabled={marked} onClick={() => { setMarked(true); void completePlanItem(studyParams.planItemId!, isDemo); router.push('/kids/home'); }}>{t('planMarkDone')}</Btn>
+              )}
+              <Btn kind="primary" icon={ICONS.printer} onClick={() => window.print()}>{t('print')}</Btn>
+            </div>
           </div>
 
           {loading ? (

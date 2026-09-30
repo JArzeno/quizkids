@@ -7,6 +7,7 @@ import { Btn } from '@/components/ui/Btn';
 import { ImgPlaceholder } from '@/components/ui/Stars';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
+import { completePlanItem } from '@/lib/plan';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import type { Guide } from '@/types';
@@ -34,7 +35,9 @@ const FALLBACK_ES: Guide = {
 };
 
 export default function GuideClient() {
-  const { lang, kids, activeKidId, studyParams, gamification, setMode, isDemo } = useStore();
+  const { lang, kids, activeKidId, studyParams, setStudyParams, gamification, setMode, isDemo } = useStore();
+  const contentLang = studyParams.contentLang ?? lang;
+  const [marked, setMarked] = React.useState(false);
   const t = useT(lang);
   const FALLBACK = lang === 'es' ? FALLBACK_ES : FALLBACK_EN;
   const router = useRouter();
@@ -60,7 +63,7 @@ export default function GuideClient() {
               .eq('id', studyParams.contentId)
               .single();
             // Only reuse assigned content if it is in the account's current language
-            if (data?.content && (data.lang || 'en') === lang) {
+            if (data?.content && (data.lang || 'en') === contentLang) {
               setGuide(data.content as Guide);
               setLoading(false);
               return;
@@ -77,7 +80,7 @@ export default function GuideClient() {
           body: JSON.stringify({
             topic: studyParams.topic,
             grade: studyParams.grade,
-            lang,
+            lang: contentLang,
             subject: studyParams.subject,
             source: studyParams.source,
           }),
@@ -90,7 +93,7 @@ export default function GuideClient() {
       setLoading(false);
     };
     fetchGuide();
-  }, [studyParams.topic, studyParams.grade, studyParams.contentId, lang]);
+  }, [studyParams.topic, studyParams.grade, studyParams.contentId, lang, contentLang]);
 
   if (loading) return (
     <AppShell>
@@ -178,6 +181,12 @@ export default function GuideClient() {
                 );
               })}
 
+              {studyParams.planItemId && (
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <Btn kind="primary" icon={ICONS.check} disabled={marked} onClick={() => { setMarked(true); void completePlanItem(studyParams.planItemId!, isDemo); router.push('/kids/home'); }}>{t('planMarkDone')}</Btn>
+                </div>
+              )}
+
               <section className="qk-card" style={{ padding: 24, background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   <div style={{ width: 56, height: 56, borderRadius: 18, background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center' }}>{ICONS.spark}</div>
@@ -187,7 +196,7 @@ export default function GuideClient() {
                       {lang === 'es' ? 'Pon a prueba lo que aprendiste con un quiz de 8 tarjetas.' : 'Test what you just learned with an 8-card quiz.'}
                     </p>
                   </div>
-                  <Btn kind="primary" icon={ICONS.cards} onClick={() => router.push('/kids/quiz')}>{t('genQuiz')}</Btn>
+                  <Btn kind="primary" icon={ICONS.cards} onClick={() => { setStudyParams({ ...studyParams, contentId: undefined, planItemId: undefined }); router.push('/kids/quiz'); }}>{t('genQuiz')}</Btn>
                 </div>
               </section>
             </article>

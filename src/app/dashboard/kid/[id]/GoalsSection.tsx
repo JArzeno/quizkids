@@ -104,10 +104,11 @@ export default function GoalsSection({ kid, quizzes }: { kid: Kid; quizzes: Quiz
     setForm(null); setBusy(null);
   };
 
-  // A goal whose topics are all mastered completes itself and the next one is suggested
+  // A goal whose topics are all mastered and whose final test is passed completes itself and the next one is suggested
   React.useEffect(() => {
     goals.filter((g) => g.status === 'active').forEach((g) => {
-      if (autoCompleted.current.has(g.id) || goalProgress(g, quizzes).pct < 100) return;
+      const gp = goalProgress(g, quizzes);
+      if (autoCompleted.current.has(g.id) || gp.pct < 100 || !gp.testPassed) return;
       autoCompleted.current.add(g.id);
       void complete(g);
     });
@@ -173,6 +174,7 @@ export default function GoalsSection({ kid, quizzes }: { kid: Kid; quizzes: Quiz
                         </div>
                         <div className="qk-progress"><span style={{ width: prog.pct + '%' }} /></div>
                       </div>
+                      {prog.pct === 100 && !prog.testPassed && <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary-d)' }}>{t('goalReady')}</div>}
                       <div style={{ display: 'grid', gap: 3, fontSize: 12 }}>
                         {active.topics.map((tp) => (
                           <div key={tp} style={{ color: prog.mastered.includes(tp) ? 'var(--primary-d)' : 'var(--ink-2)' }}>{prog.mastered.includes(tp) ? '✓' : '○'} {tp}</div>
