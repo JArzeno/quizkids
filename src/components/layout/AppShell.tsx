@@ -62,7 +62,7 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
   return (
     <div className="qk-app">
       {isDemo && (
-        <div style={{ background: 'var(--honey)', color: '#fff', textAlign: 'center', padding: '7px 16px', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+        <div style={{ background: 'var(--honey)', color: '#fff', textAlign: 'center', padding: '7px 16px', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: '4px 12px' }}>
           <span>{lang === 'es' ? 'Estás viendo un demo.' : "You're viewing a demo."}</span>
           <Link href="/auth" style={{ color: '#fff', textDecoration: 'underline', fontWeight: 700 }}>{lang === 'es' ? 'Crear cuenta gratis →' : 'Sign up free →'}</Link>
         </div>
@@ -73,19 +73,19 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
             <span className="qk-brand-mark">
               <Ico d={<path d="M11 20A7 7 0 014 13V6h7a7 7 0 010 14z" />} size={18} stroke={2} />
             </span>
-            QuizKids
+            <span className="qk-brand-name">QuizKids</span>
           </Link>
           <div className="qk-chrome-right">
             {/* role switcher */}
             {kids.length > 0 && account && !isDemo && (
-              <div style={{ display: 'inline-flex', padding: 3, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 999, gap: 2, fontSize: 13, fontWeight: 700 }}>
-                <button onClick={() => switchMode('parent')} style={{ appearance: 'none', border: 0, background: mode === 'parent' ? 'var(--ink)' : 'transparent', color: mode === 'parent' ? 'var(--surface)' : 'var(--ink-2)', padding: '5px 12px 5px 10px', borderRadius: 999, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <div className="qk-role">
+                <button onClick={() => switchMode('parent')} className={mode === 'parent' ? 'on' : ''} title={t('parent')} aria-label={t('parent')}>
                   <Ico d={<g><circle cx="12" cy="8" r="4" /><path d="M4 22c0-4 4-6 8-6s8 2 8 6" /></g>} size={13} />
-                  <span>{t('parent')}</span>
+                  <span className="qk-role-label">{t('parent')}</span>
                 </button>
-                <button onClick={() => switchMode('kid')} style={{ appearance: 'none', border: 0, background: mode === 'kid' ? 'var(--ink)' : 'transparent', color: mode === 'kid' ? 'var(--surface)' : 'var(--ink-2)', padding: '3px 10px 3px 4px', borderRadius: 999, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <button onClick={() => switchMode('kid')} className={`qk-role-kid${mode === 'kid' ? ' on' : ''}`} title={t('kid')} aria-label={t('kid')}>
                   {activeKid ? <Avatar id={activeKid.avatar} size={22} /> : <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--honey-l)', display: 'inline-block' }} />}
-                  <span>{t('kid')}</span>
+                  <span className="qk-role-label">{t('kid')}</span>
                 </button>
               </div>
             )}

@@ -194,7 +194,7 @@ export default function PlacementClient() {
                 </p>
               </div>
               {saveFailed && <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 14, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600 }}>{t('placeSaveWarn')}</div>}
-              <div style={{ marginTop: 22, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+              <div style={{ marginTop: 22, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: 14 }}>
                 <div style={{ padding: 16, borderRadius: 16, background: 'var(--primary-l)' }}>
                   <div style={{ fontWeight: 700, marginBottom: 8 }}>💪 {t('placeStrong')}</div>
                   {outcome.strongTopics.length ? outcome.strongTopics.map((x) => <div key={x} style={{ fontSize: 14 }}>· {x}</div>) : <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{t('placeNone')}</div>}

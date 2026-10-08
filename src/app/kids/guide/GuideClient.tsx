@@ -97,8 +97,8 @@ export default function GuideClient() {
 
   if (loading) return (
     <AppShell>
-      <div className="qk-screen" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
-        <div className="qk-progress" style={{ width: 280 }}><span style={{ width: '60%', animation: 'qk-pulse 1.2s ease infinite' }} /></div>
+      <div className="qk-screen" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
+        <div className="qk-progress" style={{ width: 'min(280px, 100%)' }}><span style={{ width: '60%', animation: 'qk-pulse 1.2s ease infinite' }} /></div>
         <div style={{ fontSize: 16, color: 'var(--ink-3)', fontFamily: 'var(--font-display)' }}>{t('generating')}</div>
       </div>
     </AppShell>
@@ -109,10 +109,10 @@ export default function GuideClient() {
     <AppShell>
       <div className="qk-screen qk-page-enter" style={{ padding: 0, minHeight: 'calc(100dvh - 65px)' }}>
         {/* kid bar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 22px 0', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '14px clamp(16px, 4vw, 22px) 0', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
           <button onClick={() => router.push('/kids/home')} className="qk-btn qk-btn-ghost" style={{ padding: '8px 12px' }}>{ICONS.back} <span>{t('back')}</span></button>
           {kid && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)' }}>
+            <div className="qk-hide-xs" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)', whiteSpace: 'nowrap' }}>
               <Avatar id={kid.avatar} size={32} />
               <div>
                 <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{kid.name}</span>
@@ -124,33 +124,33 @@ export default function GuideClient() {
           )}
         </div>
 
-        <div style={{ maxWidth: 1100, margin: '24px auto 0', padding: '0 22px 64px' }}>
+        <div style={{ maxWidth: 1100, margin: '24px auto 0', padding: '0 clamp(16px, 4vw, 22px) 64px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 14 }}>
             <div>
               <span className="qk-eyebrow">{t(studyParams.subject)} · {lang === 'es' ? 'Grado ' : 'Grade '}{studyParams.grade}</span>
               <h1 className="qk-h1" style={{ marginTop: 10 }}>{studyParams.topic}</h1>
               <p className="qk-sub">{guide.intro}</p>
             </div>
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <Btn kind="ghost" icon={ICONS.speaker}>{t('listen')}</Btn>
               <Btn kind="ghost" icon={ICONS.printer} onClick={() => router.push('/kids/pdf')}>{t('print')}</Btn>
             </div>
           </div>
 
-          <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '260px 1fr', gap: 24 }}>
+          <div className="qk-stack-md" style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '260px minmax(0, 1fr)', gap: 24 }}>
             {/* TOC */}
             <aside style={{ position: 'sticky', top: 0, alignSelf: 'flex-start' }}>
-              <div className="qk-label" style={{ marginBottom: 10 }}>{t('onThisPage')}</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div className="qk-label qk-hide-md" style={{ marginBottom: 10 }}>{t('onThisPage')}</div>
+              <div className="qk-hide-md" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {guide.sections.map((s, idx) => (
                   <button key={idx} onClick={() => setActive(idx)}
                     style={{ appearance: 'none', textAlign: 'left', padding: '10px 12px', borderRadius: 12, background: active === idx ? 'var(--primary-l)' : 'transparent', border: '1.5px solid ' + (active === idx ? 'var(--primary)' : 'transparent'), cursor: 'pointer', fontWeight: 600, fontSize: 14, color: 'var(--ink-2)', display: 'flex', alignItems: 'center', gap: 10, transition: 'all .15s ease' }}>
-                    <span style={{ width: 24, height: 24, borderRadius: 8, background: active === idx ? 'var(--primary)' : 'var(--surface-2)', color: active === idx ? '#fff' : 'var(--ink-3)', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 700 }}>{idx + 1}</span>
+                    <span style={{ width: 24, height: 24, flexShrink: 0, borderRadius: 8, background: active === idx ? 'var(--primary)' : 'var(--surface-2)', color: active === idx ? '#fff' : 'var(--ink-3)', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 700 }}>{idx + 1}</span>
                     {s.title}
                   </button>
                 ))}
               </div>
-              <div style={{ marginTop: 18, padding: 14, background: 'var(--honey-l)', borderRadius: 14 }}>
+              <div className="qk-guide-fact" style={{ marginTop: 18, padding: 14, background: 'var(--honey-l)', borderRadius: 14 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#7C5410', textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('didYouKnow')}</div>
                 <div style={{ marginTop: 6, fontSize: 14, color: 'var(--ink)' }}>{guide.fact}</div>
               </div>
@@ -162,15 +162,15 @@ export default function GuideClient() {
                 const toneBg = `var(--${s.tone === 'primary' ? 'primary-l' : s.tone + '-l'})`;
                 const toneFg = `var(--${s.tone === 'primary' ? 'primary' : s.tone})`;
                 return (
-                  <section key={idx} className="qk-card" style={{ padding: 24 }} onMouseEnter={() => setActive(idx)}>
+                  <section key={idx} className="qk-card" style={{ padding: 'clamp(18px, 4vw, 24px)' }} onMouseEnter={() => setActive(idx)}>
                     <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                       <div style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 14, background: toneBg, color: toneFg, display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18 }}>{idx + 1}</div>
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <h2 className="qk-h2">{s.title}</h2>
                         <p style={{ marginTop: 10, fontSize: 17, lineHeight: 1.55, color: 'var(--ink)' }}>{s.body}</p>
                       </div>
                     </div>
-                    <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
+                    <div className="qk-stack-sm" style={{ marginTop: 18, display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
                       <ImgPlaceholder label={`[ ${lang === 'es' ? 'ilustración' : 'illustration'}: ${s.title.toLowerCase()} ]`} h={150} tone={s.tone} />
                       <div style={{ padding: 16, borderRadius: 14, background: toneBg, borderLeft: `4px solid ${toneFg}` }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: toneFg, textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('keyIdea')}</div>
@@ -187,16 +187,16 @@ export default function GuideClient() {
                 </div>
               )}
 
-              <section className="qk-card" style={{ padding: 24, background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <div style={{ width: 56, height: 56, borderRadius: 18, background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center' }}>{ICONS.spark}</div>
-                  <div style={{ flex: 1 }}>
+              <section className="qk-card" style={{ padding: 'clamp(18px, 4vw, 24px)', background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
+                  <div style={{ width: 56, height: 56, flexShrink: 0, borderRadius: 18, background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center' }}>{ICONS.spark}</div>
+                  <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                     <h2 className="qk-h2">{t('tryIt')}</h2>
                     <p style={{ margin: '4px 0 0', fontSize: 15, color: 'var(--ink-2)' }}>
                       {lang === 'es' ? 'Pon a prueba lo que aprendiste con un quiz de 8 tarjetas.' : 'Test what you just learned with an 8-card quiz.'}
                     </p>
                   </div>
-                  <Btn kind="primary" icon={ICONS.cards} onClick={() => { setStudyParams({ ...studyParams, contentId: undefined, planItemId: undefined }); router.push('/kids/quiz'); }}>{t('genQuiz')}</Btn>
+                  <Btn kind="primary" icon={ICONS.cards} className="qk-full-sm" onClick={() => { setStudyParams({ ...studyParams, contentId: undefined, planItemId: undefined }); router.push('/kids/quiz'); }}>{t('genQuiz')}</Btn>
                 </div>
               </section>
             </article>

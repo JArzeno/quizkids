@@ -53,17 +53,17 @@ export default function LandingClient() {
       <header className="qk-chrome" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
         <Link href="/" className="qk-brand">
           <span className="qk-brand-mark"><Ico d={<path d="M11 20A7 7 0 014 13V6h7a7 7 0 010 14z" />} size={18} stroke={2} /></span>
-          QuizKids
+          <span className="qk-brand-name">QuizKids</span>
         </Link>
         <div className="qk-chrome-right">
-          <nav style={{ display: 'flex', gap: 18, fontSize: 14, fontWeight: 600, color: 'var(--ink-2)' }}>
+          <nav className="qk-hide-md" style={{ display: 'flex', gap: 18, fontSize: 14, fontWeight: 600, color: 'var(--ink-2)' }}>
             {[['how', t('navHow')], ['what', t('navWhat')], ['subjects', t('navSubjects')], ['parents', t('navParents')], ['pricing', t('pricingEyebrow')]].map(([id, label]) => (
               <button key={id} onClick={() => scrollTo(id)} style={{ appearance: 'none', border: 0, background: 'transparent', color: 'inherit', padding: 0, cursor: 'pointer', fontWeight: 'inherit', fontFamily: 'var(--font-display)' }}>{label}</button>
             ))}
           </nav>
           {account && !isDemo ? (
             <>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)' }}>{lang === 'es' ? 'Hola,' : 'Hi,'} {account.name.split(' ')[0]}</span>
+              <span className="qk-hide-sm" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)', whiteSpace: 'nowrap' }}>{lang === 'es' ? 'Hola,' : 'Hi,'} {account.name.split(' ')[0]}</span>
               <Link href="/dashboard" className="qk-btn qk-btn-primary" style={{ padding: '8px 14px', fontSize: 14 }}>{lang === 'es' ? 'Mi panel' : 'Dashboard'}</Link>
             </>
           ) : isDemo ? (
@@ -74,7 +74,7 @@ export default function LandingClient() {
           ) : (
             <>
               <Link href="/auth?tab=signin" className="qk-btn qk-btn-ghost" style={{ padding: '8px 14px', fontSize: 14 }}>{t('navSignIn')}</Link>
-              <Link href="/auth" className="qk-btn qk-btn-primary" style={{ padding: '8px 14px', fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Link href="/auth" className="qk-btn qk-btn-primary qk-hide-sm" style={{ padding: '8px 14px', fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 {ICONS.plus}<span>{t('addKid')}</span>
               </Link>
             </>
@@ -100,9 +100,9 @@ export default function LandingClient() {
               <Link href="/auth" className="qk-btn qk-btn-primary">{ICONS.plus}<span>{t('addKid')}</span></Link>
               <button onClick={() => goDemo()} className="qk-btn qk-btn-ghost">{t('seeDemo')}</button>
             </div>
-            <div style={{ marginTop: 32, display: 'flex', gap: 28, flexWrap: 'wrap' }}>
+            <div style={{ marginTop: 32, display: 'flex', gap: 'clamp(16px, 5vw, 28px)', flexWrap: 'wrap' }}>
               {([[t('heroStat1'), t('heroStat1Lbl')], [t('heroStat2'), t('heroStat2Lbl')], [t('heroStat3'), t('heroStat3Lbl')]] as [string, string][]).map(([v, l], i) => (
-                <div key={i} style={{ borderLeft: i > 0 ? '1px solid var(--line)' : 'none', paddingLeft: i > 0 ? 28 : 0 }}>
+                <div key={i} style={{ borderLeft: i > 0 ? '1px solid var(--line)' : 'none', paddingLeft: i > 0 ? 'clamp(16px, 5vw, 28px)' : 0 }}>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, lineHeight: 1 }}>{v}</div>
                   <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>{l}</div>
                 </div>
@@ -110,7 +110,7 @@ export default function LandingClient() {
             </div>
           </div>
           {/* hero card composition */}
-          <div style={{ position: 'relative', aspectRatio: '5/4' }}>
+          <div className="qk-hero-art" style={{ position: 'relative', aspectRatio: '5/4' }}>
             <div className="qk-blob" style={{ position: 'absolute', inset: '4% 6% 6% 8%' }} />
             <div className="qk-card" style={{ position: 'absolute', left: '14%', top: '10%', width: '70%', transform: 'rotate(-3deg)', padding: 18 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -275,7 +275,7 @@ export default function LandingClient() {
                 ))}
               </div>
             </div>
-            <div className="qk-sticker" style={{ position: 'absolute', right: '-2%', top: '6%', background: 'var(--primary)' }}>{lang === 'es' ? 'Sin anuncios' : 'Ad-free'}</div>
+            <div className="qk-sticker" style={{ position: 'absolute', right: 0, top: '6%', background: 'var(--primary)' }}>{lang === 'es' ? 'Sin anuncios' : 'Ad-free'}</div>
           </div>
           <div>
             <span className="qk-eyebrow">{lang === 'es' ? 'Para familias' : 'For parents'}</span>
@@ -381,7 +381,7 @@ export default function LandingClient() {
           .qk-footer-grid { grid-template-columns: 1fr 1fr !important; }
         }
         @media (max-width: 600px) {
-          .qk-hero-grid > div:last-child { display: none; }
+          .qk-hero-art { display: none !important; }
         }
       `}</style>
     </div>

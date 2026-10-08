@@ -273,9 +273,9 @@ export default function KidHomeClient() {
           )}
 
           {/* greeting card */}
-          <div className="qk-card qk-slide-up" style={{ padding: 'clamp(20px, 4vw, 36px)', display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 24, alignItems: 'center', background: 'linear-gradient(135deg, var(--primary-l) 0%, var(--honey-l) 100%)', borderColor: 'var(--primary)', position: 'relative', overflow: 'hidden' }}>
+          <div className="qk-card qk-slide-up qk-kid-hero" style={{ padding: 'clamp(20px, 4vw, 36px)', display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', gap: 24, alignItems: 'center', background: 'linear-gradient(135deg, var(--primary-l) 0%, var(--honey-l) 100%)', borderColor: 'var(--primary)', position: 'relative', overflow: 'hidden' }}>
             <div aria-hidden style={{ position: 'absolute', inset: 0, opacity: .16, backgroundImage: 'radial-gradient(var(--primary) 1.5px, transparent 1.5px)', backgroundSize: '22px 22px' }} />
-            <div style={{ position: 'relative' }}>
+            <div className="qk-kid-hero-avatar" style={{ position: 'relative' }}>
               <Avatar id={kid.avatar} size={104} ring={kid.color || 'var(--primary)'} />
               {session.running && (
                 <span style={{ position: 'absolute', right: -4, top: -4, padding: '3px 8px', borderRadius: 999, background: session.paused ? 'var(--honey)' : 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700 }}>
@@ -309,7 +309,7 @@ export default function KidHomeClient() {
                 </div>
               </div>
             </div>
-            <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+            <div className="qk-kid-hero-action" style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
               <SessionPill lang={lang} session={session} onStart={session.start} onTogglePause={() => session.paused ? session.resume() : session.pause()} onEnd={session.end} />
             </div>
           </div>
@@ -398,7 +398,7 @@ export default function KidHomeClient() {
               )}
             </div>
 
-            <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+            <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px, 100%), 1fr))', gap: 14 }}>
               {filtered.length > 0 ? filtered.map((r, idx) => {
                 const tone = r.kind === 'quiz' ? 'primary' : r.kind === 'guide' ? 'sky' : 'coral';
                 const bg = `var(--${tone === 'primary' ? 'primary-l' : tone + '-l'})`;

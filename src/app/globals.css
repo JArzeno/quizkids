@@ -379,9 +379,77 @@ input, textarea, select { font-family: inherit; color: inherit; }
 }
 .qk-shake { animation: qk-shake .36s ease; }
 
+/* ---------- role switcher (header) ---------- */
+.qk-role {
+  display: inline-flex; padding: 3px; gap: 2px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px; font-size: 13px; font-weight: 700;
+}
+.qk-role button {
+  appearance: none; border: 0; background: transparent; color: var(--ink-2);
+  padding: 5px 12px 5px 10px; border-radius: 999px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.qk-role button.qk-role-kid { padding: 3px 10px 3px 4px; }
+.qk-role button.on { background: var(--ink); color: var(--surface); }
+
+/* avatar picker: avatars shrink with their column */
+.qk-avatar-grid svg { max-width: 100%; height: auto; }
+
+/* ---------- stat card ---------- */
+.qk-stat-label { overflow-wrap: anywhere; }
+
 /* ---------- responsive ---------- */
+@media (max-width: 880px) {
+  .qk-hide-md { display: none !important; }
+  .qk-stack-md { grid-template-columns: 1fr !important; }
+  .qk-stack-md > aside { position: static !important; }
+  .qk-guide-fact { margin-top: 0 !important; }
+}
 @media (max-width: 720px) {
   .qk-screen { padding: 20px 16px 56px; }
+}
+@media (max-width: 640px) {
+  .qk-chrome { padding: 10px 16px; gap: 10px; }
+  .qk-chrome-right { gap: 8px; min-width: 0; }
+  .qk-hide-sm { display: none !important; }
+  .qk-stack-sm { grid-template-columns: 1fr !important; }
+  .qk-full-sm { width: 100%; }
+
+  /* compact stat cards so three fit in a row */
+  .qk-stat { padding: 12px !important; border-radius: var(--r); }
+  .qk-stat-row { flex-direction: column; align-items: flex-start !important; gap: 8px !important; }
+  .qk-stat-icon { width: 34px !important; height: 34px !important; border-radius: 11px !important; }
+  .qk-stat-value { font-size: 20px !important; }
+  .qk-stat-label { font-size: 12px !important; }
+
+  /* kid home greeting: session button drops to its own row */
+  .qk-kid-hero { grid-template-columns: auto minmax(0, 1fr) !important; gap: 16px !important; }
+  .qk-kid-hero-avatar { align-self: start; }
+  .qk-kid-hero-avatar svg { width: 64px; height: 64px; }
+  .qk-kid-hero-action { grid-column: 1 / -1; align-items: stretch !important; }
+
+  /* quiz flip card grows with its content instead of a fixed ratio */
+  .qk-flip { aspect-ratio: auto !important; max-height: none !important; display: grid; }
+  .qk-flip > .qk-card { position: relative !important; inset: auto !important; grid-area: 1 / 1; gap: 18px; }
+
+  /* printable worksheet */
+  .qk-paper { padding: 28px 20px !important; }
+  .qk-paper-head { flex-wrap: wrap; align-items: flex-start !important; }
+  .qk-paper-head > div:last-child { text-align: left !important; }
+}
+@media (max-width: 480px) {
+  .qk-brand-name { display: none; }
+  .qk-role { font-size: 12px; }
+  .qk-role button { padding: 5px 9px 5px 8px; gap: 5px; }
+  .qk-role button.qk-role-kid { padding: 3px 9px 3px 4px; }
+  .qk-hide-xs { display: none !important; }
+  .qk-stack-xs { grid-template-columns: 1fr !important; }
+  .qk-avatar-stack svg { width: 56px; height: 56px; }
+}
+@media (max-width: 359px) {
+  .qk-role-label { display: none; }
+  .qk-role button, .qk-role button.qk-role-kid { padding: 4px 8px; }
 }
 
 /* ---------- print ---------- */

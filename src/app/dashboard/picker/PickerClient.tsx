@@ -84,7 +84,7 @@ export default function PickerClient() {
           <button onClick={() => router.push('/dashboard/import')} className="qk-card qk-card-interactive"
             style={{ appearance: 'none', width: '100%', marginTop: 24, padding: 18, display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', cursor: 'pointer', border: '1.5px dashed var(--line)' }}>
             <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--honey-l)', color: 'var(--honey)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>{ICONS.pdf}</div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, color: 'var(--ink)' }}>{lang === 'es' ? 'Importar una clase' : 'Import a class'}</div>
               <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>{lang === 'es' ? 'Sube un PDF o fotos del cuaderno y creamos guías y exámenes de esa clase.' : 'Upload a PDF or photos of notes and we build guides and tests from that exact class.'}</div>
             </div>
@@ -129,7 +129,7 @@ export default function PickerClient() {
           {/* difficulty */}
           <section style={{ marginTop: 28 }}>
             <div className="qk-label" style={{ marginBottom: 12, fontSize: 14 }}>{t('difficulty')}</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, maxWidth: 520 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, maxWidth: 520 }}>
               {[{ id: 'easy', label: t('easy'), sub: lang === 'es' ? '6 tarjetas' : '6 cards', emoji: '🌱' }, { id: 'medium', label: t('medium'), sub: lang === 'es' ? '8 tarjetas' : '8 cards', emoji: '🌳' }, { id: 'hard', label: t('hard'), sub: lang === 'es' ? '8 + giros' : '8 + twists', emoji: '⛰️' }].map((d) => {
                 const on = difficulty === d.id;
                 return <button key={d.id} onClick={() => setDifficulty(d.id as 'easy' | 'medium' | 'hard')} style={{ appearance: 'none', padding: '14px 12px', background: on ? 'var(--primary-l)' : 'var(--surface)', border: '2px solid ' + (on ? 'var(--primary)' : 'var(--line)'), borderRadius: 16, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, boxShadow: on ? 'var(--shadow-sm)' : 'none', transition: 'all .15s ease' }}><span style={{ fontSize: 24 }}>{d.emoji}</span><span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16 }}>{d.label}</span><span style={{ fontSize: 11, color: 'var(--ink-3)' }}>{d.sub}</span></button>;
@@ -140,7 +140,7 @@ export default function PickerClient() {
           {/* topic */}
           <section style={{ marginTop: 28 }}>
             <div className="qk-label" style={{ marginBottom: 12, fontSize: 14 }}>{t('topic')}</div>
-            <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
+            <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(220px, 100%), 1fr))', gap: 10 }}>
               {allTopics.map((topic) => {
                 const on = studyParams.topic === topic;
                 const isCustom = customTopics.includes(topic) && !topics.includes(topic);
@@ -153,9 +153,9 @@ export default function PickerClient() {
                 );
               })}
             </div>
-            <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
-              <input className="qk-input" placeholder={t('customTopicPh')} value={custom} onChange={(e) => setCustom(e.target.value)} style={{ flex: 1 }} />
-              <Btn kind="ghost" icon={ICONS.plus} onClick={() => {
+            <div style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              <input className="qk-input" placeholder={t('customTopicPh')} value={custom} onChange={(e) => setCustom(e.target.value)} style={{ flex: '1 1 220px', width: 'auto', minWidth: 0 }} />
+              <Btn kind="ghost" icon={ICONS.plus} className="qk-full-sm" onClick={() => {
                 const val = custom.trim();
                 if (!val) return;
                 setStudyParams({ ...studyParams, topic: val, source: undefined, planItemId: undefined, contentLang: undefined });

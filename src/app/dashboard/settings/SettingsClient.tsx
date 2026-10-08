@@ -42,8 +42,8 @@ export default function SettingsClient() {
 
           <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '220px 1fr', gap: 28 }} className="qk-settings-grid">
             {/* sidebar */}
-            <aside style={{ position: 'sticky', top: 0, alignSelf: 'flex-start' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <aside style={{ position: 'sticky', top: 0, alignSelf: 'flex-start', minWidth: 0 }}>
+              <div className="qk-settings-nav" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {[
                   { id: 'sec-account', label: t('settingsAccount') },
                   { id: 'sec-billing', label: t('settingsBilling') },
@@ -64,7 +64,7 @@ export default function SettingsClient() {
             {/* content */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               {/* ACCOUNT */}
-              <section id="sec-account" className="qk-card" style={{ padding: '22px 24px', scrollMarginTop: 24 }}>
+              <section id="sec-account" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 24 }}>
                 <h2 className="qk-h2" style={{ marginBottom: 18 }}>{t('settingsAccount')}</h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                   <Row label={t('fieldFullName')}><input className="qk-input" value={account?.name || ''} onChange={(e) => setAccount({ ...account!, name: e.target.value })} /></Row>
@@ -76,23 +76,23 @@ export default function SettingsClient() {
               </section>
 
               {/* BILLING */}
-              <section id="sec-billing" className="qk-card" style={{ padding: '22px 24px', scrollMarginTop: 24 }}>
+              <section id="sec-billing" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 24 }}>
                 <h2 className="qk-h2" style={{ marginBottom: 18 }}>{t('settingsBilling')}</h2>
                 <PricingCards lang={lang} cycle={plan.cycle} setCycle={(c) => { setPlan({ ...plan, cycle: c as 'monthly' | 'yearly' }); fireToast(t('saved')); }} kidsCount={kids.length || 1} current showCta={false} compact />
               </section>
 
               {/* KIDS */}
-              <section id="sec-kids" className="qk-card" style={{ padding: '22px 24px', scrollMarginTop: 24 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <section id="sec-kids" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 18 }}>
                   <h2 className="qk-h2">{t('settingsKids')}</h2>
                   <Btn kind="ghost" icon={ICONS.plus} onClick={() => router.push('/dashboard/add-kid')}>{t('addAnotherKid')}</Btn>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {kids.map((k) => (
                     <div key={k.id} className="qk-card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--line)', boxShadow: 'none' }}>
-                      <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
                         <Avatar id={k.avatar} size={48} ring={k.color || 'var(--primary)'} />
-                        <div style={{ flex: 1 }}>
+                        <div style={{ flex: '1 1 120px', minWidth: 0 }}>
                           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17 }}>{k.name}</div>
                           <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{lang === 'es' ? 'Grado ' : 'Grade '}{k.grade} · <code style={{ fontFamily: 'ui-monospace, monospace' }}>{k.code}</code></div>
                         </div>
@@ -102,7 +102,7 @@ export default function SettingsClient() {
                       </div>
                       {editingKidId === k.id && (
                         <div style={{ padding: '18px 18px 20px', background: 'var(--surface-2)', borderTop: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                          <div className="qk-stack-sm" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                             <Row label={t('onbName')}><input className="qk-input" value={k.name} onChange={(e) => updateKid(k.id, { name: e.target.value })} /></Row>
                             <Row label={t('onbGrade')}>
                               <select className="qk-input" value={k.grade} onChange={(e) => updateKid(k.id, { grade: e.target.value })}>
@@ -110,7 +110,7 @@ export default function SettingsClient() {
                               </select>
                             </Row>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, paddingTop: 8, borderTop: '1px dashed var(--line)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, paddingTop: 8, borderTop: '1px dashed var(--line)' }}>
                             <button onClick={() => { if (confirm(t('deleteKidWarn'))) { removeKid(k.id); setEditingKidId(null); fireToast(t('saved')); } }} className="qk-btn qk-btn-ghost" style={{ color: 'var(--coral)', borderColor: 'var(--coral-l)', fontSize: 13 }}>{ICONS.trash}<span>{t('deleteKid')}</span></button>
                             <Btn kind="primary" icon={ICONS.check} onClick={() => { setEditingKidId(null); fireToast(t('saved')); }}>{t('saveChanges')}</Btn>
                           </div>
@@ -122,8 +122,8 @@ export default function SettingsClient() {
               </section>
 
               {/* SUBJECTS */}
-              <section id="sec-subjects" className="qk-card" style={{ padding: '22px 24px', scrollMarginTop: 24 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <section id="sec-subjects" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 18 }}>
                   <h2 className="qk-h2">{t('settingsSubjects')}</h2>
                   <Btn kind="ghost" icon={ICONS.plus} onClick={() => setShowAddSubject((v) => !v)}>{t('addCustomSubject')}</Btn>
                 </div>
@@ -161,10 +161,10 @@ export default function SettingsClient() {
               </section>
 
               {/* SECURITY */}
-              <section id="sec-security" className="qk-card" style={{ padding: '22px 24px', scrollMarginTop: 24 }}>
+              <section id="sec-security" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 24 }}>
                 <h2 className="qk-h2" style={{ marginBottom: 18 }}>{t('settingsSecurity')}</h2>
                 <Row label={t('changePin')}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
                     <input className="qk-input" type="text" inputMode="numeric" maxLength={4} value={parentPin} onChange={(e) => setParentPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} style={{ maxWidth: 120, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 20, letterSpacing: '.1em' }} />
                     <Btn kind="ghost" onClick={() => fireToast(t('pinSaved'))}>{t('save')}</Btn>
                   </div>
@@ -172,7 +172,7 @@ export default function SettingsClient() {
               </section>
 
               {/* PREFERENCES */}
-              <section id="sec-prefs" className="qk-card" style={{ padding: '22px 24px', scrollMarginTop: 24 }}>
+              <section id="sec-prefs" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 24 }}>
                 <h2 className="qk-h2" style={{ marginBottom: 18 }}>{t('settingsPrefs')}</h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                   <Row label={t('appLanguage')}>
@@ -198,7 +198,7 @@ export default function SettingsClient() {
               </section>
 
               {/* DANGER */}
-              <section id="sec-danger" className="qk-card" style={{ padding: '22px 24px', scrollMarginTop: 24, borderColor: 'var(--coral)' }}>
+              <section id="sec-danger" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 24, borderColor: 'var(--coral)' }}>
                 <h2 className="qk-h2" style={{ color: 'var(--coral)', marginBottom: 18 }}>{t('settingsDanger')}</h2>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <button onClick={() => { setAccount(null); setIsDemo(false); setKids([]); router.push('/'); }} className="qk-btn qk-btn-ghost" style={{ borderColor: 'var(--coral)', color: 'var(--coral)' }}>{t('signOut')}</button>
@@ -214,7 +214,7 @@ export default function SettingsClient() {
             <span style={{ color: 'var(--honey)', display: 'inline-flex' }}>{ICONS.check}</span>{toast}
           </div>
         )}
-        <style>{`@media (max-width: 800px) { .qk-settings-grid { grid-template-columns: 1fr !important; } .qk-settings-grid aside { position: static !important; } }`}</style>
+        <style>{`@media (max-width: 800px) { .qk-settings-grid { grid-template-columns: minmax(0, 1fr) !important; } .qk-settings-grid aside { position: static !important; } .qk-settings-nav { flex-direction: row !important; overflow-x: auto; scrollbar-width: none; } .qk-settings-nav::-webkit-scrollbar { display: none; } .qk-settings-nav button { flex: none; white-space: nowrap; border: 1px solid var(--line) !important; background: var(--surface) !important; border-radius: 999px !important; padding: 8px 14px !important; } }`}</style>
       </div>
     </AppShell>
   );
@@ -260,7 +260,7 @@ function AddSubjectPanel({ lang, onCancel, onAdd }: { lang: 'en' | 'es'; onCance
 
       <div style={{ marginTop: 14 }}>
         <div className="qk-label" style={{ marginBottom: 8 }}>{t('customSubjectColor')}</div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {COLORS.map((c) => (
             <button key={c} onClick={() => setColor(c)} aria-label={c}
               style={{ width: 34, height: 34, borderRadius: '50%', background: c, border: '3px solid ' + (color === c ? 'var(--ink)' : 'transparent'), cursor: 'pointer', padding: 0 }} />
