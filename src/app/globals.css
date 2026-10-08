@@ -423,11 +423,10 @@ input, textarea, select { font-family: inherit; color: inherit; }
   .qk-stat-value { font-size: 20px !important; }
   .qk-stat-label { font-size: 12px !important; }
 
-  /* kid home greeting: session button drops to its own row */
-  .qk-kid-hero { grid-template-columns: auto minmax(0, 1fr) !important; gap: 16px !important; }
-  .qk-kid-hero-avatar { align-self: start; }
-  .qk-kid-hero-avatar svg { width: 64px; height: 64px; }
-  .qk-kid-hero-action { grid-column: 1 / -1; align-items: stretch !important; }
+  /* kid home greeting: avatar hidden (it's already in the header), session button on its own row */
+  .qk-kid-hero { grid-template-columns: minmax(0, 1fr) !important; gap: 16px !important; }
+  .qk-kid-hero-avatar { display: none; }
+  .qk-kid-hero-action { align-items: stretch !important; }
 
   /* quiz flip card grows with its content instead of a fixed ratio */
   .qk-flip { aspect-ratio: auto !important; max-height: none !important; display: grid; }
