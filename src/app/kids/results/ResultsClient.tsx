@@ -66,6 +66,10 @@ export default function ResultsClient() {
   const pct = Math.round((correct / total) * 100);
   const goldStars = pct >= 90 ? 5 : pct >= 75 ? 4 : pct >= 60 ? 3 : pct >= 40 ? 2 : 1;
 
+  // Back to the subject page when the quiz was started there
+  const backTo = studyParams.returnTo || '/kids/home';
+  const backLabel = studyParams.returnTo ? t('back') : t('backHome');
+
   // New questions on the same topic; a separate practice round, not tied to the assignment or plan item
   const moreQuestions = () => {
     setStudyParams({ ...studyParams, contentId: undefined, assignmentId: undefined, planItemId: undefined });
@@ -83,7 +87,7 @@ export default function ResultsClient() {
     <AppShell>
       <div className="qk-screen qk-page-enter" style={{ padding: 0, minHeight: 'calc(100dvh - 65px)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '14px clamp(16px, 4vw, 22px) 0', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
-          <button onClick={() => router.push('/kids/home')} className="qk-btn qk-btn-ghost">{ICONS.back} <span>{t('backHome')}</span></button>
+          <button onClick={() => router.push(backTo)} className="qk-btn qk-btn-ghost">{ICONS.back} <span>{backLabel}</span></button>
           {kid && (
             <div className="qk-hide-xs" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)', whiteSpace: 'nowrap' }}>
               <Avatar id={kid.avatar} size={32} /><span style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{kid.name}</span>
@@ -176,7 +180,7 @@ export default function ResultsClient() {
 
             <div style={{ marginTop: 18, display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', position: 'relative' }}>
               <Btn kind="ghost" icon={ICONS.shuffle} onClick={tryAgain}>{t('again')}</Btn>
-              <Btn kind="ghost" onClick={() => { setQuizResult(null); router.push('/kids/home'); }}>{t('backHome')}</Btn>
+              <Btn kind="ghost" onClick={() => { setQuizResult(null); router.push(backTo); }}>{backLabel}</Btn>
             </div>
           </div>
         </div>

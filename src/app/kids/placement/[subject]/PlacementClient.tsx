@@ -35,7 +35,7 @@ export default function PlacementClient() {
   const [error, setError] = React.useState<string | null>(null);
   const [saveFailed, setSaveFailed] = React.useState(false);
 
-  const backToKid = () => router.push(kid ? `/dashboard/kid/${kid.id}` : '/dashboard');
+  const backToKid = () => router.push(kid ? `/dashboard/kid/${kid.id}/subject/${encodeURIComponent(subject)}` : '/dashboard');
 
   const start = async () => {
     if (!kid) return;

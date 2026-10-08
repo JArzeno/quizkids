@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
-import { Btn } from '@/components/ui/Btn';
 import { Stars, StatCard } from '@/components/ui/Stars';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
@@ -12,7 +11,7 @@ import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { studyTimeSaved } from '@/lib/studyTimer';
 import { subjectOptions, levelLabel, fromRow } from '@/lib/subjects';
-import { goalFromRow } from '@/lib/goals';
+import { goalFromRow, goalProgress } from '@/lib/goals';
 import GoalsSection from './GoalsSection';
 import PlanSection from './PlanSection';
 import type { Kid, KidSubject } from '@/types';
@@ -302,8 +301,6 @@ export default function KidDetailClient() {
   const kidSubjects: KidSubject[] = kid?.subjects || [];
   const subjectChoices = subjectOptions(lang, customSubjects);
   const [addingSubject, setAddingSubject] = React.useState(false);
-  const [editingFocus, setEditingFocus] = React.useState<string | null>(null);
-  const [focusDraft, setFocusDraft] = React.useState('');
   const [subjectError, setSubjectError] = React.useState(false);
 
   const addSubject = async (id: string) => {
@@ -317,66 +314,11 @@ export default function KidDetailClient() {
     setAddingSubject(false);
   };
 
-  const removeSubject = async (id: string) => {
-    if (!kid) return;
-    setSubjectError(false);
-    if (!isDemo) {
-      const { error } = await createClient().from('kid_subjects').delete().eq('kid_id', kid.id).eq('subject', id);
-      if (error) { setSubjectError(true); return; }
-    }
-    updateKid(kid.id, { subjects: kidSubjects.filter((s) => s.subject !== id) });
-  };
-
-  const setSubjectLang = async (id: string, l: 'en' | 'es' | 'fr') => {
-    if (!kid) return;
-    setSubjectError(false);
-    if (!isDemo) {
-      const { error } = await createClient().from('kid_subjects').update({ lang: l }).eq('kid_id', kid.id).eq('subject', id);
-      if (error) { setSubjectError(true); return; }
-    }
-    updateKid(kid.id, { subjects: kidSubjects.map((s) => s.subject === id ? { ...s, lang: l } : s) });
-  };
-
-  const togglePause = async (id: string) => {
-    if (!kid) return;
-    const paused = !kidSubjects.find((s) => s.subject === id)?.paused;
-    setSubjectError(false);
-    if (!isDemo) {
-      const { error } = await createClient().from('kid_subjects').update({ paused }).eq('kid_id', kid.id).eq('subject', id);
-      if (error) { setSubjectError(true); return; }
-    }
-    updateKid(kid.id, { subjects: kidSubjects.map((s) => s.subject === id ? { ...s, paused } : s) });
-  };
-
-  const saveFocus = async (id: string) => {
-    if (!kid) return;
-    const focus = focusDraft.trim();
-    setSubjectError(false);
-    if (!isDemo) {
-      const { error } = await createClient().from('kid_subjects').update({ focus: focus || null }).eq('kid_id', kid.id).eq('subject', id);
-      if (error) { setSubjectError(true); return; }
-    }
-    updateKid(kid.id, { subjects: kidSubjects.map((s) => s.subject === id ? { ...s, focus: focus || undefined } : s) });
-    setEditingFocus(null);
-  };
-
-  const startPlacement = (id: string) => {
-    if (!kid) return;
-    setActiveKidId(kid.id);
-    router.push(`/kids/placement/${encodeURIComponent(id)}`);
-  };
-
   const openKidHome = () => {
     if (!kid) return;
     setActiveKidId(kid.id);
     setMode('kid');
     router.push('/kids/home');
-  };
-
-  const createFor = () => {
-    if (!kid) return;
-    setActiveKidId(kid.id);
-    router.push('/dashboard/picker');
   };
 
   if (!kid) {
@@ -416,7 +358,6 @@ export default function KidDetailClient() {
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button className="qk-btn qk-btn-ghost" onClick={openKidHome}>{t('kidView')}</button>
-              <Btn kind="ghost" icon={ICONS.spark} onClick={createFor}>{t('createNew')}</Btn>
             </div>
           </div>
 
@@ -454,47 +395,37 @@ export default function KidDetailClient() {
               {kidSubjects.length === 0 ? (
                 <EmptyNote text={t('kidSubjectsEmpty')} />
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px, 100%), 1fr))', gap: 12 }}>
                   {kidSubjects.map((ks) => {
                     const info = subjectChoices.find((c) => c.id === ks.subject) || { id: ks.subject, label: ks.subject, icon: '📚' };
                     const placed = !!ks.placedAt;
+                    const goal = (kid.goals || []).find((g) => g.subject === ks.subject && g.status === 'active');
+                    const pct = goal ? goalProgress(goal, quizzes).pct : null;
+                    const stat = subjectStats.find((s) => s.subject === ks.subject);
                     return (
-                      <div key={ks.subject} style={{ padding: 14, background: 'var(--surface-2)', borderRadius: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <Link key={ks.subject} href={`/dashboard/kid/${kid.id}/subject/${encodeURIComponent(ks.subject)}`} className="qk-card-interactive"
+                        style={{ padding: 14, background: 'var(--surface-2)', borderRadius: 14, display: 'flex', flexDirection: 'column', gap: 10, textDecoration: 'none', color: 'inherit' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <span style={{ fontSize: 22 }}>{info.icon}</span>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15 }}>{info.label}</div>
+                            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15 }}>{info.label}{ks.paused ? ' · ⏸' : ''}</div>
                             <div style={{ fontSize: 12, color: placed ? 'var(--primary-d)' : 'var(--ink-3)', fontWeight: placed ? 700 : 400 }}>
-                              {placed && ks.level != null ? `${t('placeEstLevel')} ${levelLabel(ks.level, lang)} · ${ks.placementAccuracy ?? 0}%` : t('placeNotTaken')}
+                              {placed && ks.level != null ? `${t('placeEstLevel')} ${levelLabel(ks.level, lang)}` : t('placeNotTaken')}
+                              {stat ? ` · ${stat.quizzes} quiz${stat.quizzes === 1 ? '' : 'zes'} · ${stat.accuracy}%` : ''}
                             </div>
                           </div>
-                          <button className="qk-btn qk-btn-ghost" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => togglePause(ks.subject)} title={lang === 'es' ? 'Las materias en pausa no entran al plan diario' : 'Paused subjects are left out of the daily plan'}>{ks.paused ? (lang === 'es' ? '▶ Reanudar' : '▶ Resume') : (lang === 'es' ? '⏸ Pausar' : '⏸ Pause')}</button>
-                          <button aria-label={t('removeSubject')} title={t('removeSubject')} onClick={() => removeSubject(ks.subject)} style={{ appearance: 'none', border: 0, background: 'transparent', color: 'var(--ink-3)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>{ICONS.trash}</button>
+                          <span style={{ color: 'var(--ink-3)' }}>{ICONS.next}</span>
                         </div>
-                        {editingFocus === ks.subject ? (
-                          <div style={{ display: 'flex', gap: 8 }}>
-                            <input className="qk-input" value={focusDraft} maxLength={120} placeholder={t('focusPh')} onChange={(e) => setFocusDraft(e.target.value)} style={{ fontSize: 13 }} />
-                            <button className="qk-btn qk-btn-ghost" style={{ fontSize: 13 }} onClick={() => saveFocus(ks.subject)}>{t('saveFocus')}</button>
-                          </div>
-                        ) : (
-                          <button onClick={() => { setEditingFocus(ks.subject); setFocusDraft(ks.focus || ''); }} style={{ appearance: 'none', border: 0, background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer', fontSize: 12, color: 'var(--ink-3)' }}>
-                            {ks.focus ? `🎯 ${ks.focus}` : t('editFocus')}
-                          </button>
-                        )}
-                        <label style={{ fontSize: 12, color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                          {t('subjectLang')}
-                          <select value={ks.lang || 'en'} onChange={(e) => setSubjectLang(ks.subject, e.target.value as 'en' | 'es' | 'fr')} style={{ fontSize: 12, padding: '3px 6px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--ink)' }}>
-                            <option value="en">English</option><option value="es">Español</option><option value="fr">Français</option>
-                          </select>
-                        </label>
-                        {placed && ((ks.strongTopics?.length || 0) > 0 || (ks.weakTopics?.length || 0) > 0) && (
-                          <div style={{ fontSize: 12, color: 'var(--ink-2)', display: 'grid', gap: 2 }}>
-                            {(ks.strongTopics?.length || 0) > 0 && <div>💪 {ks.strongTopics!.join(', ')}</div>}
-                            {(ks.weakTopics?.length || 0) > 0 && <div>🎯 {ks.weakTopics!.join(', ')}</div>}
+                        {goal && pct != null && (
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, color: 'var(--ink-3)', marginBottom: 5 }}>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🎯 {goal.title}</span>
+                              <span>{pct}%</span>
+                            </div>
+                            <div className="qk-progress"><span style={{ width: pct + '%' }} /></div>
                           </div>
                         )}
-                        <Btn kind={placed ? 'ghost' : 'primary'} icon={ICONS.spark} onClick={() => startPlacement(ks.subject)}>{placed ? t('placeRetake') : t('placeTake')}</Btn>
-                      </div>
+                      </Link>
                     );
                   })}
                 </div>
