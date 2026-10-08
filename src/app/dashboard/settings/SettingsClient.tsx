@@ -7,6 +7,7 @@ import { Btn } from '@/components/ui/Btn';
 import { PricingCards } from '@/components/ui/PricingCards';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
+import { signOut } from '@/lib/auth';
 import { useT } from '@/lib/i18n';
 
 const BUILTIN_SUBJECTS = [
@@ -19,7 +20,7 @@ const BUILTIN_SUBJECTS = [
 
 export default function SettingsClient() {
   const store = useStore();
-  const { lang, setLang, account, setAccount, kids, setKids, updateKid, removeKid, parentPrefs, setParentPrefs, parentPin, setParentPin, customSubjects, setCustomSubjects, plan, setPlan, palette, setPalette, gamification, setGamification, difficulty, setDifficulty, setMode, setIsDemo } = store;
+  const { lang, setLang, account, setAccount, kids, setKids, updateKid, removeKid, parentPrefs, setParentPrefs, parentPin, setParentPin, customSubjects, setCustomSubjects, plan, setPlan, palette, setPalette, gamification, setGamification, difficulty, setDifficulty } = store;
   const t = useT(lang);
   const router = useRouter();
   const [editingKidId, setEditingKidId] = React.useState<string | null>(null);
@@ -201,7 +202,7 @@ export default function SettingsClient() {
               <section id="sec-danger" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 24, borderColor: 'var(--coral)' }}>
                 <h2 className="qk-h2" style={{ color: 'var(--coral)', marginBottom: 18 }}>{t('settingsDanger')}</h2>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <button onClick={() => { setAccount(null); setIsDemo(false); setKids([]); router.push('/'); }} className="qk-btn qk-btn-ghost" style={{ borderColor: 'var(--coral)', color: 'var(--coral)' }}>{t('signOut')}</button>
+                  <button onClick={async () => { await signOut(); router.push('/auth'); }} className="qk-btn qk-btn-ghost" style={{ borderColor: 'var(--coral)', color: 'var(--coral)' }}>{t('signOut')}</button>
                   <button className="qk-btn" style={{ background: 'var(--coral)', color: '#fff' }}>{lang === 'es' ? 'Eliminar cuenta' : 'Delete account'}</button>
                 </div>
               </section>
