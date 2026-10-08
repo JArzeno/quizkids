@@ -8,7 +8,9 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
-import type { RecentItem } from '@/types';
+import { subjectOptions } from '@/lib/subjects';
+import { syncTodayPlan, prepareItem, dateKey, isWeekday } from '@/lib/plan';
+import type { PlanItem, RecentItem } from '@/types';
 
 const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> = {
   sci:  { en: 'Science',       es: 'Ciencias',        icon: '🔬' },
@@ -36,7 +38,7 @@ function relativeDate(iso: string): string {
 export default function KidHomeClient() {
   const {
     lang, kids, activeKidId, setActiveKidId, setMode, setStudyParams, studyParams,
-    updateKid, isDemo, filterSubject, setFilterSubject, autoStartSession, setAutoStartSession,
+    updateKid, isDemo, filterSubject, setFilterSubject, autoStartSession, setAutoStartSession, customSubjects,
   } = useStore();
   const t = useT(lang);
   const router = useRouter();
@@ -47,6 +49,67 @@ export default function KidHomeClient() {
   const [dbMinutesToday, setDbMinutesToday] = React.useState<number | null>(null);
 
   React.useEffect(() => { setMode('kid'); }, []);
+
+  // ---- today's plan ---------------------------------------------------------
+  const [planItems, setPlanItems] = React.useState<PlanItem[]>([]);
+  const [planState, setPlanState] = React.useState<'loading' | 'ready' | 'error'>('loading');
+  const subjectLangs = React.useRef<Record<string, 'en' | 'es' | 'fr'>>({});
+
+  React.useEffect(() => {
+    if (!kid) return;
+    let cancelled = false;
+    setPlanState('loading');
+    const run = async () => {
+      try {
+        const now = new Date();
+        const key = dateKey(now);
+        const plan = await syncTodayPlan(kid, isDemo, now);
+        if (cancelled) return;
+        subjectLangs.current = Object.fromEntries(plan.subjects.map((s) => [s.subject, s.lang || 'en']));
+        if (isDemo) updateKid(kid.id, { planItems: plan.items });
+        // Subjects the parent paused are left out (items the parent added by hand always show)
+        const paused = new Set(plan.subjects.filter((s) => s.paused).map((s) => s.subject));
+        let today = plan.items.filter((i) => i.planDate === key && i.status !== 'skipped' && (!i.goalId || !paused.has(i.subject))).sort((a, b) => a.position - b.position);
+        setPlanItems(today);
+        setPlanState('ready');
+
+        // Prepare the content for today's items in the background (cached content is reused)
+        for (const item of today) {
+          if (cancelled) return;
+          if (item.status === 'completed' || item.contentId) continue;
+          const ready = await prepareItem(kid, item, plan.subjects.find((s) => s.subject === item.subject), isDemo, lang, plan.results);
+          if (cancelled) return;
+          today = today.map((i) => (i.id === ready.id ? ready : i));
+          setPlanItems(today);
+        }
+      } catch (e) {
+        console.warn('Could not load today\'s plan:', e);
+        if (!cancelled) setPlanState('error');
+      }
+    };
+    run();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kid?.id, isDemo]);
+
+  const openPlanItem = (item: PlanItem) => {
+    if (!kid) return;
+    if (!session.running) session.start();
+    setStudyParams({
+      ...studyParams,
+      subject: item.subject,
+      topic: item.topic,
+      grade: kid.grade,
+      contentId: item.contentId,
+      assignmentId: undefined,
+      planItemId: item.id,
+      contentLang: subjectLangs.current[item.subject] || undefined,
+      source: undefined,
+    });
+    if (item.type === 'guide') router.push('/kids/guide');
+    else if (item.type === 'pdf') router.push('/kids/pdf');
+    else router.push('/kids/quiz');
+  };
 
   // Load minutes studied today from Supabase (source of truth across devices/reloads)
   React.useEffect(() => {
@@ -182,6 +245,8 @@ export default function KidHomeClient() {
       subject: r.subject || studyParams.subject,
       contentId: r.contentId,
       assignmentId: r.assignmentId,
+      planItemId: undefined,
+      contentLang: undefined,
       source: undefined,
     });
 
@@ -248,6 +313,51 @@ export default function KidHomeClient() {
               <SessionPill lang={lang} session={session} onStart={session.start} onTogglePause={() => session.paused ? session.resume() : session.pause()} onEnd={session.end} />
             </div>
           </div>
+
+          {/* today's plan */}
+          <section style={{ marginTop: 28 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+              <h2 className="qk-h2" style={{ margin: 0 }}>{t('planTitle')}</h2>
+              {planItems.length > 0 && (
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-3)' }}>{planItems.filter((i) => i.status === 'completed').length}/{planItems.length} {t('planDoneOf')}</span>
+              )}
+            </div>
+            {planItems.length > 0 && (
+              <div className="qk-progress" style={{ marginBottom: 14 }}><span style={{ width: (planItems.filter((i) => i.status === 'completed').length / planItems.length) * 100 + '%' }} /></div>
+            )}
+            {planState === 'loading' && planItems.length === 0 && <div className="qk-card" style={{ padding: 20, color: 'var(--ink-3)' }}>{t('planPreparing')}</div>}
+            {planState === 'error' && <div className="qk-card" style={{ padding: 20, color: 'var(--coral)' }}>{t('planError')}</div>}
+            {planState === 'ready' && planItems.length === 0 && (
+              <div className="qk-card" style={{ padding: 20, color: 'var(--ink-3)' }}>{isWeekday(new Date()) ? t('planNone') : t('planRest')}</div>
+            )}
+            {planItems.length > 0 && (
+              <div style={{ display: 'grid', gap: 10 }}>
+                {planItems.map((item) => {
+                  const done = item.status === 'completed';
+                  const info = subjectOptions(lang, customSubjects).find((o) => o.id === item.subject) || { label: item.subject, icon: '📚' };
+                  const tone = item.type === 'guide' ? 'sky' : item.type === 'pdf' ? 'coral' : 'primary';
+                  return (
+                    <button key={item.id} onClick={() => openPlanItem(item)} className="qk-card"
+                      style={{ appearance: 'none', textAlign: 'left', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', border: '1px solid var(--line)', opacity: done ? 0.65 : 1 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 14, background: `var(--${tone === 'primary' ? 'primary-l' : tone + '-l'})`, color: `var(--${tone === 'primary' ? 'primary' : tone})`, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                        {item.type === 'guide' ? ICONS.book : item.type === 'pdf' ? ICONS.pdf : ICONS.cards}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                          {info.icon} {info.label} · {item.review && `${t('planReview')} · `}{!item.goalId && '✋ '}{item.type === 'guide' ? t('genGuide') : item.type === 'pdf' ? t('genPdf') : item.type === 'test' ? t('planFinalTest') : t('genQuiz')} · {item.minutes} {t('planMin')}
+                        </div>
+                        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, lineHeight: 1.25, textDecoration: done ? 'line-through' : 'none' }}>{item.topic}</div>
+                      </div>
+                      {done && <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>{ICONS.check}</div>}
+                    </button>
+                  );
+                })}
+                {planItems.every((i) => i.status === 'completed') && (
+                  <div className="qk-bounce-in" style={{ padding: '12px 16px', borderRadius: 14, background: 'var(--primary-l)', color: 'var(--primary-d)', fontFamily: 'var(--font-display)', fontWeight: 600 }}>🎉 {t('planAllDone')}</div>
+                )}
+              </div>
+            )}
+          </section>
 
           {/* subject filter */}
           {subjects.length > 1 && (

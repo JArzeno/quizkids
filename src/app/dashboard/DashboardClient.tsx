@@ -11,6 +11,8 @@ import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { computeStreak, computeWeeklyPct } from '@/lib/streak';
+import { fromRow } from '@/lib/subjects';
+import { goalFromRow, goalProgress } from '@/lib/goals';
 import type { Kid } from '@/types';
 
 const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> = {
@@ -19,6 +21,7 @@ const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> =
   lang: { en: 'Language Arts', es: 'Lengua',           icon: '📖' },
   soc:  { en: 'Social Studies',es: 'Estudios Sociales',icon: '🌎' },
   art:  { en: 'Art',           es: 'Arte',             icon: '🎨' },
+  fr:   { en: 'French',        es: 'Francés',          icon: '🇫🇷' },
 };
 
 function gradeLabel(grade: string, lang: string) {
@@ -46,6 +49,7 @@ interface KidSummary {
   streak: number;
   weeklyPct: number;
   history: QuizHistoryRow[];
+  goals: Array<{ id: string; subject: string; title: string; pct: number }>;
 }
 
 function relativeDate(iso: string, lang: string) {
@@ -90,6 +94,29 @@ function HistoryModal({ kid, history, lang, onClose }: { kid: Kid; history: Quiz
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+function KidGoalsPanel({ summary, lang }: { summary: KidSummary | undefined; lang: string }) {
+  if (!summary || summary.goals.length === 0) return null;
+  return (
+    <div style={{ marginTop: 14, padding: '14px 16px', background: 'var(--surface-2)', borderRadius: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+        {lang === 'es' ? 'Metas' : 'Goals'}
+      </div>
+      {summary.goals.map((g) => {
+        const info = SUBJECT_LABELS[g.subject] || { en: g.subject, es: g.subject, icon: '📚' };
+        return (
+          <div key={g.id}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, marginBottom: 4 }}>
+              <span style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.icon} {g.title}</span>
+              <span style={{ color: 'var(--ink-3)', flexShrink: 0 }}>{g.pct}%</span>
+            </div>
+            <div className="qk-progress"><span style={{ width: g.pct + '%' }} /></div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -162,6 +189,11 @@ export default function DashboardClient() {
       if (!user) return;
       const { data } = await supabase.from('kids').select('*').eq('parent_id', user.id).order('created_at');
       if (data) {
+        const kidIdList = data.map((k) => k.id);
+        const [{ data: subjRows }, { data: goalRows }] = await Promise.all([
+          supabase.from('kid_subjects').select('*').in('kid_id', kidIdList).order('created_at'),
+          supabase.from('kid_goals').select('*').in('kid_id', kidIdList).order('created_at'),
+        ]);
         setKids(data.map((k) => ({
           id: k.id,
           parent_id: k.parent_id,
@@ -177,6 +209,8 @@ export default function DashboardClient() {
           goal_min: k.goal_min || 30,
           lastSubject: k.last_subject || undefined,
           recent: [],
+          subjects: (subjRows || []).filter((r) => r.kid_id === k.id).map(fromRow),
+          goals: (goalRows || []).filter((r) => r.kid_id === k.id).map(goalFromRow),
         })));
 
         // Load summaries for all kids
@@ -236,7 +270,12 @@ export default function DashboardClient() {
 
             const history = [...quizzes].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).slice(0, 20);
 
-            newSummaries[kidId] = { kidId, totalSessions: sessions.length, totalMinutes, quizzesDone, avgScore, topSubjects, recentTopics, streak, weeklyPct, history };
+            const goals = (goalRows || [])
+              .filter((r) => r.kid_id === kidId && r.status === 'active')
+              .map(goalFromRow)
+              .map((g) => ({ id: g.id, subject: g.subject, title: g.title, pct: goalProgress(g, quizzes).pct }));
+
+            newSummaries[kidId] = { kidId, totalSessions: sessions.length, totalMinutes, quizzesDone, avgScore, topSubjects, recentTopics, streak, weeklyPct, history, goals };
           }
           setSummaries(newSummaries);
         }
@@ -307,6 +346,7 @@ export default function DashboardClient() {
                 </div>
 
                 {/* Study summary */}
+                <KidGoalsPanel summary={summaries[k.id]} lang={lang} />
                 <KidSummaryPanel kid={k} summary={summaries[k.id]} lang={lang} />
 
                 {/* Recent items from local state */}

@@ -21,8 +21,43 @@ function gradeContext(grade: string): string {
 
 /** Strict output-language rule, so everything the kid sees matches the account language */
 function languageRule(lang: string): string {
-  const label = lang === 'es' ? 'Spanish' : 'English';
+  const label = lang === 'es' ? 'Spanish' : lang === 'fr' ? 'French' : 'English';
   return `Language: ${label}. Write EVERY piece of text (questions, answer choices, hints, titles, explanations, facts, activities) in ${label}, even if the topic name or the class material is written in another language — translate the topic as needed. Only exception: if the subject itself is a foreign language (e.g. a French class), keep the target-language words and examples being taught as they are.`;
+}
+
+/** What we know about how this kid is doing, used to tailor review material and retakes */
+export interface StudentContext {
+  level?: number;
+  weak?: string[];
+  strong?: string[];
+  /** Score (0-100) on the previous attempt at this topic */
+  lastScore?: number;
+  review?: boolean;
+}
+
+export function parseContext(v: unknown): StudentContext | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const c = v as Record<string, unknown>;
+  const list = (x: unknown) => (Array.isArray(x) ? x.filter((i): i is string => typeof i === 'string').map((i) => i.slice(0, 80)).slice(0, 8) : undefined);
+  return {
+    level: Number.isInteger(c.level) ? (c.level as number) : undefined,
+    weak: list(c.weak),
+    strong: list(c.strong),
+    lastScore: typeof c.lastScore === 'number' ? Math.round(Math.min(100, Math.max(0, c.lastScore))) : undefined,
+    review: c.review === true,
+  };
+}
+
+/** Prompt block describing the student, so the material fits where they really are */
+function studentBlock(ctx?: StudentContext): string {
+  if (!ctx) return '';
+  const lines: string[] = [];
+  if (ctx.level != null) lines.push(`- Working at about grade level ${ctx.level === 0 ? 'K' : ctx.level} in this subject.`);
+  if (ctx.weak?.length) lines.push(`- Struggles with: ${ctx.weak.join(', ')}.`);
+  if (ctx.strong?.length) lines.push(`- Strong at: ${ctx.strong.join(', ')}.`);
+  if (ctx.lastScore != null) lines.push(`- Scored ${ctx.lastScore}% on the last attempt at this topic.`);
+  if (ctx.review) lines.push('- This is a REVIEW after a weak result: use simpler wording, smaller steps, and NEW examples and questions that differ from a standard lesson on the topic. Rebuild the basics before anything tricky.');
+  return lines.length ? `\nAbout the student:\n${lines.join('\n')}\n` : '';
 }
 
 const MAX_SOURCE_CHARS = 12000;
@@ -39,7 +74,7 @@ ${source.slice(0, MAX_SOURCE_CHARS)}
 `;
 }
 
-export async function generateQuiz(topic: string, grade: string, difficulty: string, lang: string, source?: string) {
+export async function generateQuiz(topic: string, grade: string, difficulty: string, lang: string, source?: string, ctx?: StudentContext) {
   const openai = getClient();
   const cardCount = difficulty === 'easy' ? 6 : 8;
   const diffLabel = difficulty === 'easy' ? 'simple and straightforward' : difficulty === 'hard' ? 'challenging with tricky distractors and nuanced distinctions' : 'moderately challenging';
@@ -55,7 +90,7 @@ Rules:
 - Kindergarten and 1st grade: use pictures-in-words ("the big yellow star"), very short questions
 - 4th grade and above: include one or two questions that require applying knowledge, not just recalling it
 - Hard difficulty: include distractors that are plausible but clearly wrong to someone who studied the topic
-${sourceBlock(source)}
+${studentBlock(ctx)}${sourceBlock(source)}
 Return ONLY valid JSON in this exact format:
 {
   "questions": [
@@ -82,7 +117,7 @@ The "a" field is the 0-based index of the correct answer in choices.`;
   return JSON.parse(content);
 }
 
-export async function generateGuide(topic: string, grade: string, lang: string, source?: string) {
+export async function generateGuide(topic: string, grade: string, lang: string, source?: string, ctx?: StudentContext) {
   const openai = getClient();
   const gradeDesc = gradeContext(grade);
 
@@ -96,7 +131,7 @@ Rules:
 - 3rd–5th grade: 2–3 sentences per section, introduce subject terms with a quick definition
 - 6th grade and above: 3–4 sentences, include comparisons, cause/effect, and real-world applications
 - The "key" field is one memorable sentence — the #1 takeaway
-${sourceBlock(source)}
+${studentBlock(ctx)}${sourceBlock(source)}
 Return ONLY valid JSON in this exact format:
 {
   "intro": "A 1–2 sentence friendly introduction at the grade level",
@@ -126,7 +161,7 @@ Keep language simple and engaging for the grade level.`;
   return JSON.parse(content);
 }
 
-export async function generateWorksheet(topic: string, grade: string, lang: string, source?: string) {
+export async function generateWorksheet(topic: string, grade: string, lang: string, source?: string, ctx?: StudentContext) {
   const openai = getClient();
   const gradeDesc = gradeContext(grade);
 
@@ -138,7 +173,7 @@ Rules:
 - Questions must match vocabulary and complexity for that grade level
 - Mix question types when appropriate for the grade (multiple choice, fill-in-the-blank, short answer)
 - The bonus activity should be hands-on and grade-appropriate (draw, label, write a sentence, etc.)
-${sourceBlock(source)}
+${studentBlock(ctx)}${sourceBlock(source)}
 Return ONLY valid JSON:
 {
   "questions": [
@@ -158,6 +193,83 @@ Return ONLY valid JSON:
     response_format: { type: 'json_object' },
     temperature: 0.7,
     max_tokens: 1500,
+  });
+
+  const content = response.choices[0].message.content;
+  if (!content) throw new Error('No content from OpenAI');
+  return JSON.parse(content);
+}
+
+/** Placement quiz: 9 questions spread across grades below / at / above the kid's grade, each tagged with a skill */
+export async function generatePlacement(subject: string, focus: string | undefined, grade: string, lang: string) {
+  const openai = getClient();
+  const gradeDesc = gradeContext(grade);
+
+  const prompt = `Create a 9-question multiple-choice PLACEMENT quiz for the subject "${subject}"${focus ? ` (parent's focus: "${focus}")` : ''}. The student is enrolled at: ${gradeDesc}
+
+The goal is to find where the student really is in this subject, so spread the difficulty:
+- 3 questions one grade level BELOW the student's grade (band -1)
+- 3 questions AT the student's grade (band 0)
+- 3 questions one grade level ABOVE the student's grade (band 1)
+Order them from easiest to hardest. Cover different skills within the subject${focus ? ', leaning toward the parent focus' : ''}, and give each question a short skill name in "topic" (2-4 words, reused when two questions test the same skill).
+${languageRule(lang)}
+
+Return ONLY valid JSON in this exact format:
+{
+  "questions": [
+    {
+      "q": "Question text",
+      "choices": ["A", "B", "C", "D"],
+      "a": 0,
+      "hint": "A short hint",
+      "band": -1,
+      "topic": "Short skill name"
+    }
+  ]
+}
+The "a" field is the 0-based index of the correct answer in choices. Shuffle the position of correct answers.`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+    temperature: 0.6,
+    max_tokens: 2500,
+  });
+
+  const content = response.choices[0].message.content;
+  if (!content) throw new Error('No content from OpenAI');
+  return JSON.parse(content);
+}
+
+/** Proposes the next learning goal for one subject, based on the kid's level and what they have already done */
+export async function generateGoal(input: {
+  subject: string; grade: string; level?: number; focus?: string;
+  strong?: string[]; weak?: string[]; done?: string[]; lang: string;
+}) {
+  const openai = getClient();
+  const gradeDesc = gradeContext(input.grade);
+
+  const prompt = `Propose ONE learning goal for a student in the subject "${input.subject}". The student is enrolled at: ${gradeDesc}
+${input.level != null ? `A placement quiz put them at roughly grade level ${input.level === 0 ? 'K' : input.level} in this subject.\n` : ''}${input.focus ? `The parent wants the focus to be: "${input.focus}"\n` : ''}${input.strong?.length ? `Strong at: ${input.strong.join(', ')}\n` : ''}${input.weak?.length ? `Needs practice in: ${input.weak.join(', ')}\n` : ''}${input.done?.length ? `Goals already completed (do NOT repeat, build on them): ${input.done.join('; ')}\n` : ''}
+Pick the most useful next goal: start where the student really is (their level, not only their grade), address weak areas first, and keep it achievable in 1-4 weeks of short daily study.
+${languageRule(input.lang)}
+
+Rules:
+- "title": a clear, motivating goal in one sentence, max 80 characters (e.g. "Add and subtract fractions with unlike denominators")
+- "description": 1-2 plain sentences explaining what the student will be able to do
+- "topics": 3-6 short, specific topic names (2-6 words each), ordered from foundation to goal. Each must work as the topic of a quiz on its own.
+- "weeks": integer 1-4
+
+Return ONLY valid JSON:
+{ "title": "...", "description": "...", "topics": ["..."], "weeks": 2 }`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+    temperature: 0.6,
+    max_tokens: 600,
   });
 
   const content = response.choices[0].message.content;

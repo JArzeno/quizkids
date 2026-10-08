@@ -8,6 +8,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
+import { completePlanItem } from '@/lib/plan';
 import type { QuizQuestion } from '@/types';
 
 const FALLBACK_QUIZ_EN: QuizQuestion[] = [
@@ -38,6 +39,7 @@ export default function QuizClient() {
   const FALLBACK_QUIZ = lang === 'es' ? FALLBACK_QUIZ_ES : FALLBACK_QUIZ_EN;
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
+  const contentLang = studyParams.contentLang ?? lang;
 
   React.useEffect(() => { setMode('kid'); }, []);
 
@@ -67,7 +69,7 @@ export default function QuizClient() {
               .eq('id', studyParams.contentId)
               .single();
             // Only reuse assigned content if it is in the account's current language
-            if (data?.content && (data.lang || 'en') === lang) {
+            if (data?.content && (data.lang || 'en') === contentLang) {
               const content = data.content as { questions?: QuizQuestion[] };
               const limit = difficulty === 'easy' ? 6 : 8;
               setCards((content.questions || FALLBACK_QUIZ).slice(0, limit));
@@ -87,7 +89,7 @@ export default function QuizClient() {
             topic: studyParams.topic,
             grade: studyParams.grade,
             difficulty,
-            lang,
+            lang: contentLang,
             subject: studyParams.subject,
             source: studyParams.source,
           }),
@@ -105,7 +107,7 @@ export default function QuizClient() {
       setLoading(false);
     };
     fetchQuiz();
-  }, [studyParams.topic, studyParams.grade, studyParams.contentId, difficulty, lang]);
+  }, [studyParams.topic, studyParams.grade, studyParams.contentId, difficulty, lang, contentLang]);
 
   const cur = cards[i];
   const userPick = picks[i];
@@ -140,7 +142,7 @@ export default function QuizClient() {
           total: cards.length,
           correct,
           stars: goldStars,
-          lang,
+          lang: contentLang,
         }).then(() => {
           // Mark assignment as completed
           if (studyParams.assignmentId) {
@@ -152,6 +154,7 @@ export default function QuizClient() {
         });
       }
 
+      if (studyParams.planItemId) void completePlanItem(studyParams.planItemId, isDemo);
       router.push('/kids/results');
     } else setI(i + 1);
   };

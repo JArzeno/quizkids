@@ -16,6 +16,10 @@ export interface Kid {
   weekly?: number;
   lastSubject?: string;
   recent?: RecentItem[];
+  subjects?: KidSubject[];
+  goals?: KidGoal[];
+  /** Demo mode only: plan items are kept locally instead of in Supabase */
+  planItems?: PlanItem[];
   created_at?: string;
 }
 
@@ -100,6 +104,10 @@ export interface StudyParams {
   lang: 'en' | 'es';
   contentId?: string;
   assignmentId?: string;
+  /** Set when the item comes from the daily plan, so finishing it can tick it off */
+  planItemId?: string;
+  /** Language of the content when it differs from the account language (per-subject language) */
+  contentLang?: Lang | 'fr';
   /** Study notes extracted from an imported class (PDF / photos); grounds generation in that material */
   source?: string;
 }
@@ -114,3 +122,68 @@ export interface ImportedLesson {
 }
 
 export type Lang = 'en' | 'es';
+
+/** A subject a kid studies, with the result of its placement quiz once taken */
+export interface KidSubject {
+  subject: string;
+  /** Language the subject is studied in */
+  lang?: 'en' | 'es' | 'fr';
+  focus?: string;
+  /** Estimated grade level for this subject (0 = K); undefined until placement is taken */
+  level?: number;
+  strongTopics?: string[];
+  weakTopics?: string[];
+  placementAccuracy?: number;
+  placedAt?: string;
+  /** When the level was last adjusted from quiz results */
+  levelUpdatedAt?: string;
+  /** Left out of the daily plan while true */
+  paused?: boolean;
+}
+
+/** band: -1 = below the kid's grade, 0 = at grade, 1 = above grade */
+export interface PlacementQuestion extends QuizQuestion {
+  band: -1 | 0 | 1;
+  topic: string;
+}
+
+export interface KidGoal {
+  id: string;
+  subject: string;
+  title: string;
+  description?: string;
+  /** Ordered topic names the goal covers; quiz results on these topics drive progress */
+  topics: string[];
+  weeks?: number;
+  targetDate?: string;
+  /** proposed = waiting for the parent to approve */
+  status: 'proposed' | 'active' | 'completed';
+  createdAt?: string;
+  completedAt?: string;
+}
+
+export interface GoalDraft {
+  title: string;
+  description?: string;
+  topics: string[];
+  weeks?: number;
+}
+
+export type PlanItemType = 'guide' | 'quiz' | 'pdf' | 'test';
+
+export interface PlanItem {
+  id: string;
+  /** Undefined for items a parent added by hand */
+  goalId?: string;
+  subject: string;
+  topic: string;
+  type: PlanItemType;
+  position: number;
+  minutes: number;
+  /** yyyy-mm-dd of the weekday it was handed out for; undefined = still queued */
+  planDate?: string;
+  contentId?: string;
+  /** Extra practice added because of a weak result (or a retake) */
+  review?: boolean;
+  status: 'pending' | 'completed' | 'skipped';
+}
