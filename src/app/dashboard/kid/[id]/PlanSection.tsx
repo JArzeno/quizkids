@@ -6,7 +6,8 @@ import { useStore } from '@/lib/store';
 import { kidSubjectInfo, levelLabel } from '@/lib/subjects';
 import { goalProgress } from '@/lib/goals';
 import { addManualItem, dateKey, isWeekday, loadKidPlanItems, regenerateToday } from '@/lib/plan';
-import type { Kid, PlanItem } from '@/types';
+import { loadKidTopics } from '@/lib/topics';
+import type { Kid, KidTopic, PlanItem } from '@/types';
 
 interface QuizLike { subject: string | null; topic: string | null; correct: number | null; total: number | null; created_at: string }
 interface SessionLike { minutes: number | null; started_at: string | null }
@@ -32,6 +33,14 @@ export default function PlanSection({ kid, quizzes, sessions }: { kid: Kid; quiz
   const [msg, setMsg] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<{ subject: string; topic: string; type: 'guide' | 'quiz' | 'pdf' } | null>(null);
   const [copied, setCopied] = React.useState(false);
+  // Anything added to a plan comes from the topics and classes the parent added to the subject
+  const [topics, setTopics] = React.useState<KidTopic[]>([]);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadKidTopics(kid, isDemo).then((list) => { if (!cancelled) setTopics(list); }).catch((e) => console.warn('Could not load topics:', e));
+    return () => { cancelled = true; };
+  }, [kid.id, isDemo, kid.topics]);
+  const topicsOf = (subject: string) => topics.filter((x) => x.subject === subject);
 
   const load = React.useCallback(async () => {
     if (isDemo) { setItems(kid.planItems || []); return; }
@@ -137,10 +146,17 @@ export default function PlanSection({ kid, quizzes, sessions }: { kid: Kid; quiz
 
       {form && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', padding: 12, background: 'var(--surface-2)', borderRadius: 14 }}>
-          <select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className="qk-input" style={{ width: 'auto', fontSize: 13 }}>
+          <select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value, topic: '' })} className="qk-input" style={{ width: 'auto', fontSize: 13 }}>
             {subjects.map((s) => <option key={s.subject} value={s.subject}>{label(s.subject).icon} {label(s.subject).label}</option>)}
           </select>
-          <input className="qk-input" value={form.topic} maxLength={100} placeholder={L('Topic, e.g. Adding fractions', 'Tema, ej. Suma de fracciones')} onChange={(e) => setForm({ ...form, topic: e.target.value })} style={{ flex: 1, minWidth: 180, fontSize: 13 }} />
+          {topicsOf(form.subject).length === 0 ? (
+            <span style={{ flex: 1, minWidth: 180, fontSize: 12, color: 'var(--ink-3)' }}>{L('Add topics to this subject first.', 'Agrega temas a esta materia primero.')}</span>
+          ) : (
+            <select value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })} className="qk-input" style={{ flex: 1, minWidth: 180, fontSize: 13 }}>
+              <option value="">{L('Pick a topic…', 'Elige un tema…')}</option>
+              {topicsOf(form.subject).map((x) => <option key={x.id} value={x.title}>{x.title}</option>)}
+            </select>
+          )}
           <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as 'guide' | 'quiz' | 'pdf' })} className="qk-input" style={{ width: 'auto', fontSize: 13 }}>
             <option value="quiz">Quiz</option><option value="guide">{L('Guide', 'Guía')}</option><option value="pdf">{L('Worksheet', 'Hoja')}</option>
           </select>

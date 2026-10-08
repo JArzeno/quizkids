@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/client';
 import { subjectPromptName } from '@/lib/subjects';
-import type { GoalDraft, Kid, KidGoal } from '@/types';
+import type { GoalDraft, Kid, KidGoal, KidTopic } from '@/types';
 
 export const MASTERY = 70;
 
@@ -38,8 +38,18 @@ export function goalProgress(goal: KidGoal, quizzes: QuizLike[]): { pct: number;
   return { pct: goal.topics.length ? Math.round((mastered.length / goal.topics.length) * 100) : 0, mastered, testPassed, testAttempted: tests.length > 0 };
 }
 
-/** Asks the AI for the next goal for a subject (nothing is saved) */
-export async function requestGoalDraft(kid: Kid, subject: string, lang: string, custom: Array<{ id: string; name: string; icon: string }>): Promise<GoalDraft | null> {
+/**
+ * Topics a new goal for this subject can be built from: the ones the parent added, leaving out those already
+ * covered by a completed or active goal. `topics` is newest first (as loaded); the result is oldest first,
+ * the order the parent added them in.
+ */
+export function goalCandidates(goals: KidGoal[], subject: string, topics: KidTopic[]): string[] {
+  const covered = new Set(goals.filter((g) => g.subject === subject && (g.status === 'completed' || g.status === 'active')).flatMap((g) => g.topics.map(norm)));
+  return topics.filter((t) => t.subject === subject && !covered.has(norm(t.title))).map((t) => t.title).reverse();
+}
+
+/** Asks the AI to build the next goal for a subject out of the given topics (nothing is saved) */
+export async function requestGoalDraft(kid: Kid, subject: string, lang: string, custom: Array<{ id: string; name: string; icon: string }>, available: string[]): Promise<GoalDraft | null> {
   const ks = kid.subjects?.find((s) => s.subject === subject);
   try {
     const res = await fetch('/api/generate/goal', {
@@ -47,6 +57,7 @@ export async function requestGoalDraft(kid: Kid, subject: string, lang: string, 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         subject: subjectPromptName(subject, custom),
+        topics: available,
         grade: kid.grade,
         level: ks?.level,
         focus: ks?.focus,

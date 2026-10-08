@@ -231,6 +231,33 @@ create policy "kid_topics_update" on public.kid_topics
 create policy "kid_topics_delete" on public.kid_topics
   for delete using (kid_id in (select id from public.kids where parent_id = auth.uid()));
 
+-- Test prep per kid and subject (see migrations/009_kid_tests.sql)
+create table if not exists public.kid_tests (
+  id uuid primary key default gen_random_uuid(),
+  kid_id uuid not null references public.kids(id) on delete cascade,
+  subject text not null,
+  title text not null,
+  topics text[] not null default '{}',
+  test_date date,
+  guide_content_id uuid references public.generated_content(id) on delete set null,
+  quiz_content_id uuid references public.generated_content(id) on delete set null,
+  lang text,
+  created_at timestamptz default now()
+);
+
+create index if not exists kid_tests_kid_subject on public.kid_tests (kid_id, subject, created_at desc);
+
+alter table public.kid_tests enable row level security;
+
+create policy "kid_tests_select" on public.kid_tests
+  for select using (kid_id in (select id from public.kids where parent_id = auth.uid()));
+create policy "kid_tests_insert" on public.kid_tests
+  for insert with check (kid_id in (select id from public.kids where parent_id = auth.uid()));
+create policy "kid_tests_update" on public.kid_tests
+  for update using (kid_id in (select id from public.kids where parent_id = auth.uid()));
+create policy "kid_tests_delete" on public.kid_tests
+  for delete using (kid_id in (select id from public.kids where parent_id = auth.uid()));
+
 -- Custom subjects per parent account (see migrations/009_custom_subjects.sql)
 create table if not exists public.custom_subjects (
   parent_id uuid not null default auth.uid() references auth.users(id) on delete cascade,

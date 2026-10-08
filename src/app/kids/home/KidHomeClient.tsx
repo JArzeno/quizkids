@@ -10,9 +10,9 @@ import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { subjectInfo, kidSubjectInfo, levelLabel } from '@/lib/subjects';
 import { goalProgress } from '@/lib/goals';
-import { syncTodayPlan, prepareItem, dateKey, isWeekday } from '@/lib/plan';
+import { syncTodayPlan, prepareItem, itemMaterial, dateKey, isWeekday } from '@/lib/plan';
 import type { ResultRow } from '@/lib/adapt';
-import type { PlanItem, RecentItem } from '@/types';
+import type { KidGoal, KidTopic, PlanItem, RecentItem } from '@/types';
 
 function todayKey(): string {
   const d = new Date();
@@ -49,6 +49,8 @@ export default function KidHomeClient() {
   const [planState, setPlanState] = React.useState<'loading' | 'ready' | 'error'>('loading');
   const [results, setResults] = React.useState<ResultRow[]>([]);
   const subjectLangs = React.useRef<Record<string, 'en' | 'es' | 'fr'>>({});
+  // Topics (with their class notes) and goals behind the plan, so each item is built from the parent's school topics
+  const planBase = React.useRef<{ topics: KidTopic[]; goals: KidGoal[] }>({ topics: [], goals: [] });
 
   React.useEffect(() => {
     if (!kid) return;
@@ -61,6 +63,7 @@ export default function KidHomeClient() {
         const plan = await syncTodayPlan(kid, isDemo, now);
         if (cancelled) return;
         subjectLangs.current = Object.fromEntries(plan.subjects.map((s) => [s.subject, s.lang || 'en']));
+        planBase.current = { topics: plan.topics, goals: plan.goals };
         if (isDemo) updateKid(kid.id, { planItems: plan.items });
         else updateKid(kid.id, { subjects: plan.subjects, goals: plan.goals });
         setResults(plan.results);
@@ -74,7 +77,7 @@ export default function KidHomeClient() {
         for (const item of today) {
           if (cancelled) return;
           if (item.status === 'completed' || item.contentId) continue;
-          const ready = await prepareItem(kid, item, plan.subjects.find((s) => s.subject === item.subject), isDemo, lang, plan.results);
+          const ready = await prepareItem(kid, item, plan.subjects.find((s) => s.subject === item.subject), isDemo, lang, plan.results, itemMaterial(item, plan.topics, plan.goals));
           if (cancelled) return;
           today = today.map((i) => (i.id === ready.id ? ready : i));
           setPlanItems(today);
@@ -92,6 +95,7 @@ export default function KidHomeClient() {
   const openPlanItem = (item: PlanItem) => {
     if (!kid) return;
     session.start();
+    const material = itemMaterial(item, planBase.current.topics, planBase.current.goals);
     setStudyParams({
       ...studyParams,
       subject: item.subject,
@@ -101,7 +105,9 @@ export default function KidHomeClient() {
       assignmentId: undefined,
       planItemId: item.id,
       contentLang: subjectLangs.current[item.subject] || undefined,
-      source: undefined,
+      source: material.source,
+      topics: material.topics,
+      pairedContentId: undefined,
       returnTo: undefined,
     });
     if (item.type === 'guide') router.push('/kids/guide');
@@ -221,6 +227,8 @@ export default function KidHomeClient() {
       planItemId: undefined,
       contentLang: undefined,
       source: undefined,
+      topics: undefined,
+      pairedContentId: undefined,
       returnTo: undefined,
     });
 

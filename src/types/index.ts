@@ -22,6 +22,8 @@ export interface Kid {
   planItems?: PlanItem[];
   /** Demo mode only: topics are kept locally instead of in Supabase */
   topics?: KidTopic[];
+  /** Demo mode only: test prep is kept locally instead of in Supabase */
+  tests?: KidTest[];
   created_at?: string;
 }
 
@@ -162,6 +164,10 @@ export interface StudyParams {
   source?: string;
   /** Kid screen to go back to after studying (e.g. a subject page); defaults to the kid home */
   returnTo?: string;
+  /** Several topics at once (test prep, a goal's final test): the quiz or guide covers all of them */
+  topics?: string[];
+  /** Content id of the quiz that goes with the guide being read (test prep), so "take a quiz" opens it */
+  pairedContentId?: string;
 }
 
 export interface ImportedLesson {
@@ -241,6 +247,21 @@ export interface KidTopic {
   /** Class notes from an imported PDF / photos; generated content is based on them */
   notes?: string;
   source: 'manual' | 'import';
+  createdAt?: string;
+}
+
+/** A school test: a quiz and a study guide covering the topics the parent picked */
+export interface KidTest {
+  id: string;
+  subject: string;
+  title: string;
+  /** Titles of the topics it covers */
+  topics: string[];
+  /** yyyy-mm-dd of the school test, if known */
+  testDate?: string;
+  guideContentId?: string;
+  quizContentId?: string;
+  lang?: Lang | 'fr';
   createdAt?: string;
 }
 

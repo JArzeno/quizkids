@@ -10,7 +10,8 @@ import { createClient } from '@/lib/supabase/client';
 import { subjectInfo, fromRow } from '@/lib/subjects';
 import { goalFromRow, goalProgress } from '@/lib/goals';
 import { loadTopics, subjectTopics, type TopicRow } from '@/lib/topics';
-import type { KidTopic, RecentItem } from '@/types';
+import { daysUntil, loadTests, testStudyParams } from '@/lib/tests';
+import type { KidTest, KidTopic, RecentItem } from '@/types';
 
 interface QuizRow { subject: string | null; topic: string | null; total: number | null; correct: number | null; stars: number | null; created_at: string; assignment_id?: string | null }
 interface AssignmentRow { id: string; subject: string | null; topic: string | null; type: string | null; status: string | null; assigned_at: string; content_id: string | null }
@@ -39,6 +40,7 @@ export default function KidSubjectClient() {
   const [quizzes, setQuizzes] = React.useState<QuizRow[]>([]);
   const [assignments, setAssignments] = React.useState<AssignmentRow[]>([]);
   const [topics, setTopics] = React.useState<KidTopic[]>([]);
+  const [tests, setTests] = React.useState<KidTest[]>([]);
   const [loading, setLoading] = React.useState(!isDemo);
 
   React.useEffect(() => { setMode('kid'); }, []);
@@ -50,6 +52,7 @@ export default function KidSubjectClient() {
         subject, topic: r.title, total: 5, correct: r.score, stars: r.score, created_at: new Date().toISOString(),
       })));
       setTopics((kid.topics || []).filter((x) => x.subject === subject).reverse());
+      setTests((kid.tests || []).filter((x) => x.subject === subject).reverse());
       setLoading(false);
       return;
     }
@@ -73,6 +76,8 @@ export default function KidSubjectClient() {
         setAssignments((assignRes.data as AssignmentRow[]) || []);
         const list = await loadTopics(kid, subject, false).catch((e) => { console.warn('Could not load topics:', e); return [] as KidTopic[]; });
         if (!cancelled) setTopics(list);
+        const testList = await loadTests(kid, subject, false).catch((e) => { console.warn('Could not load tests:', e); return [] as KidTest[]; });
+        if (!cancelled) setTests(testList);
       } catch (e) {
         console.warn('Could not load subject:', e);
       }
@@ -85,7 +90,7 @@ export default function KidSubjectClient() {
 
   if (!kid) return null;
 
-  const rows = subjectTopics(subject, topics, kid.goals || [], quizzes, assignments);
+  const rows = subjectTopics(subject, topics, kid.goals || [], quizzes);
   const goal = (kid.goals || []).find((g) => g.subject === subject && g.status === 'active');
   const prog = goal ? goalProgress(goal, quizzes) : null;
   const accuracy = quizzes.length ? Math.round(quizzes.reduce((a, q) => a + ((q.total || 0) > 0 ? ((q.correct || 0) / (q.total || 1)) * 100 : 0), 0) / quizzes.length) : 0;
@@ -110,9 +115,22 @@ export default function KidSubjectClient() {
       ...studyParams,
       subject, topic: row.title, grade: kid.grade,
       contentId: undefined, assignmentId: undefined, planItemId: undefined,
-      contentLang: ks?.lang, source: row.topic?.notes, returnTo: here,
+      contentLang: ks?.lang, source: row.topic?.notes, returnTo: here, topics: undefined, pairedContentId: undefined,
     });
     router.push(kind === 'guide' ? '/kids/guide' : '/kids/quiz');
+  };
+
+  const openTest = (test: KidTest, kind: 'guide' | 'quiz') => {
+    setStudyParams(testStudyParams(studyParams, kid, test, kind, topics, ks, here));
+    router.push(kind === 'guide' ? '/kids/guide' : '/kids/quiz');
+  };
+
+  const testWhen = (date: string) => {
+    const d = daysUntil(date);
+    if (d === 0) return L('Today!', '¡Hoy!');
+    if (d === 1) return L('Tomorrow', 'Mañana');
+    if (d > 1) return L(`In ${d} days`, `En ${d} días`);
+    return new Date(date + 'T00:00').toLocaleDateString(lang === 'es' ? 'es-DO' : 'en-US', { month: 'short', day: 'numeric' });
   };
 
   const openWork = (r: RecentItem) => {
@@ -120,7 +138,7 @@ export default function KidSubjectClient() {
       ...studyParams,
       subject, topic: r.title, grade: kid.grade,
       contentId: r.contentId, assignmentId: r.assignmentId, planItemId: undefined,
-      contentLang: undefined, source: undefined, returnTo: here,
+      contentLang: undefined, source: undefined, returnTo: here, topics: undefined, pairedContentId: undefined,
     });
     router.push(r.kind === 'quiz' ? '/kids/quiz' : r.kind === 'guide' ? '/kids/guide' : '/kids/pdf');
   };
@@ -176,6 +194,38 @@ export default function KidSubjectClient() {
               </div>
               <div className="qk-progress"><span style={{ width: prog.pct + '%' }} /></div>
               <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{prog.mastered.length}/{goal.topics.length} {t('goalTopicsDone')}</div>
+            </section>
+          )}
+
+          {/* tests to get ready for */}
+          {tests.length > 0 && (
+            <section style={{ marginTop: 28 }}>
+              <h2 className="qk-h2" style={{ margin: '0 0 14px' }}>{L('Get ready for a test', 'Prepárate para un examen')}</h2>
+              <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))', gap: 14 }}>
+                {tests.map((test) => {
+                  const last = quizzes.find((q) => q.topic && q.topic.trim().toLowerCase() === test.title.trim().toLowerCase() && (q.total || 0) > 0);
+                  const pct = last ? Math.round(((last.correct || 0) / (last.total || 1)) * 100) : null;
+                  const upcoming = test.testDate ? daysUntil(test.testDate) >= 0 : false;
+                  return (
+                    <div key={test.id} className="qk-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10, border: '1px solid ' + (pct != null && pct >= 70 ? 'var(--primary)' : 'var(--line)') }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                        <div style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{test.title}</div>
+                        {test.testDate && upcoming && <span style={{ padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: 'var(--honey-l)', color: '#7C5410', flexShrink: 0 }}>📅 {testWhen(test.testDate)}</span>}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+                        {test.topics.join(' · ')}
+                      </div>
+                      <div style={{ fontSize: 12, color: pct == null ? 'var(--ink-3)' : pct >= 70 ? 'var(--primary-d)' : 'var(--coral)', fontWeight: pct == null ? 400 : 700 }}>
+                        {pct == null ? L('Read the guide, then try the quiz.', 'Lee la guía y luego prueba el quiz.') : `${L('Last quiz', 'Último quiz')}: ${pct}%`}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
+                        <Btn kind="ghost" icon={ICONS.book} style={{ flex: 1, fontSize: 13, padding: '8px 10px' }} onClick={() => openTest(test, 'guide')}>{L('Study guide', 'Guía')}</Btn>
+                        <Btn kind="primary" icon={ICONS.cards} style={{ flex: 1, fontSize: 13, padding: '8px 10px' }} onClick={() => openTest(test, 'quiz')}>Quiz</Btn>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </section>
           )}
 
