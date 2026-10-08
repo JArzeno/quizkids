@@ -12,18 +12,9 @@ import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { studyTimeSaved } from '@/lib/studyTimer';
 import { computeStreak, computeWeeklyPct } from '@/lib/streak';
-import { fromRow, subjectOptions } from '@/lib/subjects';
+import { fromRow, subjectOptions, subjectInfo } from '@/lib/subjects';
 import { goalFromRow, goalProgress } from '@/lib/goals';
 import type { Kid } from '@/types';
-
-const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> = {
-  sci:  { en: 'Science',       es: 'Ciencias',         icon: '🔬' },
-  math: { en: 'Math',          es: 'Matemáticas',      icon: '➗' },
-  lang: { en: 'Language Arts', es: 'Lengua',           icon: '📖' },
-  soc:  { en: 'Social Studies',es: 'Estudios Sociales',icon: '🌎' },
-  art:  { en: 'Art',           es: 'Arte',             icon: '🎨' },
-  fr:   { en: 'French',        es: 'Francés',          icon: '🇫🇷' },
-};
 
 function gradeLabel(grade: string, lang: string) {
   const g = grade.toUpperCase();
@@ -64,6 +55,7 @@ function relativeDate(iso: string, lang: string) {
 
 function HistoryModal({ kid, history, lang, onClose }: { kid: Kid; history: QuizHistoryRow[]; lang: string; onClose: () => void }) {
   const t = useT(lang as 'en' | 'es');
+  const customSubjects = useStore((s) => s.customSubjects);
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,.45)', backdropFilter: 'blur(4px)', display: 'grid', placeItems: 'center', padding: 'clamp(16px, 4vw, 24px)' }} onClick={onClose}>
       <div className="qk-card" style={{ width: '100%', maxWidth: 460, maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: 24 }} onClick={(e) => e.stopPropagation()}>
@@ -79,7 +71,7 @@ function HistoryModal({ kid, history, lang, onClose }: { kid: Kid; history: Quiz
           {history.length === 0 ? (
             <div style={{ fontSize: 13, color: 'var(--ink-3)', padding: '20px 0', textAlign: 'center' }}>{t('historyEmpty')}</div>
           ) : history.map((h, i) => {
-            const info = h.subject ? (SUBJECT_LABELS[h.subject] || { en: h.subject, es: h.subject, icon: '📚' }) : null;
+            const info = h.subject ? subjectInfo(h.subject, lang, customSubjects) : null;
             const pct = (h.total || 0) > 0 ? Math.round(((h.correct || 0) / (h.total || 1)) * 100) : 0;
             return (
               <div key={`${h.created_at}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', background: 'var(--surface-2)', borderRadius: 12 }}>
@@ -100,6 +92,7 @@ function HistoryModal({ kid, history, lang, onClose }: { kid: Kid; history: Quiz
 }
 
 function KidGoalsPanel({ summary, lang }: { summary: KidSummary | undefined; lang: string }) {
+  const customSubjects = useStore((s) => s.customSubjects);
   if (!summary || summary.goals.length === 0) return null;
   return (
     <div style={{ marginTop: 14, padding: '14px 16px', background: 'var(--surface-2)', borderRadius: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -107,7 +100,7 @@ function KidGoalsPanel({ summary, lang }: { summary: KidSummary | undefined; lan
         {lang === 'es' ? 'Metas' : 'Goals'}
       </div>
       {summary.goals.map((g) => {
-        const info = SUBJECT_LABELS[g.subject] || { en: g.subject, es: g.subject, icon: '📚' };
+        const info = subjectInfo(g.subject, lang, customSubjects);
         return (
           <div key={g.id}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, marginBottom: 4 }}>
@@ -123,6 +116,7 @@ function KidGoalsPanel({ summary, lang }: { summary: KidSummary | undefined; lan
 }
 
 function KidSummaryPanel({ kid, summary, lang }: { kid: Kid; summary: KidSummary | undefined; lang: string }) {
+  const customSubjects = useStore((s) => s.customSubjects);
   if (!summary) return null;
   const { totalMinutes, quizzesDone, avgScore, topSubjects, recentTopics } = summary;
   if (quizzesDone === 0 && totalMinutes === 0) return null;
@@ -151,10 +145,10 @@ function KidSummaryPanel({ kid, summary, lang }: { kid: Kid; summary: KidSummary
       {topSubjects.length > 0 && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {topSubjects.map((ts) => {
-            const info = SUBJECT_LABELS[ts.subject] || { en: ts.subject, es: ts.subject, icon: '📚' };
+            const info = subjectInfo(ts.subject, lang, customSubjects);
             return (
               <span key={ts.subject} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 999, background: 'var(--primary-l)', color: 'var(--primary-d)', fontSize: 11, fontWeight: 700 }}>
-                {info.icon} {lang === 'es' ? info.es : info.en} · {ts.count}
+                {info.icon} {info.label} · {ts.count}
               </span>
             );
           })}

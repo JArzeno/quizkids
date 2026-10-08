@@ -8,6 +8,7 @@ import { PricingCards } from '@/components/ui/PricingCards';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
+import { addCustomSubject, removeCustomSubject } from '@/lib/customSubjects';
 
 const BUILTIN_SUBJECTS = [
   { id: 'sci', icon: '🔬' },
@@ -19,7 +20,7 @@ const BUILTIN_SUBJECTS = [
 
 export default function SettingsClient() {
   const store = useStore();
-  const { lang, setLang, account, setAccount, kids, setKids, updateKid, removeKid, parentPrefs, setParentPrefs, parentPin, setParentPin, customSubjects, setCustomSubjects, plan, setPlan, palette, setPalette, gamification, setGamification, difficulty, setDifficulty, setMode, setIsDemo } = store;
+  const { lang, setLang, account, setAccount, kids, setKids, updateKid, removeKid, parentPrefs, setParentPrefs, parentPin, setParentPin, customSubjects, plan, setPlan, palette, setPalette, gamification, setGamification, difficulty, setDifficulty, setMode, setIsDemo } = store;
   const t = useT(lang);
   const router = useRouter();
   const [editingKidId, setEditingKidId] = React.useState<string | null>(null);
@@ -141,7 +142,7 @@ export default function SettingsClient() {
                         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15 }}>{s.name}</div>
                         <div style={{ fontSize: 11, color: s.color, fontWeight: 700 }}>{lang === 'es' ? 'PERSONAL' : 'CUSTOM'}</div>
                       </div>
-                      <button onClick={() => setCustomSubjects(customSubjects.filter((x) => x.id !== s.id))} style={{ appearance: 'none', border: 0, background: 'transparent', color: 'var(--ink-3)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
+                      <button onClick={async () => { if (!(await removeCustomSubject(s.id))) fireToast(t('customSubjectSaveError')); }} style={{ appearance: 'none', border: 0, background: 'transparent', color: 'var(--ink-3)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
                         {React.cloneElement(ICONS.trash as React.ReactElement<{ size?: number }>, { size: 14 })}
                       </button>
                     </div>
@@ -151,10 +152,11 @@ export default function SettingsClient() {
                   <AddSubjectPanel
                     lang={lang}
                     onCancel={() => setShowAddSubject(false)}
-                    onAdd={(s) => {
-                      setCustomSubjects([...(customSubjects || []), { ...s, id: 'cus-' + Math.random().toString(36).slice(2, 7) }]);
+                    onAdd={async (s) => {
+                      if (!(await addCustomSubject(s))) return false;
                       setShowAddSubject(false);
                       fireToast(t('saved'));
+                      return true;
                     }}
                   />
                 )}
@@ -229,13 +231,24 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-function AddSubjectPanel({ lang, onCancel, onAdd }: { lang: 'en' | 'es'; onCancel: () => void; onAdd: (s: { name: string; icon: string; color: string }) => void }) {
+function AddSubjectPanel({ lang, onCancel, onAdd }: { lang: 'en' | 'es'; onCancel: () => void; onAdd: (s: { name: string; icon: string; color: string }) => Promise<boolean> }) {
   const t = useT(lang);
   const ICONS_GRID = ['🤖', '💻', '🔤', '🎵', '🌱', '🧪', '🎭', '🧮', '✏️', '🌍', '⚽', '🍳', '🦖', '🎨'];
   const COLORS = ['#3F7A4F', '#E29A2B', '#E26D5A', '#6BA8C9', '#B14F8C', '#7A5AE0', '#2F7C8A', '#5A9F58'];
   const [name, setName] = React.useState('');
   const [icon, setIcon] = React.useState(ICONS_GRID[0]);
   const [color, setColor] = React.useState(COLORS[0]);
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState(false);
+  const canAdd = !!name.trim() && !saving;
+
+  const submit = async () => {
+    setSaving(true);
+    setError(false);
+    const ok = await onAdd({ name: name.trim(), icon, color });
+    setSaving(false);
+    if (!ok) setError(true);
+  };
 
   return (
     <div className="qk-card" style={{ marginTop: 14, padding: 18, background: 'var(--surface-2)', boxShadow: 'none', border: '1.5px dashed var(--primary)' }}>
@@ -268,9 +281,9 @@ function AddSubjectPanel({ lang, onCancel, onAdd }: { lang: 'en' | 'es'; onCance
         </div>
       </div>
 
-      <div style={{ marginTop: 18, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-        <Btn kind="primary" icon={ICONS.plus} disabled={!name.trim()} style={{ opacity: name.trim() ? 1 : .5 }}
-          onClick={() => onAdd({ name: name.trim(), icon, color })}>
+      <div style={{ marginTop: 18, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+        {error && <div style={{ flex: '1 1 200px', fontSize: 13, color: 'var(--coral)', fontWeight: 600 }}>{t('customSubjectSaveError')}</div>}
+        <Btn kind="primary" icon={ICONS.plus} disabled={!canAdd} style={{ opacity: canAdd ? 1 : .5 }} onClick={submit}>
           {t('addCustomSubject')}
         </Btn>
       </div>

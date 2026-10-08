@@ -154,6 +154,15 @@ export interface ImportedLesson {
 
 export type Lang = 'en' | 'es';
 
+/** Subject a parent created in Settings (row of public.custom_subjects) */
+export interface CustomSubject {
+  /** 'cus-…', stored as the subject id on kid_subjects, goals, results… */
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+}
+
 /** A subject a kid studies, with the result of its placement quiz once taken */
 export interface KidSubject {
   subject: string;

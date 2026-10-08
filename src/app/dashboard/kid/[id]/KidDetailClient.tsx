@@ -10,24 +10,11 @@ import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { studyTimeSaved } from '@/lib/studyTimer';
-import { subjectOptions, levelLabel, fromRow } from '@/lib/subjects';
+import { subjectOptions, subjectInfo, levelLabel, fromRow } from '@/lib/subjects';
 import { goalFromRow, goalProgress } from '@/lib/goals';
 import GoalsSection from './GoalsSection';
 import PlanSection from './PlanSection';
 import type { Kid, KidSubject } from '@/types';
-
-const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> = {
-  sci:  { en: 'Science',        es: 'Ciencias',          icon: '🔬' },
-  math: { en: 'Math',           es: 'Matemáticas',       icon: '➗' },
-  lang: { en: 'Language Arts',  es: 'Lengua',            icon: '📖' },
-  soc:  { en: 'Social Studies', es: 'Estudios Sociales', icon: '🌎' },
-  art:  { en: 'Art',            es: 'Arte',              icon: '🎨' },
-  fr:   { en: 'French',         es: 'Francés',           icon: '🇫🇷' },
-};
-
-function subjectInfo(subject: string) {
-  return SUBJECT_LABELS[subject] || { en: subject, es: subject, icon: '📚' };
-}
 
 function gradeLabel(grade: string, lang: string) {
   const g = (grade || '').toUpperCase();
@@ -473,12 +460,12 @@ export default function KidDetailClient() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   {subjectStats.map((s) => {
-                    const info = subjectInfo(s.subject);
+                    const info = subjectInfo(s.subject, lang, customSubjects);
                     return (
                       <AccuracyRow
                         key={s.subject}
                         icon={info.icon}
-                        label={lang === 'es' ? info.es : info.en}
+                        label={info.label}
                         meta={`${s.quizzes} ${s.quizzes === 1 ? t('attemptLabel') : t('attemptsLabel')}${s.lastAt ? ' · ' + relativeDate(s.lastAt, lang) : ''}`}
                         accuracy={s.accuracy}
                         tone={s.accuracy >= 75 ? 'var(--primary)' : s.accuracy >= 50 ? 'var(--honey)' : 'var(--coral)'}
@@ -499,7 +486,7 @@ export default function KidDetailClient() {
                     <AccuracyRow
                       key={s.topic}
                       label={s.topic}
-                      icon={s.subject ? subjectInfo(s.subject).icon : undefined}
+                      icon={s.subject ? subjectInfo(s.subject, lang, customSubjects).icon : undefined}
                       meta={`${s.attempts} ${s.attempts === 1 ? t('attemptLabel') : t('attemptsLabel')}`}
                       accuracy={s.accuracy}
                       tone="var(--primary)"
@@ -519,7 +506,7 @@ export default function KidDetailClient() {
                     <AccuracyRow
                       key={s.topic}
                       label={s.topic}
-                      icon={s.subject ? subjectInfo(s.subject).icon : undefined}
+                      icon={s.subject ? subjectInfo(s.subject, lang, customSubjects).icon : undefined}
                       meta={`${s.attempts} ${s.attempts === 1 ? t('attemptLabel') : t('attemptsLabel')}`}
                       accuracy={s.accuracy}
                       tone={s.accuracy >= 50 ? 'var(--honey)' : 'var(--coral)'}
@@ -540,7 +527,7 @@ export default function KidDetailClient() {
                     return (
                       <div key={`${q.created_at}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', background: 'var(--surface-2)', borderRadius: 12 }}>
                         <div style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--primary-l)', color: 'var(--primary-d)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                          {q.subject ? <span style={{ fontSize: 15 }}>{subjectInfo(q.subject).icon}</span> : ICONS.cards}
+                          {q.subject ? <span style={{ fontSize: 15 }}>{subjectInfo(q.subject, lang, customSubjects).icon}</span> : ICONS.cards}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.topic || '—'}</div>
@@ -572,7 +559,7 @@ export default function KidDetailClient() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.topic || '—'}</div>
                           <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-                            {a.subject ? (lang === 'es' ? subjectInfo(a.subject).es : subjectInfo(a.subject).en) + ' · ' : ''}
+                            {a.subject ? subjectInfo(a.subject, lang, customSubjects).label + ' · ' : ''}
                             {relativeDate(a.assigned_at, lang)}
                           </div>
                         </div>

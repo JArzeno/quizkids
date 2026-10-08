@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { createClient } from '@/lib/supabase/client';
-import type { Kid, ParentPrefs, QuizResult, StudyParams, Lang, ImportedLesson, StudySession } from '@/types';
+import type { Kid, ParentPrefs, QuizResult, StudyParams, Lang, ImportedLesson, StudySession, CustomSubject } from '@/types';
 
 interface AppState {
   // lang
@@ -57,9 +57,11 @@ interface AppState {
   quizAsked: { topic: string; questions: string[] } | null;
   addQuizAsked: (topic: string, questions: string[]) => void;
 
-  // custom subjects
-  customSubjects: Array<{ id: string; name: string; icon: string; color: string }>;
-  setCustomSubjects: (s: Array<{ id: string; name: string; icon: string; color: string }>) => void;
+  // custom subjects; saved on the account and pulled by AppShell while signed in (see lib/customSubjects)
+  customSubjects: CustomSubject[];
+  setCustomSubjects: (s: CustomSubject[]) => void;
+  /** Account the local customSubjects were last loaded for; null = created here before they were saved to the account */
+  customSubjectsOwner: string | null;
 
   // history subject filter (kids home)
   filterSubject: string | null;
@@ -162,6 +164,7 @@ export const useStore = create<AppState>()(
 
       customSubjects: [],
       setCustomSubjects: (customSubjects) => set({ customSubjects }),
+      customSubjectsOwner: null,
 
       filterSubject: null,
       setFilterSubject: (filterSubject) => set({ filterSubject }),

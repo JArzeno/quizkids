@@ -9,9 +9,10 @@ import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { useStudyTracker, endStudySession } from '@/lib/studyTimer';
+import { loadCustomSubjects } from '@/lib/customSubjects';
 
 export function AppShell({ children, showNav = true }: { children: React.ReactNode; showNav?: boolean }) {
-  const { lang, setLang, mode, kids, activeKidId, setMode, setActiveKidId, palette, font, setAccount, setKids, setIsDemo } = useStore();
+  const { lang, setLang, mode, kids, activeKidId, setMode, setActiveKidId, palette, font, setAccount, setKids, setIsDemo, setCustomSubjects } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const activeKid = kids.find((k) => k.id === activeKidId) || kids[0];
@@ -28,19 +29,22 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
     await supabase.auth.signOut();
     setAccount(null);
     setKids([]);
+    setCustomSubjects([]);
     setIsDemo(false);
     setMode('parent');
     router.push('/auth');
   };
 
-  // Pull the language saved on the account (e.g. changed on another device)
+  // Pull what's saved on the account (e.g. changed on another device): language and custom subjects
   React.useEffect(() => {
     if (!account || isDemo) return;
     createClient().auth.getUser().then(({ data }) => {
-      const saved = data.user?.user_metadata?.lang;
+      if (!data.user) return;
+      const saved = data.user.user_metadata?.lang;
       if ((saved === 'en' || saved === 'es') && saved !== useStore.getState().lang) {
         useStore.setState((s) => ({ lang: saved, studyParams: { ...s.studyParams, lang: saved } }));
       }
+      return loadCustomSubjects(data.user.id);
     }).catch(() => {});
   }, [account?.email, isDemo]);
 
