@@ -90,6 +90,27 @@ export interface QuizQuestion {
   hint: string;
 }
 
+/** One block of a printable worksheet; each type prints differently */
+export type WorksheetSection =
+  | { type: 'mc'; items: { q: string; choices: string[]; a: number }[] }
+  /** fix: the corrected statement, for false items (answer key) */
+  | { type: 'tf'; items: { s: string; a: boolean; fix?: string }[] }
+  /** Each sentence has one "___" blank; bank lists the words to pick from (answers + a few extras) */
+  | { type: 'fill'; bank?: string[]; items: { s: string; a: string }[] }
+  /** Pairs in their correct order; the right column is shuffled when printed */
+  | { type: 'match'; items: { left: string; right: string }[] }
+  /** Explain / short answer with writing lines; a = sample answer for the key */
+  | { type: 'open'; items: { q: string; a: string; lines: number }[] };
+
+export type WorksheetSectionType = WorksheetSection['type'];
+
+export interface Worksheet {
+  sections: WorksheetSection[];
+  bonus: string;
+  /** Format version; old cached worksheets ({ questions, bonus }) have none */
+  v?: number;
+}
+
 export interface QuizResult {
   total: number;
   correct: number;
