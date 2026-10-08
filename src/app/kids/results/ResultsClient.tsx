@@ -11,7 +11,7 @@ import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 
 export default function ResultsClient() {
-  const { lang, kids, activeKidId, quizResult, studyParams, gamification, setQuizResult, updateKid, isDemo } = useStore();
+  const { lang, kids, activeKidId, quizResult, studyParams, setStudyParams, gamification, setQuizResult, updateKid, isDemo } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
@@ -65,6 +65,19 @@ export default function ResultsClient() {
   const { total, correct, picks, cards, stars } = quizResult;
   const pct = Math.round((correct / total) * 100);
   const goldStars = pct >= 90 ? 5 : pct >= 75 ? 4 : pct >= 60 ? 3 : pct >= 40 ? 2 : 1;
+
+  // New questions on the same topic; a separate practice round, not tied to the assignment or plan item
+  const moreQuestions = () => {
+    setStudyParams({ ...studyParams, contentId: undefined, assignmentId: undefined, planItemId: undefined });
+    setQuizResult(null);
+    router.push('/kids/quiz?more=1');
+  };
+  // Same questions again; a "more" round is replayed from its saved content
+  const tryAgain = () => {
+    if (quizResult.more && quizResult.contentId) setStudyParams({ ...studyParams, contentId: quizResult.contentId });
+    setQuizResult(null);
+    router.push('/kids/quiz');
+  };
 
   return (
     <AppShell>
@@ -150,9 +163,20 @@ export default function ResultsClient() {
               </div>
             </div>
 
-            <div style={{ marginTop: 24, display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', position: 'relative' }}>
-              <Btn kind="ghost" icon={ICONS.shuffle} onClick={() => { setQuizResult(null); router.push('/kids/quiz'); }}>{t('again')}</Btn>
-              <Btn kind="primary" onClick={() => { setQuizResult(null); router.push('/kids/home'); }}>{t('backHome')}</Btn>
+            <section className="qk-card" style={{ marginTop: 24, padding: 20, background: 'var(--primary-l)', borderColor: 'var(--primary)', position: 'relative' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                <div style={{ width: 48, height: 48, borderRadius: 16, background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>{ICONS.plus}</div>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <h2 className="qk-h2">{t('moreQuizTitle')}</h2>
+                  <p style={{ margin: '4px 0 0', fontSize: 15, color: 'var(--ink-2)' }}>{t('moreQuizSub').replace('{n}', String(total))}</p>
+                </div>
+                <Btn kind="primary" icon={ICONS.cards} onClick={moreQuestions}>{t('moreQuizBtn')}</Btn>
+              </div>
+            </section>
+
+            <div style={{ marginTop: 18, display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', position: 'relative' }}>
+              <Btn kind="ghost" icon={ICONS.shuffle} onClick={tryAgain}>{t('again')}</Btn>
+              <Btn kind="ghost" onClick={() => { setQuizResult(null); router.push('/kids/home'); }}>{t('backHome')}</Btn>
             </div>
           </div>
         </div>

@@ -53,6 +53,10 @@ interface AppState {
   quizResult: QuizResult | null;
   setQuizResult: (r: QuizResult | null) => void;
 
+  // questions already shown on the current topic, so "more questions" rounds don't repeat them
+  quizAsked: { topic: string; questions: string[] } | null;
+  addQuizAsked: (topic: string, questions: string[]) => void;
+
   // custom subjects
   customSubjects: Array<{ id: string; name: string; icon: string; color: string }>;
   setCustomSubjects: (s: Array<{ id: string; name: string; icon: string; color: string }>) => void;
@@ -143,6 +147,13 @@ export const useStore = create<AppState>()(
 
       quizResult: null,
       setQuizResult: (quizResult) => set({ quizResult }),
+
+      quizAsked: null,
+      addQuizAsked: (topic, questions) => set((s) => {
+        const prev = s.quizAsked?.topic === topic ? s.quizAsked.questions : [];
+        const merged = [...prev.filter((q) => !questions.includes(q)), ...questions].slice(-40);
+        return { quizAsked: { topic, questions: merged } };
+      }),
 
       customSubjects: [],
       setCustomSubjects: (customSubjects) => set({ customSubjects }),

@@ -81,6 +81,10 @@ export interface QuizResult {
   picks: Record<number, number>;
   cards: QuizQuestion[];
   stars: number;
+  /** generated_content id of these cards, so "try again" can replay them */
+  contentId?: string;
+  /** A "more questions" round: new questions on the same topic */
+  more?: boolean;
 }
 
 export interface GuideSection {
@@ -88,12 +92,20 @@ export interface GuideSection {
   body: string;
   tone: string;
   key: string;
+  /** Worked problem or everyday example for the section */
+  example?: string;
 }
 
 export interface Guide {
   intro: string;
   sections: GuideSection[];
   fact: string;
+  vocab?: { term: string; def: string }[];
+  recap?: string[];
+  /** Related ideas the kid can ask to learn more about */
+  related?: string[];
+  /** Prompt version; older cached guides have none */
+  v?: number;
 }
 
 export interface StudyParams {

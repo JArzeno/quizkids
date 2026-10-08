@@ -74,7 +74,18 @@ ${source.slice(0, MAX_SOURCE_CHARS)}
 `;
 }
 
-export async function generateQuiz(topic: string, grade: string, difficulty: string, lang: string, source?: string, ctx?: StudentContext) {
+/** Prompt block listing questions the student already answered, so a "more questions" round is all new */
+function excludeBlock(exclude?: string[]): string {
+  if (!exclude?.length) return '';
+  return `
+The student already answered the questions below on this topic. Write ALL NEW questions: do not repeat them, reword them, or test the exact same fact. Stay on the same topic and level, and cover other facts, examples, or ways of using it. If the topic is small, use new examples, numbers, or situations instead.
+<already_asked>
+${exclude.map((q) => `- ${q}`).join('\n')}
+</already_asked>
+`;
+}
+
+export async function generateQuiz(topic: string, grade: string, difficulty: string, lang: string, source?: string, ctx?: StudentContext, exclude?: string[]) {
   const openai = getClient();
   const cardCount = difficulty === 'easy' ? 6 : 8;
   const diffLabel = difficulty === 'easy' ? 'simple and straightforward' : difficulty === 'hard' ? 'challenging with tricky distractors and nuanced distinctions' : 'moderately challenging';
@@ -90,7 +101,7 @@ Rules:
 - Kindergarten and 1st grade: use pictures-in-words ("the big yellow star"), very short questions
 - 4th grade and above: include one or two questions that require applying knowledge, not just recalling it
 - Hard difficulty: include distractors that are plausible but clearly wrong to someone who studied the topic
-${studentBlock(ctx)}${sourceBlock(source)}
+${studentBlock(ctx)}${excludeBlock(exclude)}${sourceBlock(source)}
 Return ONLY valid JSON in this exact format:
 {
   "questions": [
@@ -108,7 +119,7 @@ The "a" field is the 0-based index of the correct answer in choices.`;
     model: 'gpt-4o-mini',
     messages: [{ role: 'user', content: prompt }],
     response_format: { type: 'json_object' },
-    temperature: 0.7,
+    temperature: exclude?.length ? 0.9 : 0.7,
     max_tokens: 2000,
   });
 
@@ -117,35 +128,74 @@ The "a" field is the 0-based index of the correct answer in choices.`;
   return JSON.parse(content);
 }
 
+/** Bump when the guide prompt changes shape, so cached guides from the old prompt are not served */
+export const GUIDE_VERSION = 2;
+
+const TONES = ['honey', 'primary', 'sky', 'coral'];
+const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+
+function normalizeSections(v: unknown, offset = 0) {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter((s) => s && typeof s === 'object' && str(s.title) && str(s.body))
+    .map((s, i) => ({
+      title: str(s.title),
+      body: str(s.body),
+      key: str(s.key),
+      ...(str(s.example) ? { example: str(s.example) } : {}),
+      tone: TONES.includes(s.tone) ? s.tone : TONES[(i + offset) % TONES.length],
+    }));
+}
+
+const strList = (v: unknown, max: number) => (Array.isArray(v) ? v.map(str).filter(Boolean).slice(0, max) : []);
+
+/** Length and depth of each section, by grade */
+function sectionRules(): string {
+  return `- Kindergarten–2nd grade: each "body" is 3–4 short sentences, simple words, relatable analogies (animals, food, toys)
+- 3rd–5th grade: each "body" is 5–7 sentences in 2 short paragraphs; introduce subject terms with a quick definition
+- 6th grade and above: each "body" is 6–9 sentences in 2–3 paragraphs; include comparisons, cause/effect, and real-world applications
+- Separate paragraphs inside "body" with a blank line
+- "example": a concrete example for that section, 1–4 sentences: a worked problem with its steps for math, an everyday situation or simple experiment for science, sample sentences for language, a real place or event for social studies
+- "key": one memorable sentence — the #1 takeaway of that section`;
+}
+
 export async function generateGuide(topic: string, grade: string, lang: string, source?: string, ctx?: StudentContext) {
   const openai = getClient();
   const gradeDesc = gradeContext(grade);
 
-  const prompt = `Create an educational study guide about "${topic}" for a student at: ${gradeDesc}
+  const prompt = `Create a complete study guide about "${topic}" for a student at: ${gradeDesc}
 
 ${languageRule(lang)}
 
+It should read like a full lesson the student can learn from on their own, not a short summary: start with the basics, build up step by step, and end with how the idea is used in real life.
+
 Rules:
 - Every sentence must match the reading level and vocabulary of that grade
-- Kindergarten–2nd grade: use 1–2 sentence sections, simple words, relatable analogies (animals, food, toys)
-- 3rd–5th grade: 2–3 sentences per section, introduce subject terms with a quick definition
-- 6th grade and above: 3–4 sentences, include comparisons, cause/effect, and real-world applications
-- The "key" field is one memorable sentence — the #1 takeaway
+- Kindergarten–2nd grade: 5 sections. 3rd grade and above: 6 sections
+${sectionRules()}
+- Order the sections from foundation to application and never repeat the same idea in two sections
+- "vocab": 3–6 important words used in the guide, each with a short grade-level definition
+- "recap": 3–5 short sentences with the most important points to remember
+- "related": 3 short ideas (2–6 words) closely connected to the topic that the guide does NOT cover yet, for the student to explore next${source ? '. Keep them inside the class material.' : ''}
 ${studentBlock(ctx)}${sourceBlock(source)}
 Return ONLY valid JSON in this exact format:
 {
-  "intro": "A 1–2 sentence friendly introduction at the grade level",
+  "intro": "A 2–3 sentence friendly introduction at the grade level",
   "sections": [
     {
       "title": "Section title",
       "body": "Explanation appropriate for the grade level",
+      "example": "A concrete example",
       "tone": "honey",
       "key": "One key takeaway sentence"
     }
   ],
-  "fact": "A fun, surprising fact about the topic written at the grade level"
+  "vocab": [{ "term": "word", "def": "short definition" }],
+  "recap": ["Point to remember"],
+  "fact": "A fun, surprising fact about the topic written at the grade level",
+  "related": ["Idea to explore next"]
 }
-Include 3–4 sections. Use tone values: honey, primary, sky, coral (rotate them).
+Use tone values: honey, primary, sky, coral (rotate them).
 Keep language simple and engaging for the grade level.`;
 
   const response = await openai.chat.completions.create({
@@ -153,12 +203,73 @@ Keep language simple and engaging for the grade level.`;
     messages: [{ role: 'user', content: prompt }],
     response_format: { type: 'json_object' },
     temperature: 0.7,
+    max_tokens: 4500,
+  });
+
+  const content = response.choices[0].message.content;
+  if (!content) throw new Error('No content from OpenAI');
+  const parsed = JSON.parse(content);
+  const sections = normalizeSections(parsed.sections);
+  if (sections.length === 0) throw new Error('Guide has no sections');
+  return {
+    intro: str(parsed.intro),
+    sections,
+    vocab: Array.isArray(parsed.vocab)
+      ? parsed.vocab.filter((x: { term?: unknown; def?: unknown }) => str(x?.term) && str(x?.def)).slice(0, 8).map((x: { term: string; def: string }) => ({ term: str(x.term), def: str(x.def) }))
+      : [],
+    recap: strList(parsed.recap, 6),
+    fact: str(parsed.fact),
+    related: strList(parsed.related, 4),
+    v: GUIDE_VERSION,
+  };
+}
+
+/** Extra guide sections on request: one about a related idea the kid picked, or two that go further on the topic */
+export async function generateGuideMore(topic: string, grade: string, lang: string, opts: { focus?: string; covered: string[]; source?: string; ctx?: StudentContext }) {
+  const openai = getClient();
+  const gradeDesc = gradeContext(grade);
+  const { focus, covered, source, ctx } = opts;
+
+  const task = focus
+    ? `Write 1 new section that explains "${focus}" and how it connects to ${topic}.`
+    : `Write 2 new sections that go a bit further on ${topic}: a new angle, a real-world use, or a common mistake and how to avoid it.`;
+
+  const prompt = `A student at: ${gradeDesc} just read a study guide about "${topic}" and wants to learn more.
+The guide already has these sections (do NOT repeat what they explain): ${covered.join('; ')}.
+
+${task}
+
+${languageRule(lang)}
+
+Rules:
+- Every sentence must match the reading level and vocabulary of that grade
+${sectionRules()}
+- "related": 3 new short ideas (2–6 words) connected to the topic, not covered above, for the student to explore next${source ? '. Keep them inside the class material.' : ''}
+${studentBlock(ctx)}${sourceBlock(source)}
+Return ONLY valid JSON in this exact format:
+{
+  "sections": [
+    { "title": "Section title", "body": "Explanation", "example": "A concrete example", "tone": "sky", "key": "One key takeaway sentence" }
+  ],
+  "related": ["Idea to explore next"]
+}
+Use tone values: honey, primary, sky, coral.`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+    temperature: 0.8,
     max_tokens: 2000,
   });
 
   const content = response.choices[0].message.content;
   if (!content) throw new Error('No content from OpenAI');
-  return JSON.parse(content);
+  const parsed = JSON.parse(content);
+  const sections = normalizeSections(parsed.sections, covered.length).slice(0, focus ? 1 : 2);
+  if (sections.length === 0) throw new Error('No new sections');
+  const seen = new Set(covered.map((c) => c.toLowerCase()));
+  return { sections, related: strList(parsed.related, 4).filter((r) => !seen.has(r.toLowerCase())) };
 }
 
 export async function generateWorksheet(topic: string, grade: string, lang: string, source?: string, ctx?: StudentContext) {
