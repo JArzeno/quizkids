@@ -20,6 +20,8 @@ export interface Kid {
   goals?: KidGoal[];
   /** Demo mode only: plan items are kept locally instead of in Supabase */
   planItems?: PlanItem[];
+  /** Demo mode only: topics are kept locally instead of in Supabase */
+  topics?: KidTopic[];
   created_at?: string;
 }
 
@@ -122,6 +124,8 @@ export interface StudyParams {
   contentLang?: Lang | 'fr';
   /** Study notes extracted from an imported class (PDF / photos); grounds generation in that material */
   source?: string;
+  /** Kid screen to go back to after studying (e.g. a subject page); defaults to the kid home */
+  returnTo?: string;
 }
 
 export interface ImportedLesson {
@@ -179,6 +183,17 @@ export interface GoalDraft {
   description?: string;
   topics: string[];
   weeks?: number;
+}
+
+/** A topic or class a parent added inside a kid's subject */
+export interface KidTopic {
+  id: string;
+  subject: string;
+  title: string;
+  /** Class notes from an imported PDF / photos; generated content is based on them */
+  notes?: string;
+  source: 'manual' | 'import';
+  createdAt?: string;
 }
 
 export type PlanItemType = 'guide' | 'quiz' | 'pdf' | 'test';

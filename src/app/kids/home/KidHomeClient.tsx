@@ -8,8 +8,10 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
-import { subjectOptions } from '@/lib/subjects';
+import { subjectOptions, levelLabel } from '@/lib/subjects';
+import { goalProgress } from '@/lib/goals';
 import { syncTodayPlan, prepareItem, dateKey, isWeekday } from '@/lib/plan';
+import type { ResultRow } from '@/lib/adapt';
 import type { PlanItem, RecentItem } from '@/types';
 
 const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> = {
@@ -53,6 +55,7 @@ export default function KidHomeClient() {
   // ---- today's plan ---------------------------------------------------------
   const [planItems, setPlanItems] = React.useState<PlanItem[]>([]);
   const [planState, setPlanState] = React.useState<'loading' | 'ready' | 'error'>('loading');
+  const [results, setResults] = React.useState<ResultRow[]>([]);
   const subjectLangs = React.useRef<Record<string, 'en' | 'es' | 'fr'>>({});
 
   React.useEffect(() => {
@@ -67,6 +70,8 @@ export default function KidHomeClient() {
         if (cancelled) return;
         subjectLangs.current = Object.fromEntries(plan.subjects.map((s) => [s.subject, s.lang || 'en']));
         if (isDemo) updateKid(kid.id, { planItems: plan.items });
+        else updateKid(kid.id, { subjects: plan.subjects, goals: plan.goals });
+        setResults(plan.results);
         // Subjects the parent paused are left out (items the parent added by hand always show)
         const paused = new Set(plan.subjects.filter((s) => s.paused).map((s) => s.subject));
         let today = plan.items.filter((i) => i.planDate === key && i.status !== 'skipped' && (!i.goalId || !paused.has(i.subject))).sort((a, b) => a.position - b.position);
@@ -105,6 +110,7 @@ export default function KidHomeClient() {
       planItemId: item.id,
       contentLang: subjectLangs.current[item.subject] || undefined,
       source: undefined,
+      returnTo: undefined,
     });
     if (item.type === 'guide') router.push('/kids/guide');
     else if (item.type === 'pdf') router.push('/kids/pdf');
@@ -248,6 +254,7 @@ export default function KidHomeClient() {
       planItemId: undefined,
       contentLang: undefined,
       source: undefined,
+      returnTo: undefined,
     });
 
     if (r.kind === 'quiz') router.push('/kids/quiz');
@@ -358,6 +365,40 @@ export default function KidHomeClient() {
               </div>
             )}
           </section>
+
+          {/* my subjects */}
+          {(kid.subjects || []).length > 0 && (
+            <section style={{ marginTop: 28 }}>
+              <h2 className="qk-h2" style={{ margin: '0 0 14px' }}>{lang === 'es' ? 'Mis materias' : 'My subjects'}</h2>
+              <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(200px, 100%), 1fr))', gap: 12 }}>
+                {(kid.subjects || []).map((ks) => {
+                  const info = subjectOptions(lang, customSubjects).find((o) => o.id === ks.subject) || { label: ks.subject, icon: '📚' };
+                  const goal = (kid.goals || []).find((g) => g.subject === ks.subject && g.status === 'active');
+                  const pct = goal ? goalProgress(goal, results).pct : null;
+                  return (
+                    <button key={ks.subject} onClick={() => router.push(`/kids/subject/${encodeURIComponent(ks.subject)}`)} className="qk-card qk-wiggle"
+                      style={{ appearance: 'none', textAlign: 'left', padding: 16, display: 'flex', flexDirection: 'column', gap: 10, cursor: 'pointer', border: '1px solid var(--line)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 48, height: 48, borderRadius: 16, background: 'var(--primary-l)', display: 'grid', placeItems: 'center', fontSize: 26, flexShrink: 0 }}>{info.icon}</div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, lineHeight: 1.2 }}>{info.label}</div>
+                          {ks.level != null && <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{levelLabel(ks.level, lang)}</div>}
+                        </div>
+                      </div>
+                      {pct != null && (
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--ink-3)', marginBottom: 4 }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🎯 {goal!.title}</span><span>{pct}%</span>
+                          </div>
+                          <div className="qk-progress"><span style={{ width: pct + '%' }} /></div>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {/* subject filter */}
           {subjects.length > 1 && (

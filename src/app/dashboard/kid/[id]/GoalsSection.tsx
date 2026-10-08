@@ -13,11 +13,12 @@ interface QuizLike { subject: string | null; topic: string | null; correct: numb
 
 interface Form { subject: string; goalId: string | null; title: string; topics: string; weeks: number }
 
-export default function GoalsSection({ kid, quizzes }: { kid: Kid; quizzes: QuizLike[] }) {
+/** `only` limits the section to one subject (used on the subject page) */
+export default function GoalsSection({ kid, quizzes, only }: { kid: Kid; quizzes: QuizLike[]; only?: string }) {
   const { lang, isDemo, updateKid, customSubjects } = useStore();
   const t = useT(lang);
   const goals = kid.goals || [];
-  const subjects = kid.subjects || [];
+  const subjects = (kid.subjects || []).filter((s) => !only || s.subject === only);
   const options = subjectOptions(lang, customSubjects);
 
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -106,7 +107,7 @@ export default function GoalsSection({ kid, quizzes }: { kid: Kid; quizzes: Quiz
 
   // A goal whose topics are all mastered and whose final test is passed completes itself and the next one is suggested
   React.useEffect(() => {
-    goals.filter((g) => g.status === 'active').forEach((g) => {
+    goals.filter((g) => g.status === 'active' && (!only || g.subject === only)).forEach((g) => {
       const gp = goalProgress(g, quizzes);
       if (autoCompleted.current.has(g.id) || gp.pct < 100 || !gp.testPassed) return;
       autoCompleted.current.add(g.id);
@@ -120,14 +121,14 @@ export default function GoalsSection({ kid, quizzes }: { kid: Kid; quizzes: Quiz
   return (
     <div className="qk-card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17 }}>{t('goalsTitle')}</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17 }}>{only ? t('goalTitleLabel') : t('goalsTitle')}</div>
         <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>{t('goalsSub')}</div>
       </div>
       {error && <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600, fontSize: 13 }}>{error}</div>}
       {notice && <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--primary-l)', color: 'var(--primary-d)', fontWeight: 600, fontSize: 13 }}>{notice}</div>}
       {subjects.length === 0 && <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{t('goalPickSubjects')}</div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: only ? '1fr' : 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))', gap: 12 }}>
         {subjects.map((ks) => {
           const info = options.find((o) => o.id === ks.subject) || { id: ks.subject, label: ks.subject, icon: '📚' };
           const active = goals.find((g) => g.subject === ks.subject && g.status === 'active');
@@ -139,11 +140,13 @@ export default function GoalsSection({ kid, quizzes }: { kid: Kid; quizzes: Quiz
 
           return (
             <div key={ks.subject} style={{ padding: 14, background: 'var(--surface-2)', borderRadius: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 20 }}>{info.icon}</span>
-                <div style={{ flex: 1, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15 }}>{info.label}</div>
-                {doneCount > 0 && <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>✓ {doneCount} {t('goalDoneCount')}</span>}
-              </div>
+              {(!only || doneCount > 0) && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {!only && <span style={{ fontSize: 20 }}>{info.icon}</span>}
+                  <div style={{ flex: 1, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15 }}>{only ? '' : info.label}</div>
+                  {doneCount > 0 && <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>✓ {doneCount} {t('goalDoneCount')}</span>}
+                </div>
+              )}
 
               {editing && form ? (
                 <div style={{ display: 'grid', gap: 8 }}>
