@@ -1,12 +1,14 @@
 'use client';
 import React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Ico, ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
+import { SessionBadge, useSession } from '@/components/ui/SessionPill';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
+import { useStudyTracker, endStudySession } from '@/lib/studyTimer';
 
 export function AppShell({ children, showNav = true }: { children: React.ReactNode; showNav?: boolean }) {
   const { lang, setLang, mode, kids, activeKidId, setMode, setActiveKidId, palette, font, setAccount, setKids, setIsDemo } = useStore();
@@ -15,8 +17,13 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
   const activeKid = kids.find((k) => k.id === activeKidId) || kids[0];
   const account = useStore((s) => s.account);
   const isDemo = useStore((s) => s.isDemo);
+  const pathname = usePathname();
+  const session = useSession(activeKid?.id);
+  useStudyTracker();
 
   const handleLogout = async () => {
+    // Save the running study time while still signed in
+    await endStudySession();
     const supabase = createClient();
     await supabase.auth.signOut();
     setAccount(null);
@@ -76,6 +83,8 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
             QuizKids
           </Link>
           <div className="qk-chrome-right">
+            {/* study timer; kid home shows its own with the controls */}
+            {mode === 'kid' && pathname !== '/kids/home' && <SessionBadge lang={lang} session={session} />}
             {/* role switcher */}
             {kids.length > 0 && account && !isDemo && (
               <div style={{ display: 'inline-flex', padding: 3, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 999, gap: 2, fontSize: 13, fontWeight: 700 }}>

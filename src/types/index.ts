@@ -23,6 +23,17 @@ export interface Kid {
   created_at?: string;
 }
 
+/** A study timer in progress. Times are epoch ms so it keeps counting across page changes and reloads. */
+export interface StudySession {
+  kidId: string;
+  startedAt: number;
+  /** When the current running stretch began; null while paused */
+  runningSince: number | null;
+  /** Time counted before the current running stretch */
+  accumulatedMs: number;
+  lastActivityAt: number;
+}
+
 export interface RecentItem {
   kind: 'quiz' | 'guide' | 'pdf';
   title: string;

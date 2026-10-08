@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { createClient } from '@/lib/supabase/client';
-import type { Kid, ParentPrefs, QuizResult, StudyParams, Lang, ImportedLesson } from '@/types';
+import type { Kid, ParentPrefs, QuizResult, StudyParams, Lang, ImportedLesson, StudySession } from '@/types';
 
 interface AppState {
   // lang
@@ -78,6 +78,11 @@ interface AppState {
   // session auto-start signal
   autoStartSession: boolean;
   setAutoStartSession: (v: boolean) => void;
+
+  // study timer, kept here so it keeps running across pages and reloads (see lib/studyTimer)
+  studySession: StudySession | null;
+  /** Kid whose timer stopped for inactivity; their next click starts it again */
+  studyIdleKidId: string | null;
 }
 
 export const DEMO_KIDS: Kid[] = [
@@ -172,6 +177,9 @@ export const useStore = create<AppState>()(
 
       autoStartSession: false,
       setAutoStartSession: (autoStartSession) => set({ autoStartSession }),
+
+      studySession: null,
+      studyIdleKidId: null,
     }),
     { name: 'quizkids-store' }
   )
