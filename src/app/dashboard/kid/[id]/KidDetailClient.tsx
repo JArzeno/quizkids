@@ -10,6 +10,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
+import { studyTimeSaved } from '@/lib/studyTimer';
 import { subjectOptions, levelLabel, fromRow } from '@/lib/subjects';
 import { goalFromRow } from '@/lib/goals';
 import GoalsSection from './GoalsSection';
@@ -199,6 +200,7 @@ export default function KidDetailClient() {
     const load = async () => {
       setLoading(true);
       try {
+        await studyTimeSaved();
         const supabase = createClient();
         const [quizRes, sessionRes, assignRes, subjRes, goalRes] = await Promise.all([
           supabase.from('quiz_results')

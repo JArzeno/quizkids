@@ -46,7 +46,7 @@ export default function KidHomeClient() {
 
   const [dbRecent, setDbRecent] = React.useState<RecentItem[] | null>(null);
   const [loadingHistory, setLoadingHistory] = React.useState(false);
-  const [dbMinutesToday, setDbMinutesToday] = React.useState<number | null>(null);
+  const session = useSession(kid?.id);
 
   React.useEffect(() => { setMode('kid'); }, []);
 
@@ -94,7 +94,7 @@ export default function KidHomeClient() {
 
   const openPlanItem = (item: PlanItem) => {
     if (!kid) return;
-    if (!session.running) session.start();
+    session.start();
     setStudyParams({
       ...studyParams,
       subject: item.subject,
@@ -111,9 +111,9 @@ export default function KidHomeClient() {
     else router.push('/kids/quiz');
   };
 
-  // Load minutes studied today from Supabase (source of truth across devices/reloads)
+  // Load minutes studied today from Supabase, so sessions saved on other devices count too
   React.useEffect(() => {
-    if (!kid || isDemo) { setDbMinutesToday(null); return; }
+    if (!kid || isDemo) return;
     let cancelled = false;
     const loadToday = async () => {
       const supabase = createClient();
@@ -121,11 +121,17 @@ export default function KidHomeClient() {
       startOfDay.setHours(0, 0, 0, 0);
       const { data } = await supabase
         .from('study_sessions')
-        .select('minutes')
+        .select('id, minutes')
         .eq('kid_id', kid.id)
         .gte('started_at', startOfDay.toISOString());
       if (cancelled) return;
-      setDbMinutesToday((data || []).reduce((acc, s) => acc + (s.minutes || 0), 0));
+      // The running timer saves into its own row as it goes; it's already counted live, so leave it out
+      const runningId = useStore.getState().studySession?.dbId;
+      const dbSeconds = (data || []).filter((s) => s.id !== runningId).reduce((acc, s) => acc + (s.minutes || 0), 0) * 60;
+      const key = todayKey();
+      const current = useStore.getState().kids.find((k) => k.id === kid.id);
+      const localSeconds = current?.today_date === key ? (current.seconds_today || 0) : 0;
+      if (dbSeconds > localSeconds) updateKid(kid.id, { seconds_today: dbSeconds, today_date: key });
     };
     loadToday();
     return () => { cancelled = true; };
@@ -183,40 +189,9 @@ export default function KidHomeClient() {
     load();
   }, [kid?.id, isDemo]);
 
-  const session = useSession((elapsedMs) => {
-    if (!kid) return;
-    const seconds = Math.round(elapsedMs / 1000);
-    if (seconds <= 0) return;
-    const key = todayKey();
-    const baseSeconds = kid.today_date === key ? (kid.seconds_today || 0) : 0;
-    const minutes = Math.round(elapsedMs / 60000);
-    const minutesTotal = (kid.minutes_total || 0) + minutes;
-    updateKid(kid.id, {
-      seconds_today: baseSeconds + seconds,
-      today_date: key,
-      minutes_total: minutesTotal,
-    });
-    // Persist the session to Supabase so time tracking survives reloads/device changes
-    if (!isDemo && minutes > 0) {
-      const supabase = createClient();
-      const endedAt = new Date();
-      void supabase.from('study_sessions').insert({
-        kid_id: kid.id,
-        minutes,
-        started_at: new Date(endedAt.getTime() - elapsedMs).toISOString(),
-        ended_at: endedAt.toISOString(),
-      });
-      void supabase.from('kids').update({ minutes_total: minutesTotal }).eq('id', kid.id);
-      setDbMinutesToday((prev) => (prev ?? 0) + minutes);
-    }
-  });
-
-  // Cumulative time studied today = max(DB total, local live total) + the live running session.
-  // DB is authoritative across devices/reloads; local seconds give sub-minute precision right after a session ends.
-  const localTodaySeconds = kid && kid.today_date === todayKey() ? (kid.seconds_today || 0) : 0;
-  const dbTodaySeconds = (dbMinutesToday ?? 0) * 60;
-  const todayBaseMs = Math.max(localTodaySeconds, dbTodaySeconds) * 1000;
-  const todayElapsedMs = todayBaseMs + session.elapsedMs;
+  // Time studied today = saved sessions (synced with Supabase above) + the timer running now
+  const todaySeconds = kid && kid.today_date === todayKey() ? (kid.seconds_today || 0) : 0;
+  const todayElapsedMs = todaySeconds * 1000 + session.elapsedMs;
 
   // Auto-start session if signal set by navigate-from-study
   const autoStartRef = React.useRef(false);
@@ -237,7 +212,7 @@ export default function KidHomeClient() {
 
   const openRecent = (r: RecentItem) => {
     // Auto-start session timer
-    if (!session.running) session.start();
+    session.start();
 
     setStudyParams({
       ...studyParams,

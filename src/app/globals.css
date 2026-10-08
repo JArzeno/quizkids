@@ -136,7 +136,7 @@ input, textarea, select { font-family: inherit; color: inherit; }
 }
 .qk-user-item:hover { background: var(--surface-2); }
 .qk-user-logout { color: var(--coral); }
-@media (max-width: 640px) { .qk-user-name { display: none; } }
+@media (max-width: 640px) { .qk-user-name, .qk-session-label { display: none; } }
 
 /* ---------- screen / page ---------- */
 .qk-screen {
