@@ -9,6 +9,8 @@ import type { Kid, StudySession } from '@/types';
 export const IDLE_MS = 60_000;
 /** How often activity is written to the store (it is persisted, so not on every mouse move) */
 const ACTIVITY_WRITE_MS = 2_000;
+/** How often the time so far is saved while the timer runs, so parent screens don't wait for it to stop */
+const SAVE_EVERY_MS = 60_000;
 const ACTIVITY_EVENTS = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'scroll', 'touchstart'] as const;
 
 export function sessionElapsedMs(s: StudySession, at: number): number {
@@ -27,13 +29,14 @@ export function startStudySession(kidId: string) {
   if (studySession?.kidId === kidId) { resumeStudySession(); return; }
   if (studySession) void endStudySession();
   const now = Date.now();
-  useStore.setState({ studySession: { kidId, startedAt: now, runningSince: now, accumulatedMs: 0, lastActivityAt: now }, studyIdleKidId: null });
+  useStore.setState({ studySession: { kidId, startedAt: now, runningSince: now, accumulatedMs: 0, lastActivityAt: now, dbId: crypto.randomUUID() }, studyIdleKidId: null });
 }
 
 export function pauseStudySession() {
   const s = useStore.getState().studySession;
   if (!s || s.runningSince == null) return;
   useStore.setState({ studySession: { ...s, accumulatedMs: sessionElapsedMs(s, Date.now()), runningSince: null } });
+  checkpoint(Date.now(), true);
 }
 
 export function resumeStudySession() {
@@ -48,7 +51,17 @@ export function endStudySession(endAt = Date.now(), restartOnActivity = false): 
   const s = useStore.getState().studySession;
   if (!s) return Promise.resolve();
   useStore.setState({ studySession: null, studyIdleKidId: restartOnActivity ? s.kidId : null });
-  return saveStudyTime(s, endAt, sessionElapsedMs(s, endAt));
+  saveProgress({ ...s, dbId: s.dbId ?? crypto.randomUUID() }, endAt, true);
+  return saving;
+}
+
+/** Saves the running timer's time so far, at most once a minute unless forced */
+function checkpoint(now: number, force = false) {
+  const s = useStore.getState().studySession;
+  if (!s || (!force && (s.runningSince == null || now - (s.savedAt ?? s.startedAt) < SAVE_EVERY_MS))) return;
+  const withId = { ...s, dbId: s.dbId ?? crypto.randomUUID() };
+  const savedMinutes = saveProgress(withId, now, false);
+  useStore.setState({ studySession: { ...withId, savedAt: now, savedMinutes } });
 }
 
 /** Stops a running timer once the kid has been inactive for IDLE_MS (also covers a tab closed mid-session) */
@@ -71,38 +84,48 @@ function noteActivity() {
   }
 }
 
-async function saveStudyTime(s: StudySession, endAt: number, elapsedMs: number) {
+let saving: Promise<void> = Promise.resolve();
+
+/** Resolves once study time handed off so far has reached Supabase; screens that load it wait for this */
+export function studyTimeSaved(): Promise<void> {
+  return saving;
+}
+
+/**
+ * Writes the session's time so far: minutes go to the kid's total right away, today's seconds when it ends.
+ * In Supabase the session is one study_sessions row, updated on every save. Returns the minutes saved.
+ */
+function saveProgress(s: StudySession & { dbId: string }, at: number, ended: boolean): number {
   const { kids, updateKid, isDemo } = useStore.getState();
   const kid = kids.find((k) => k.id === s.kidId);
-  if (!kid) return;
-  const seconds = Math.round(elapsedMs / 1000);
-  if (seconds <= 0) return;
+  if (!kid) return s.savedMinutes || 0;
+  const elapsedMs = sessionElapsedMs(s, at);
   const minutes = Math.round(elapsedMs / 60000);
-  const minutesTotal = (kid.minutes_total || 0) + minutes;
+  const addMinutes = Math.max(0, minutes - (s.savedMinutes || 0));
+  const minutesTotal = (kid.minutes_total || 0) + addMinutes;
   const patch: Partial<Kid> = { minutes_total: minutesTotal };
   // Time from an earlier day (a session left open overnight) doesn't count toward today
-  const key = dateKey(new Date(endAt));
-  if (key === dateKey(new Date())) {
+  const key = dateKey(new Date(at));
+  const seconds = Math.round(elapsedMs / 1000);
+  if (ended && seconds > 0 && key === dateKey(new Date())) {
     patch.seconds_today = (kid.today_date === key ? kid.seconds_today || 0 : 0) + seconds;
     patch.today_date = key;
   }
   updateKid(kid.id, patch);
-  // Persist the session to Supabase so time tracking survives reloads/device changes
-  if (isDemo || minutes <= 0) return;
-  try {
+  if (isDemo || minutes <= 0) return minutes;
+
+  const row = { id: s.dbId, kid_id: kid.id, minutes, started_at: new Date(s.startedAt).toISOString(), ended_at: new Date(at).toISOString() };
+  // Saves run one after another so a late checkpoint can't overwrite the final minutes
+  saving = saving.then(async () => {
     const supabase = createClient();
-    await Promise.all([
-      supabase.from('study_sessions').insert({
-        kid_id: kid.id,
-        minutes,
-        started_at: new Date(s.startedAt).toISOString(),
-        ended_at: new Date(endAt).toISOString(),
-      }),
-      supabase.from('kids').update({ minutes_total: minutesTotal }).eq('id', kid.id),
+    const [sessionRes, kidRes] = await Promise.all([
+      supabase.from('study_sessions').upsert(row),
+      addMinutes > 0 ? supabase.from('kids').update({ minutes_total: minutesTotal }).eq('id', kid.id) : null,
     ]);
-  } catch (e) {
-    console.warn('Could not save study time:', e);
-  }
+    const error = sessionRes.error || kidRes?.error;
+    if (error) console.warn('Could not save study time:', error);
+  }).catch((e) => console.warn('Could not save study time:', e));
+  return minutes;
 }
 
 /**
@@ -131,7 +154,7 @@ export function useStudyTracker() {
     const opts = { capture: true, passive: true };
     ACTIVITY_EVENTS.forEach((e) => window.addEventListener(e, onActivity, opts));
     document.addEventListener('visibilitychange', onVisible);
-    const i = setInterval(() => checkIdle(), 1000);
+    const i = setInterval(() => { const now = Date.now(); checkIdle(now); checkpoint(now); }, 1000);
     return () => {
       ACTIVITY_EVENTS.forEach((e) => window.removeEventListener(e, onActivity, opts));
       document.removeEventListener('visibilitychange', onVisible);

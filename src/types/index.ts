@@ -32,6 +32,10 @@ export interface StudySession {
   /** Time counted before the current running stretch */
   accumulatedMs: number;
   lastActivityAt: number;
+  /** study_sessions row the time is saved to while it runs */
+  dbId?: string;
+  savedAt?: number;
+  savedMinutes?: number;
 }
 
 export interface RecentItem {

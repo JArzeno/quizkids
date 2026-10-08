@@ -121,11 +121,13 @@ export default function KidHomeClient() {
       startOfDay.setHours(0, 0, 0, 0);
       const { data } = await supabase
         .from('study_sessions')
-        .select('minutes')
+        .select('id, minutes')
         .eq('kid_id', kid.id)
         .gte('started_at', startOfDay.toISOString());
       if (cancelled) return;
-      const dbSeconds = (data || []).reduce((acc, s) => acc + (s.minutes || 0), 0) * 60;
+      // The running timer saves into its own row as it goes; it's already counted live, so leave it out
+      const runningId = useStore.getState().studySession?.dbId;
+      const dbSeconds = (data || []).filter((s) => s.id !== runningId).reduce((acc, s) => acc + (s.minutes || 0), 0) * 60;
       const key = todayKey();
       const current = useStore.getState().kids.find((k) => k.id === kid.id);
       const localSeconds = current?.today_date === key ? (current.seconds_today || 0) : 0;

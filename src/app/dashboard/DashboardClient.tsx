@@ -10,6 +10,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
+import { studyTimeSaved } from '@/lib/studyTimer';
 import { computeStreak, computeWeeklyPct } from '@/lib/streak';
 import { fromRow } from '@/lib/subjects';
 import { goalFromRow, goalProgress } from '@/lib/goals';
@@ -184,6 +185,8 @@ export default function DashboardClient() {
   React.useEffect(() => {
     if (isDemo) return;
     const load = async () => {
+      // Time from a study timer that just ended (switching to parent mode ends it) should show up here
+      await studyTimeSaved();
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
