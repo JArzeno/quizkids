@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Ico, ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Btn } from '@/components/ui/Btn';
@@ -34,12 +34,14 @@ const FALLBACK_QUIZ_ES: QuizQuestion[] = [
 ];
 
 export default function QuizClient() {
-  const { lang, kids, activeKidId, studyParams, difficulty, gamification, setQuizResult, setMode, isDemo } = useStore();
+  const { lang, kids, activeKidId, studyParams, difficulty, gamification, setQuizResult, setMode, isDemo, addQuizAsked } = useStore();
   const t = useT(lang);
   const FALLBACK_QUIZ = lang === 'es' ? FALLBACK_QUIZ_ES : FALLBACK_QUIZ_EN;
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
   const contentLang = studyParams.contentLang ?? lang;
+  // "More questions" round from the results screen: a new set on the same topic, without repeats
+  const more = useSearchParams().get('more') === '1';
 
   React.useEffect(() => { setMode('kid'); }, []);
 
@@ -53,14 +55,22 @@ export default function QuizClient() {
   const [streak, setStreak] = React.useState(0);
   const [stars, setStars] = React.useState(0);
   const startedAt = React.useRef(Date.now());
+  const contentIdRef = React.useRef<string | undefined>(undefined);
 
   React.useEffect(() => {
     const fetchQuiz = async () => {
       setLoading(true);
       startedAt.current = Date.now();
+      contentIdRef.current = undefined;
+      const limit = difficulty === 'easy' ? 6 : 8;
+      const show = (qs: QuizQuestion[]) => {
+        const set = qs.slice(0, limit);
+        setCards(set);
+        addQuizAsked(studyParams.topic, set.map((c) => c.q));
+      };
       try {
         // If we have a cached contentId, load from Supabase directly
-        if (studyParams.contentId && !isDemo) {
+        if (studyParams.contentId && !isDemo && !more) {
           try {
             const supabase = createClient();
             const { data } = await supabase
@@ -71,8 +81,8 @@ export default function QuizClient() {
             // Only reuse assigned content if it is in the account's current language
             if (data?.content && (data.lang || 'en') === contentLang) {
               const content = data.content as { questions?: QuizQuestion[] };
-              const limit = difficulty === 'easy' ? 6 : 8;
-              setCards((content.questions || FALLBACK_QUIZ).slice(0, limit));
+              if (content.questions) contentIdRef.current = studyParams.contentId;
+              show(content.questions || FALLBACK_QUIZ);
               setLoading(false);
               return;
             }
@@ -82,6 +92,7 @@ export default function QuizClient() {
         }
 
         // Generate fresh (API also checks cache server-side)
+        const asked = useStore.getState().quizAsked;
         const res = await fetch('/api/generate/quiz', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -92,22 +103,23 @@ export default function QuizClient() {
             lang: contentLang,
             subject: studyParams.subject,
             source: studyParams.source,
+            ...(more ? { variant: 'more', exclude: asked?.topic === studyParams.topic ? asked.questions : [] } : {}),
           }),
         });
         if (res.ok) {
           const data = await res.json();
-          const limit = difficulty === 'easy' ? 6 : 8;
-          setCards((data.questions || FALLBACK_QUIZ).slice(0, limit));
+          if (data.questions) contentIdRef.current = data.contentId ?? undefined;
+          show(data.questions || FALLBACK_QUIZ);
         } else {
-          setCards(FALLBACK_QUIZ.slice(0, difficulty === 'easy' ? 6 : 8));
+          show(FALLBACK_QUIZ);
         }
       } catch {
-        setCards(FALLBACK_QUIZ.slice(0, difficulty === 'easy' ? 6 : 8));
+        show(FALLBACK_QUIZ);
       }
       setLoading(false);
     };
     fetchQuiz();
-  }, [studyParams.topic, studyParams.grade, studyParams.contentId, difficulty, lang, contentLang]);
+  }, [studyParams.topic, studyParams.grade, studyParams.contentId, difficulty, lang, contentLang, more]);
 
   const cur = cards[i];
   const userPick = picks[i];
@@ -124,7 +136,7 @@ export default function QuizClient() {
     setFlipped(false); setFeedback(null);
     if (i + 1 >= cards.length) {
       const correct = cards.reduce((acc, c, idx) => acc + (picks[idx] === c.a ? 1 : 0), 0);
-      const result = { total: cards.length, correct, picks, cards, stars };
+      const result = { total: cards.length, correct, picks, cards, stars, contentId: contentIdRef.current, more };
       setQuizResult(result);
 
       // Save quiz result to Supabase
