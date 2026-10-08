@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { normalizeWorksheet } from '@/lib/worksheet';
 
 function getClient() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'placeholder' });
@@ -272,28 +273,58 @@ Use tone values: honey, primary, sky, coral.`;
   return { sections, related: strList(parsed.related, 4).filter((r) => !seen.has(r.toLowerCase())) };
 }
 
+/** How many items of each worksheet section, by grade */
+function worksheetMix(grade: string): string {
+  const g = grade.toUpperCase() === 'K' ? 0 : parseInt(grade) || 3;
+  if (g <= 1) return `- "mc": 3 items with 3 short choices each
+- "tf": 3 items
+- "fill": 3 items, WITH a word bank
+- "match": 3 pairs (word ↔ simple picture-word or meaning)
+- "open": 1 item that asks to draw or tell in one sentence (lines: 2)`;
+  if (g <= 4) return `- "mc": 4 items with 4 choices each
+- "tf": 4 items
+- "fill": 4 items, WITH a word bank
+- "match": 4 pairs
+- "open": 2 items (lines: 3)`;
+  return `- "mc": 4 items with 4 choices each
+- "tf": 4 items
+- "fill": 4 items${g <= 6 ? ', WITH a word bank' : ', with NO word bank (omit "bank")'}
+- "match": 5 pairs
+- "open": 2–3 items that ask the student to explain why/how, compare, or apply the idea (lines: 3–5)`;
+}
+
 export async function generateWorksheet(topic: string, grade: string, lang: string, source?: string, ctx?: StudentContext) {
   const openai = getClient();
   const gradeDesc = gradeContext(grade);
 
-  const prompt = `Create 6 printable worksheet questions about "${topic}" for a student at: ${gradeDesc}
+  const prompt = `Create a printable worksheet about "${topic}" for a student at: ${gradeDesc}
 
 ${languageRule(lang)}
 
+The worksheet has one section of each type, with this many items:
+${worksheetMix(grade)}
+
+Section types:
+- "mc" multiple choice: "q" question, "choices", "a" = 0-based index of the correct choice. Shuffle where the correct answer sits.
+- "tf" true or false: "s" a statement (not a question), "a" true/false, and for false statements "fix" = the corrected true statement. Mix true and false (never all the same). False statements must be clearly false to someone who studied the topic, not trick wording.
+- "fill" complete the sentence: "s" a sentence with exactly ONE blank written as "___", "a" = the word or short phrase (1–3 words) that goes in the blank. "bank" = all the answers plus 2 extra plausible words, when a word bank is asked for.
+- "match": pairs in their correct order, "left" (term, question, or problem) and "right" (its meaning, answer, or example). Keep each side short (max ~8 words). Every right side must fit only one left side.
+- "open" explain / short answer: "q" a question the student answers in their own words, "a" a short model answer for the parent's answer key, "lines" = writing lines to leave.
+
 Rules:
-- Questions must match vocabulary and complexity for that grade level
-- Mix question types when appropriate for the grade (multiple choice, fill-in-the-blank, short answer)
-- The bonus activity should be hands-on and grade-appropriate (draw, label, write a sentence, etc.)
+- Vocabulary and complexity must match the grade level above
+- Every item tests a different fact or skill from the topic; do not ask the same thing twice across sections
+- Math topics: use numbers and problems in every section (e.g. fill "7 × 8 = ___", match problems to answers, open = a word problem asking to show the work and explain it)
+- The bonus activity should be hands-on and grade-appropriate (draw, label, build, observe, write a few sentences)
 ${studentBlock(ctx)}${sourceBlock(source)}
 Return ONLY valid JSON:
 {
-  "questions": [
-    {
-      "q": "Question text",
-      "choices": ["A", "B", "C", "D"],
-      "a": 0,
-      "hint": "A hint appropriate for the grade"
-    }
+  "sections": [
+    { "type": "mc", "items": [{ "q": "Question", "choices": ["A", "B", "C", "D"], "a": 0 }] },
+    { "type": "tf", "items": [{ "s": "Statement", "a": false, "fix": "Corrected statement" }] },
+    { "type": "fill", "bank": ["word"], "items": [{ "s": "Sentence with a ___ blank.", "a": "word" }] },
+    { "type": "match", "items": [{ "left": "Term", "right": "Meaning" }] },
+    { "type": "open", "items": [{ "q": "Explain…", "a": "Model answer", "lines": 3 }] }
   ],
   "bonus": "A fun, grade-appropriate bonus activity description"
 }`;
@@ -303,12 +334,14 @@ Return ONLY valid JSON:
     messages: [{ role: 'user', content: prompt }],
     response_format: { type: 'json_object' },
     temperature: 0.7,
-    max_tokens: 1500,
+    max_tokens: 3000,
   });
 
   const content = response.choices[0].message.content;
   if (!content) throw new Error('No content from OpenAI');
-  return JSON.parse(content);
+  const worksheet = normalizeWorksheet(JSON.parse(content));
+  if (worksheet.sections.length < 2) throw new Error('Worksheet has too few sections');
+  return worksheet;
 }
 
 /** Placement quiz: 9 questions spread across grades below / at / above the kid's grade, each tagged with a skill */

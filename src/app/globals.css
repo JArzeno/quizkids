@@ -455,3 +455,11 @@ input, textarea, select { font-family: inherit; color: inherit; }
   .qk-chrome, .qk-no-print { display: none !important; }
   body { background: #fff; }
 }
+@media print {
+  @page { margin: 14mm; }
+  .qk-screen { padding: 0 !important; }
+  .qk-paper { box-shadow: none !important; padding: 0 !important; max-width: none !important; border-radius: 0 !important; }
+  .qk-page-break { break-before: page; margin-top: 0 !important; }
+  .qk-ws-item, .qk-ws-head { break-inside: avoid; }
+  .qk-ws-head { break-after: avoid; }
+}

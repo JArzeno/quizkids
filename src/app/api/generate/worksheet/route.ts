@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { generateWorksheet, parseContext } from '@/lib/openai';
+import { WORKSHEET_VERSION } from '@/lib/worksheet';
 import { createClient } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
@@ -26,7 +27,9 @@ export async function POST(req: NextRequest) {
         .eq('type', 'worksheet')
         .eq('topic', topic)
         .eq('grade', grade)
-        .eq('lang', lng);
+        .eq('lang', lng)
+        // Worksheets from the old prompt are multiple choice only: only serve the current format
+        .eq('content->>v', String(WORKSHEET_VERSION));
       if (sourceHash) cacheQuery = cacheQuery.eq('source_hash', sourceHash);
       const { data: cached } = isVariant ? { data: null } : await cacheQuery.order('created_at').limit(1).maybeSingle();
 
