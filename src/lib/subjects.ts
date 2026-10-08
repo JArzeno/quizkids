@@ -20,8 +20,20 @@ export function subjectOptions(lang: string, custom: Custom[] = []): SubjectOpti
   ];
 }
 
-export function subjectInfo(id: string, lang: string, custom: Custom[] = []): SubjectOption {
-  return subjectOptions(lang, custom).find((s) => s.id === id) || { id, label: id, icon: '📚' };
+/** Label of a subject. Falls back to the name/icon stored on the kid's subject row (so a custom subject the parent deleted keeps its label), then to the raw id. */
+export function subjectInfo(id: string, lang: string, custom: Custom[] = [], stored?: { name?: string; icon?: string }): SubjectOption {
+  return subjectOptions(lang, custom).find((s) => s.id === id) || { id, label: stored?.name || id, icon: stored?.icon || '📚' };
+}
+
+/** subjectInfo for a subject of a kid: uses the name/icon saved on the kid's row when the custom subject no longer exists */
+export function kidSubjectInfo(kidSubjects: KidSubject[] | undefined, id: string, lang: string, custom: Custom[] = []): SubjectOption {
+  return subjectInfo(id, lang, custom, kidSubjects?.find((s) => s.subject === id));
+}
+
+/** Name/icon to save on a kid's subject (row and local state): set for custom subjects so they outlive the parent deleting them, empty for builtin ones */
+export function subjectLabelFields(id: string, custom: Custom[] = []): { name?: string; icon?: string } {
+  const c = custom.find((s) => s.id === id);
+  return c ? { name: c.name, icon: c.icon } : {};
 }
 
 /** English name of a subject for AI prompts */
@@ -51,5 +63,7 @@ export function fromRow(r: Record<string, unknown>): KidSubject {
     placedAt: (r.placed_at as string) || undefined,
     levelUpdatedAt: (r.level_updated_at as string) || undefined,
     paused: r.paused === true,
+    name: (r.name as string) || undefined,
+    icon: (r.icon as string) || undefined,
   };
 }

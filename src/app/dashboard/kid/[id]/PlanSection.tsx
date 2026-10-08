@@ -3,7 +3,7 @@ import React from 'react';
 import { ICONS } from '@/components/ui/Icons';
 import { Btn } from '@/components/ui/Btn';
 import { useStore } from '@/lib/store';
-import { subjectOptions, levelLabel } from '@/lib/subjects';
+import { kidSubjectInfo, levelLabel } from '@/lib/subjects';
 import { goalProgress } from '@/lib/goals';
 import { addManualItem, dateKey, isWeekday, loadKidPlanItems, regenerateToday } from '@/lib/plan';
 import { loadKidTopics } from '@/lib/topics';
@@ -24,9 +24,8 @@ function mondayOf(d: Date): Date {
 export default function PlanSection({ kid, quizzes, sessions }: { kid: Kid; quizzes: QuizLike[]; sessions: SessionLike[] }) {
   const { lang, isDemo, updateKid, customSubjects } = useStore();
   const L = (en: string, es: string) => (lang === 'es' ? es : en);
-  const options = subjectOptions(lang, customSubjects);
-  const label = (id: string) => options.find((o) => o.id === id) || { id, label: id, icon: '📚' };
   const subjects = kid.subjects || [];
+  const label = (id: string) => kidSubjectInfo(subjects, id, lang, customSubjects);
   const goals = kid.goals || [];
 
   const [items, setItems] = React.useState<PlanItem[]>(kid.planItems || []);

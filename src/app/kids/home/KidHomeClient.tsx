@@ -8,19 +8,11 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
-import { subjectOptions, levelLabel } from '@/lib/subjects';
+import { subjectInfo, kidSubjectInfo, levelLabel } from '@/lib/subjects';
 import { goalProgress } from '@/lib/goals';
 import { syncTodayPlan, prepareItem, itemMaterial, dateKey, isWeekday } from '@/lib/plan';
 import type { ResultRow } from '@/lib/adapt';
 import type { KidGoal, KidTopic, PlanItem, RecentItem } from '@/types';
-
-const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> = {
-  sci:  { en: 'Science',       es: 'Ciencias',        icon: '🔬' },
-  math: { en: 'Math',          es: 'Matemáticas',     icon: '➗' },
-  lang: { en: 'Language Arts', es: 'Lengua',          icon: '📖' },
-  soc:  { en: 'Social Studies',es: 'Estudios Sociales',icon: '🌎' },
-  art:  { en: 'Art',           es: 'Arte',            icon: '🎨' },
-};
 
 function todayKey(): string {
   const d = new Date();
@@ -324,7 +316,7 @@ export default function KidHomeClient() {
               <div style={{ display: 'grid', gap: 10 }}>
                 {planItems.map((item) => {
                   const done = item.status === 'completed';
-                  const info = subjectOptions(lang, customSubjects).find((o) => o.id === item.subject) || { label: item.subject, icon: '📚' };
+                  const info = kidSubjectInfo(kid.subjects, item.subject, lang, customSubjects);
                   const tone = item.type === 'guide' ? 'sky' : item.type === 'pdf' ? 'coral' : 'primary';
                   return (
                     <button key={item.id} onClick={() => openPlanItem(item)} className="qk-card"
@@ -355,7 +347,7 @@ export default function KidHomeClient() {
               <h2 className="qk-h2" style={{ margin: '0 0 14px' }}>{lang === 'es' ? 'Mis materias' : 'My subjects'}</h2>
               <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(200px, 100%), 1fr))', gap: 12 }}>
                 {(kid.subjects || []).map((ks) => {
-                  const info = subjectOptions(lang, customSubjects).find((o) => o.id === ks.subject) || { label: ks.subject, icon: '📚' };
+                  const info = subjectInfo(ks.subject, lang, customSubjects, ks);
                   const goal = (kid.goals || []).find((g) => g.subject === ks.subject && g.status === 'active');
                   const pct = goal ? goalProgress(goal, results).pct : null;
                   return (
@@ -396,13 +388,13 @@ export default function KidHomeClient() {
                 {lang === 'es' ? 'Todo' : 'All'}
               </button>
               {subjects.map((subj) => {
-                const info = SUBJECT_LABELS[subj] || { en: subj, es: subj, icon: '📚' };
+                const info = kidSubjectInfo(kid.subjects, subj, lang, customSubjects);
                 const on = filterSubject === subj;
                 return (
                   <button key={subj} onClick={() => setFilterSubject(on ? null : subj)}
                     style={{ appearance: 'none', padding: '5px 12px', borderRadius: 999, border: '1.5px solid ' + (on ? 'var(--primary)' : 'var(--line)'), background: on ? 'var(--primary-l)' : 'var(--surface)', color: on ? 'var(--primary-d)' : 'var(--ink-2)', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5, transition: 'all .15s' }}>
                     <span>{info.icon}</span>
-                    <span>{lang === 'es' ? info.es : info.en}</span>
+                    <span>{info.label}</span>
                   </button>
                 );
               })}
@@ -427,7 +419,7 @@ export default function KidHomeClient() {
                 const tone = r.kind === 'quiz' ? 'primary' : r.kind === 'guide' ? 'sky' : 'coral';
                 const bg = `var(--${tone === 'primary' ? 'primary-l' : tone + '-l'})`;
                 const fg = `var(--${tone === 'primary' ? 'primary' : tone})`;
-                const subjInfo = r.subject ? (SUBJECT_LABELS[r.subject] || { en: r.subject, es: r.subject, icon: '📚' }) : null;
+                const subjInfo = r.subject ? kidSubjectInfo(kid.subjects, r.subject, lang, customSubjects) : null;
                 const isCompleted = r.status === 'completed';
 
                 return (
@@ -454,7 +446,7 @@ export default function KidHomeClient() {
                         </span>
                         {subjInfo && (
                           <span style={{ fontSize: 11, color: fg, background: bg, padding: '1px 7px', borderRadius: 999, fontWeight: 700 }}>
-                            {subjInfo.icon} {lang === 'es' ? subjInfo.es : subjInfo.en}
+                            {subjInfo.icon} {subjInfo.label}
                           </span>
                         )}
                       </div>

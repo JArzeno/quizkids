@@ -10,6 +10,7 @@ import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { useStudyTracker } from '@/lib/studyTimer';
 import { signOut } from '@/lib/auth';
+import { loadCustomSubjects } from '@/lib/customSubjects';
 
 export function AppShell({ children, showNav = true }: { children: React.ReactNode; showNav?: boolean }) {
   const { lang, setLang, mode, kids, activeKidId, setMode, setActiveKidId, palette, font } = useStore();
@@ -27,14 +28,16 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
     router.push('/auth');
   };
 
-  // Pull the language saved on the account (e.g. changed on another device)
+  // Pull what's saved on the account (e.g. changed on another device): language and custom subjects
   React.useEffect(() => {
     if (!account || isDemo) return;
     createClient().auth.getUser().then(({ data }) => {
-      const saved = data.user?.user_metadata?.lang;
+      if (!data.user) return;
+      const saved = data.user.user_metadata?.lang;
       if ((saved === 'en' || saved === 'es') && saved !== useStore.getState().lang) {
         useStore.setState((s) => ({ lang: saved, studyParams: { ...s.studyParams, lang: saved } }));
       }
+      return loadCustomSubjects(data.user.id);
     }).catch(() => {});
   }, [account?.email, isDemo]);
 

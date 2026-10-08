@@ -33,8 +33,8 @@ export default function KidSubjectClient() {
   const L = (en: string, es: string) => (lang === 'es' ? es : en);
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
-  const info = subjectInfo(subject, lang, customSubjects);
   const ks = kid?.subjects?.find((s) => s.subject === subject);
+  const info = subjectInfo(subject, lang, customSubjects, ks);
   const here = `/kids/subject/${encodeURIComponent(subject)}`;
 
   const [quizzes, setQuizzes] = React.useState<QuizRow[]>([]);

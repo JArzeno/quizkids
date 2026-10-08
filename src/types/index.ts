@@ -181,6 +181,15 @@ export interface ImportedLesson {
 
 export type Lang = 'en' | 'es';
 
+/** Subject a parent created in Settings (row of public.custom_subjects) */
+export interface CustomSubject {
+  /** 'cus-…', stored as the subject id on kid_subjects, goals, results… */
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+}
+
 /** A subject a kid studies, with the result of its placement quiz once taken */
 export interface KidSubject {
   subject: string;
@@ -197,6 +206,9 @@ export interface KidSubject {
   levelUpdatedAt?: string;
   /** Left out of the daily plan while true */
   paused?: boolean;
+  /** Name and icon of a custom subject, saved here so they survive the parent deleting the subject in Settings; unset for builtin subjects */
+  name?: string;
+  icon?: string;
 }
 
 /** band: -1 = below the kid's grade, 0 = at grade, 1 = above grade */

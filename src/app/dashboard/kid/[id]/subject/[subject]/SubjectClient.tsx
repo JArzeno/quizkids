@@ -9,7 +9,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
-import { subjectInfo, levelLabel, fromRow } from '@/lib/subjects';
+import { subjectInfo, subjectLabelFields, levelLabel, fromRow } from '@/lib/subjects';
 import { goalFromRow } from '@/lib/goals';
 import { addTopic, loadTopics, removeTopic, subjectTopics, type TopicRow } from '@/lib/topics';
 import { MAX_TEST_TOPICS, createTest, daysUntil, defaultTestTopics, loadTests, removeTest, testStudyParams, topicsInTests } from '@/lib/tests';
@@ -53,8 +53,8 @@ export default function SubjectClient() {
   const router = useRouter();
 
   const kid: Kid | undefined = kids.find((k) => k.id === kidId);
-  const info = subjectInfo(subject, lang, customSubjects);
   const ks: KidSubject | undefined = kid?.subjects?.find((s) => s.subject === subject);
+  const info = subjectInfo(subject, lang, customSubjects, ks);
 
   const [quizzes, setQuizzes] = React.useState<QuizRow[]>([]);
   const [assignments, setAssignments] = React.useState<AssignmentRow[]>([]);
@@ -249,11 +249,12 @@ export default function SubjectClient() {
   const addSubject = async () => {
     if (!kid || ks) return;
     setError(null);
+    const labels = subjectLabelFields(subject, customSubjects);
     if (!isDemo) {
-      const { error: e } = await createClient().from('kid_subjects').insert({ kid_id: kid.id, subject });
+      const { error: e } = await createClient().from('kid_subjects').insert({ kid_id: kid.id, subject, ...labels });
       if (e) { setError(t('placeError')); return; }
     }
-    updateKid(kid.id, { subjects: [...(kid.subjects || []), { subject }] });
+    updateKid(kid.id, { subjects: [...(kid.subjects || []), { subject, ...labels }] });
   };
 
   const removeSubject = async () => {

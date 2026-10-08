@@ -8,7 +8,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
-import { subjectOptions } from '@/lib/subjects';
+import { subjectOptions, subjectLabelFields } from '@/lib/subjects';
 import type { KidSubject } from '@/types';
 
 const STEPS = 5;
@@ -29,7 +29,7 @@ export default function AddKidClient() {
     if (id in next) delete next[id]; else next[id] = '';
     return next;
   });
-  const kidSubjects: KidSubject[] = Object.entries(subjects).map(([subject, focus]) => ({ subject, lang: subjectLangs[subject] || (subject === 'fr' ? 'fr' : lang), focus: focus.trim() || undefined }));
+  const kidSubjects: KidSubject[] = Object.entries(subjects).map(([subject, focus]) => ({ subject, lang: subjectLangs[subject] || (subject === 'fr' ? 'fr' : lang), focus: focus.trim() || undefined, ...subjectLabelFields(subject, customSubjects) }));
 
   const canNext = [
     () => draft.name.trim().length > 0,
@@ -60,7 +60,7 @@ export default function AddKidClient() {
         .single();
       if (!error && data) {
         if (kidSubjects.length > 0) {
-          const { error: subjErr } = await supabase.from('kid_subjects').insert(kidSubjects.map((ks) => ({ kid_id: data.id, subject: ks.subject, lang: ks.lang ?? 'en', focus: ks.focus ?? null })));
+          const { error: subjErr } = await supabase.from('kid_subjects').insert(kidSubjects.map((ks) => ({ kid_id: data.id, subject: ks.subject, lang: ks.lang ?? 'en', focus: ks.focus ?? null, name: ks.name ?? null, icon: ks.icon ?? null })));
           if (subjErr) console.warn('Could not save subjects:', subjErr);
         }
         addKid({ id: data.id, parent_id: user.id, name: data.name, grade: data.grade, avatar: data.avatar, color: data.color, code: data.code, streak: 0, stars: 0, minutes_total: 0, weekly: 0, goal_min: 30, recent: [], signature: draft.signature, subjects: kidSubjects });

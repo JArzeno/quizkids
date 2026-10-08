@@ -8,7 +8,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
-import { subjectInfo } from '@/lib/subjects';
+import { kidSubjectInfo } from '@/lib/subjects';
 
 type GenType = 'quiz' | 'guide' | 'pdf';
 
@@ -152,7 +152,7 @@ export default function GenerateClient() {
 
           <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
             <div>
-              <span className="qk-eyebrow">{subjectInfo(studyParams.subject, lang, customSubjects).label} · {gradeLabel()}</span>
+              <span className="qk-eyebrow">{kidSubjectInfo(kid?.subjects, studyParams.subject, lang, customSubjects).label} · {gradeLabel()}</span>
               <h1 className="qk-h1" style={{ marginTop: 10 }}>{studyParams.topic}</h1>
               <p className="qk-sub">{t('genSub')}</p>
               {studyParams.source && (
