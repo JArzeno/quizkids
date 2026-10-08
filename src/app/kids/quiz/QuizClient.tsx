@@ -174,7 +174,7 @@ export default function QuizClient() {
   if (loading) return (
     <AppShell>
       <div className="qk-screen" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
-        <div className="qk-progress" style={{ width: 280 }}><span style={{ width: '60%', animation: 'qk-pulse 1.2s ease infinite' }} /></div>
+        <div className="qk-progress" style={{ width: 'min(280px, 100%)' }}><span style={{ width: '60%', animation: 'qk-pulse 1.2s ease infinite' }} /></div>
         <div style={{ fontSize: 16, color: 'var(--ink-3)', fontFamily: 'var(--font-display)' }}>{t('generating')}</div>
       </div>
     </AppShell>
@@ -186,9 +186,9 @@ export default function QuizClient() {
     <AppShell>
       <div className="qk-screen qk-page-enter" style={{ padding: 0, minHeight: 'calc(100dvh - 65px)', display: 'flex', flexDirection: 'column' }}>
         {/* kid bar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 22px 0', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '14px clamp(16px, 4vw, 22px) 0', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
           <button onClick={() => router.push('/kids/home')} className="qk-btn qk-btn-ghost" style={{ padding: '8px 12px' }}>{ICONS.back} <span>{t('back')}</span></button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(8px, 2vw, 14px)' }}>
             {gamification !== 'minimal' && (
               <>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: 'var(--honey-l)', color: '#7C5410', fontWeight: 700 }}>{ICONS.star} {stars}</div>
@@ -196,7 +196,7 @@ export default function QuizClient() {
               </>
             )}
             {kid && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)' }}>
+              <div className="qk-hide-sm" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)', whiteSpace: 'nowrap' }}>
                 <Avatar id={kid.avatar} size={32} />
                 <div>
                   <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{kid.name}</span>
@@ -209,17 +209,17 @@ export default function QuizClient() {
           </div>
         </div>
 
-        <div style={{ maxWidth: 720, margin: '24px auto 0', padding: '0 22px', width: '100%' }}>
+        <div style={{ maxWidth: 720, margin: '24px auto 0', padding: '0 clamp(16px, 4vw, 22px)', width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 12 }}>
-            <div style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 700 }}>{t('card')} {i + 1} / {cards.length}</div>
+            <div style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 700, whiteSpace: 'nowrap' }}>{t('card')} {i + 1} / {cards.length}</div>
             <div style={{ fontSize: 13, color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{studyParams.topic}</div>
           </div>
           <div className="qk-progress"><span style={{ width: `${((i + 1) / cards.length) * 100}%` }} /></div>
         </div>
 
-        <div style={{ flex: 1, display: 'grid', placeItems: 'center', padding: '24px 22px' }}>
+        <div style={{ flex: 1, display: 'grid', placeItems: 'center', padding: '24px clamp(16px, 4vw, 22px)' }}>
           <div style={{ width: '100%', maxWidth: 560, perspective: 1200 }}>
-            <div onClick={() => setFlipped((f) => !f)} style={{ position: 'relative', transformStyle: 'preserve-3d', transition: 'transform .55s cubic-bezier(.2,.7,.2,1)', transform: flipped ? 'rotateY(180deg)' : 'rotateY(0)', cursor: 'pointer', aspectRatio: '4/5', maxHeight: 520 }}>
+            <div className="qk-flip" onClick={() => setFlipped((f) => !f)} style={{ position: 'relative', transformStyle: 'preserve-3d', transition: 'transform .55s cubic-bezier(.2,.7,.2,1)', transform: flipped ? 'rotateY(180deg)' : 'rotateY(0)', cursor: 'pointer', aspectRatio: '4/5', maxHeight: 520 }}>
               {/* front */}
               <div className="qk-card" style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderColor: feedback === 'correct' ? 'var(--primary)' : feedback === 'wrong' ? 'var(--coral)' : 'var(--line)', boxShadow: feedback ? `0 0 0 6px ${feedback === 'correct' ? 'var(--primary-l)' : 'var(--coral-l)'}, var(--shadow)` : 'var(--shadow)', transition: 'box-shadow .25s ease', opacity: flipped ? 0 : 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -235,7 +235,7 @@ export default function QuizClient() {
                     return (
                       <button key={ci} onClick={() => !revealed[i] && setPicks({ ...picks, [i]: ci })}
                         style={{ appearance: 'none', textAlign: 'left', padding: '12px 14px', background: isAnswer ? 'var(--primary-l)' : isWrong ? 'var(--coral-l)' : isPicked ? 'var(--surface-2)' : 'var(--surface)', border: '2px solid ' + (isAnswer ? 'var(--primary)' : isWrong ? 'var(--coral)' : isPicked ? 'var(--ink-3)' : 'var(--line)'), borderRadius: 14, cursor: revealed[i] ? 'default' : 'pointer', fontWeight: 600, fontSize: 15, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 10, transition: 'all .15s ease' }}>
-                        <span style={{ width: 24, height: 24, borderRadius: 8, background: isAnswer ? 'var(--primary)' : isWrong ? 'var(--coral)' : 'var(--surface-2)', color: (isAnswer || isWrong) ? '#fff' : 'var(--ink-3)', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13 }}>{String.fromCharCode(65 + ci)}</span>
+                        <span style={{ width: 24, height: 24, flexShrink: 0, borderRadius: 8, background: isAnswer ? 'var(--primary)' : isWrong ? 'var(--coral)' : 'var(--surface-2)', color: (isAnswer || isWrong) ? '#fff' : 'var(--ink-3)', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13 }}>{String.fromCharCode(65 + ci)}</span>
                         <span style={{ flex: 1 }}>{c}</span>
                         {isAnswer && <span style={{ color: 'var(--primary)' }}>{ICONS.check}</span>}
                         {isWrong && <span style={{ color: 'var(--coral)' }}>{ICONS.x}</span>}
@@ -259,7 +259,7 @@ export default function QuizClient() {
               </div>
             )}
 
-            <div style={{ marginTop: 18, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ marginTop: 18, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
               <button className="qk-btn qk-btn-ghost" onClick={() => { setRevealed({ ...revealed, [i]: true }); setFeedback('wrong'); setStreak(0); }} style={{ visibility: revealed[i] ? 'hidden' : 'visible' }}>{t('skipCard')}</button>
               {!revealed[i]
                 ? <Btn kind="primary" disabled={userPick == null} onClick={check} icon={ICONS.check} style={{ opacity: userPick == null ? .5 : 1 }}>{t('checkAnswer')}</Btn>

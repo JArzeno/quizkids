@@ -127,7 +127,7 @@ export default function GoalsSection({ kid, quizzes }: { kid: Kid; quizzes: Quiz
       {notice && <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--primary-l)', color: 'var(--primary-d)', fontWeight: 600, fontSize: 13 }}>{notice}</div>}
       {subjects.length === 0 && <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{t('goalPickSubjects')}</div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))', gap: 12 }}>
         {subjects.map((ks) => {
           const info = options.find((o) => o.id === ks.subject) || { id: ks.subject, label: ks.subject, icon: '📚' };
           const active = goals.find((g) => g.subject === ks.subject && g.status === 'active');

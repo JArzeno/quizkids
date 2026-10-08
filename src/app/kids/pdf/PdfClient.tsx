@@ -98,9 +98,9 @@ export default function PdfClient() {
     <AppShell>
       <div className="qk-screen qk-page-enter">
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
             <button className="qk-btn qk-btn-ghost" onClick={() => router.back()}>{ICONS.back} <span>{t('back')}</span></button>
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               {studyParams.planItemId && (
                 <Btn kind="ghost" icon={ICONS.check} disabled={marked} onClick={() => { setMarked(true); void completePlanItem(studyParams.planItemId!, isDemo); router.push('/kids/home'); }}>{t('planMarkDone')}</Btn>
               )}
@@ -110,13 +110,13 @@ export default function PdfClient() {
 
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, paddingTop: 80 }}>
-              <div className="qk-progress" style={{ width: 280 }}><span style={{ width: '60%', animation: 'qk-pulse 1.2s ease infinite' }} /></div>
+              <div className="qk-progress" style={{ width: 'min(280px, 100%)' }}><span style={{ width: '60%', animation: 'qk-pulse 1.2s ease infinite' }} /></div>
               <div style={{ fontSize: 16, color: 'var(--ink-3)', fontFamily: 'var(--font-display)' }}>{t('generating')}</div>
             </div>
           ) : data && (
-            <div style={{ background: '#fff', color: '#1F3326', borderRadius: 8, boxShadow: 'var(--shadow-lg)', padding: '56px 60px', maxWidth: 780, margin: '0 auto', fontFamily: '"Patrick Hand", "Quicksand", sans-serif' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '2px dashed #1F3326', paddingBottom: 12, gap: 18 }}>
-                <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+            <div className="qk-paper" style={{ background: '#fff', color: '#1F3326', borderRadius: 8, boxShadow: 'var(--shadow-lg)', padding: '56px 60px', maxWidth: 780, margin: '0 auto', fontFamily: '"Patrick Hand", "Quicksand", sans-serif' }}>
+              <div className="qk-paper-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '2px dashed #1F3326', paddingBottom: 12, gap: 18 }}>
+                <div style={{ flex: '1 1 240px', minWidth: 0 }}>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 26, lineHeight: 1.1 }}>{studyParams.topic}</div>
                   <div style={{ fontSize: 14, marginTop: 6 }}>{t(studyParams.subject)} · {lang === 'es' ? 'Grado ' : 'Grade '}{studyParams.grade}</div>
                 </div>
@@ -130,10 +130,10 @@ export default function PdfClient() {
                 {data.questions.map((q, idx) => (
                   <li key={idx}>
                     <div style={{ fontWeight: 700, fontSize: 17 }}>{idx + 1}. {q.q}</div>
-                    <div style={{ marginTop: 6, display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 18, rowGap: 6, fontSize: 15 }}>
+                    <div className="qk-stack-xs" style={{ marginTop: 6, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 18, rowGap: 6, fontSize: 15 }}>
                       {q.choices.map((ch, ci) => (
-                        <div key={ci} style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
-                          <span style={{ width: 18, height: 18, border: '1.5px solid #1F3326', borderRadius: 4, display: 'inline-block', flexShrink: 0 }} />
+                        <div key={ci} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
+                          <span style={{ width: 18, height: 18, marginTop: 2, border: '1.5px solid #1F3326', borderRadius: 4, display: 'inline-block', flexShrink: 0 }} />
                           <span>{String.fromCharCode(65 + ci)}. {ch}</span>
                         </div>
                       ))}

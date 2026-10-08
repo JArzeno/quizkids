@@ -178,7 +178,7 @@ export default function GenerateClient() {
           )}
 
           {/* Cards */}
-          <div className="qk-stagger" style={{ marginTop: 28, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18, opacity: genState ? 0.45 : 1, pointerEvents: genState ? 'none' : undefined }}>
+          <div className="qk-stagger" style={{ marginTop: 28, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: 18, opacity: genState ? 0.45 : 1, pointerEvents: genState ? 'none' : undefined }}>
             {([
               { id: 'quiz' as GenType, title: t('genQuiz'), sub: t('genQuizSub'), tone: 'primary', icon: ICONS.cards },
               { id: 'guide' as GenType, title: t('genGuide'), sub: t('genGuideSub'), tone: 'sky', icon: ICONS.book },

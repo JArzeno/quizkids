@@ -98,7 +98,7 @@ interface TopicStat {
 function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="qk-card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17 }}>{title}</div>
         {action}
       </div>
@@ -400,11 +400,11 @@ export default function KidDetailClient() {
 
           {/* header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
               <Avatar id={kid.avatar} size={72} ring={kid.color || 'var(--primary)'} />
               <div>
                 <span className="qk-eyebrow">{t('kidProgress')}</span>
-                <h1 className="qk-h1" style={{ marginTop: 8, fontSize: 38 }}>{kid.name}</h1>
+                <h1 className="qk-h1" style={{ marginTop: 8, fontSize: 'clamp(28px, 6vw, 38px)' }}>{kid.name}</h1>
                 <p className="qk-sub" style={{ fontSize: 14, marginTop: 4 }}>
                   {gradeLabel(kid.grade, lang)}
                   {kid.code ? ` · ${t('kidCode')}: ` : ''}
@@ -419,7 +419,7 @@ export default function KidDetailClient() {
           </div>
 
           {/* top stats */}
-          <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14, marginTop: 24 }}>
+          <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(130px, 100%), 1fr))', gap: 14, marginTop: 24 }}>
             <StatCard tone="sky" icon={ICONS.book} value={formatMinutes(totalMinutes, lang)} label={t('totalTime')} />
             <StatCard tone="primary" icon={ICONS.cards} value={quizzesDone} label={t('quizzesTaken')} />
             <StatCard tone="berry" icon={ICONS.check} value={accuracy + '%'} label={t('accuracy')} />
@@ -452,7 +452,7 @@ export default function KidDetailClient() {
               {kidSubjects.length === 0 ? (
                 <EmptyNote text={t('kidSubjectsEmpty')} />
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))', gap: 12 }}>
                   {kidSubjects.map((ks) => {
                     const info = subjectChoices.find((c) => c.id === ks.subject) || { id: ks.subject, label: ks.subject, icon: '📚' };
                     const placed = !!ks.placedAt;
@@ -508,7 +508,7 @@ export default function KidDetailClient() {
             <PlanSection kid={kid} quizzes={quizzes} sessions={sessions} />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginTop: 24, alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: 16, marginTop: 24, alignItems: 'start' }}>
             {/* time studied */}
             <Section title={t('timeStudied')}>
               <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', fontSize: 13, color: 'var(--ink-3)' }}>

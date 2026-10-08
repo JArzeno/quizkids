@@ -64,7 +64,7 @@ function relativeDate(iso: string, lang: string) {
 function HistoryModal({ kid, history, lang, onClose }: { kid: Kid; history: QuizHistoryRow[]; lang: string; onClose: () => void }) {
   const t = useT(lang as 'en' | 'es');
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,.45)', backdropFilter: 'blur(4px)', display: 'grid', placeItems: 'center', padding: 24 }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,.45)', backdropFilter: 'blur(4px)', display: 'grid', placeItems: 'center', padding: 'clamp(16px, 4vw, 24px)' }} onClick={onClose}>
       <div className="qk-card" style={{ width: '100%', maxWidth: 460, maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: 24 }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <Avatar id={kid.avatar} size={40} ring={kid.color} />
@@ -303,21 +303,21 @@ export default function DashboardClient() {
               <h1 className="qk-h1" style={{ marginTop: 10 }}>{t('dashHi')}, {account?.name?.split(' ')[0] || 'Ana'} 👋</h1>
               <p className="qk-sub">{t('dashGreet')}</p>
             </div>
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <Link href="/dashboard/add-kid" className="qk-btn qk-btn-ghost">{ICONS.plus}<span>{t('addKid')}</span></Link>
               <Btn kind="primary" icon={ICONS.spark} onClick={() => createFor(kids[0]?.id || '')}>{t('createNew')}</Btn>
             </div>
           </div>
 
           {gamification !== 'minimal' && (
-            <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginTop: 24 }}>
+            <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 'clamp(8px, 2vw, 14px)', marginTop: 24 }}>
               <StatCard tone="honey" icon={ICONS.star} value={totalStars} label={t('starsEarned')} />
               <StatCard tone="coral" icon={ICONS.flame} value={longest} label={t('streak')} />
-              <StatCard tone="sky" icon={ICONS.book} value={totalMin + ' ' + t('minutes')} label={t('thisWeek') + ' · ' + t('minStudied')} />
+              <StatCard tone="sky" icon={ICONS.book} value={<span style={{ whiteSpace: 'nowrap' }}>{totalMin} {t('minutes')}</span>} label={t('thisWeek') + ' · ' + t('minStudied')} />
             </div>
           )}
 
-          <div className="qk-stagger" style={{ marginTop: 28, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+          <div className="qk-stagger" style={{ marginTop: 28, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))', gap: 16 }}>
             {kids.map((k) => (
               <div key={k.id} className="qk-card qk-card-interactive" style={{ padding: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>

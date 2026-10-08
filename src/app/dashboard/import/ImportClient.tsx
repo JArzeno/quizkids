@@ -307,7 +307,7 @@ export default function ImportClient() {
                 {lesson.vocabulary.length > 0 && (
                   <>
                     <div className="qk-label" style={{ marginTop: 18, marginBottom: 8, fontSize: 14 }}>{es ? 'Vocabulario' : 'Vocabulary'}</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(220px, 100%), 1fr))', gap: 8 }}>
                       {lesson.vocabulary.map((v, i) => (
                         <div key={i} style={{ padding: '10px 12px', borderRadius: 12, background: 'var(--surface-2)', fontSize: 13 }}>
                           <strong style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15 }}>{v.term}</strong>
