@@ -12,7 +12,7 @@ import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { studyTimeSaved } from '@/lib/studyTimer';
 import { computeStreak, computeWeeklyPct } from '@/lib/streak';
-import { fromRow, subjectOptions, subjectInfo } from '@/lib/subjects';
+import { fromRow, subjectInfo, kidSubjectInfo } from '@/lib/subjects';
 import { goalFromRow, goalProgress } from '@/lib/goals';
 import type { Kid } from '@/types';
 
@@ -71,7 +71,7 @@ function HistoryModal({ kid, history, lang, onClose }: { kid: Kid; history: Quiz
           {history.length === 0 ? (
             <div style={{ fontSize: 13, color: 'var(--ink-3)', padding: '20px 0', textAlign: 'center' }}>{t('historyEmpty')}</div>
           ) : history.map((h, i) => {
-            const info = h.subject ? subjectInfo(h.subject, lang, customSubjects) : null;
+            const info = h.subject ? kidSubjectInfo(kid.subjects, h.subject, lang, customSubjects) : null;
             const pct = (h.total || 0) > 0 ? Math.round(((h.correct || 0) / (h.total || 1)) * 100) : 0;
             return (
               <div key={`${h.created_at}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', background: 'var(--surface-2)', borderRadius: 12 }}>
@@ -91,7 +91,7 @@ function HistoryModal({ kid, history, lang, onClose }: { kid: Kid; history: Quiz
   );
 }
 
-function KidGoalsPanel({ summary, lang }: { summary: KidSummary | undefined; lang: string }) {
+function KidGoalsPanel({ kid, summary, lang }: { kid: Kid; summary: KidSummary | undefined; lang: string }) {
   const customSubjects = useStore((s) => s.customSubjects);
   if (!summary || summary.goals.length === 0) return null;
   return (
@@ -100,7 +100,7 @@ function KidGoalsPanel({ summary, lang }: { summary: KidSummary | undefined; lan
         {lang === 'es' ? 'Metas' : 'Goals'}
       </div>
       {summary.goals.map((g) => {
-        const info = subjectInfo(g.subject, lang, customSubjects);
+        const info = kidSubjectInfo(kid.subjects, g.subject, lang, customSubjects);
         return (
           <div key={g.id}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, marginBottom: 4 }}>
@@ -145,7 +145,7 @@ function KidSummaryPanel({ kid, summary, lang }: { kid: Kid; summary: KidSummary
       {topSubjects.length > 0 && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {topSubjects.map((ts) => {
-            const info = subjectInfo(ts.subject, lang, customSubjects);
+            const info = kidSubjectInfo(kid.subjects, ts.subject, lang, customSubjects);
             return (
               <span key={ts.subject} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 999, background: 'var(--primary-l)', color: 'var(--primary-d)', fontSize: 11, fontWeight: 700 }}>
                 {info.icon} {info.label} · {ts.count}
@@ -288,7 +288,6 @@ export default function DashboardClient() {
   const longest = Math.max(0, ...kids.map(streakFor));
 
   const openKidDetail = (id: string) => { setActiveKidId(id); router.push('/dashboard/kid/' + id); };
-  const subjectChoices = subjectOptions(lang, customSubjects);
 
   return (
     <AppShell>
@@ -348,7 +347,7 @@ export default function DashboardClient() {
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {(k.subjects || []).map((ks) => {
-                      const info = subjectChoices.find((c) => c.id === ks.subject) || { label: ks.subject, icon: '📚' };
+                      const info = subjectInfo(ks.subject, lang, customSubjects, ks);
                       return (
                         <Link key={ks.subject} href={`/dashboard/kid/${k.id}/subject/${encodeURIComponent(ks.subject)}`} onClick={() => setActiveKidId(k.id)} className="qk-chip"
                           style={{ textDecoration: 'none', color: 'var(--ink)' }}>
@@ -363,7 +362,7 @@ export default function DashboardClient() {
                 </div>
 
                 {/* Study summary */}
-                <KidGoalsPanel summary={summaries[k.id]} lang={lang} />
+                <KidGoalsPanel kid={k} summary={summaries[k.id]} lang={lang} />
                 <KidSummaryPanel kid={k} summary={summaries[k.id]} lang={lang} />
 
                 {/* Recent items from local state */}

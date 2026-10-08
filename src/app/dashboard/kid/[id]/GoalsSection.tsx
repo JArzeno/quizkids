@@ -5,7 +5,7 @@ import { Btn } from '@/components/ui/Btn';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
-import { subjectOptions } from '@/lib/subjects';
+import { subjectInfo } from '@/lib/subjects';
 import { goalProgress, requestGoalDraft, saveGoal } from '@/lib/goals';
 import type { GoalDraft, Kid, KidGoal } from '@/types';
 
@@ -19,7 +19,6 @@ export default function GoalsSection({ kid, quizzes, only }: { kid: Kid; quizzes
   const t = useT(lang);
   const goals = kid.goals || [];
   const subjects = (kid.subjects || []).filter((s) => !only || s.subject === only);
-  const options = subjectOptions(lang, customSubjects);
 
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -130,7 +129,7 @@ export default function GoalsSection({ kid, quizzes, only }: { kid: Kid; quizzes
 
       <div style={{ display: 'grid', gridTemplateColumns: only ? '1fr' : 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))', gap: 12 }}>
         {subjects.map((ks) => {
-          const info = options.find((o) => o.id === ks.subject) || { id: ks.subject, label: ks.subject, icon: '📚' };
+          const info = subjectInfo(ks.subject, lang, customSubjects, ks);
           const active = goals.find((g) => g.subject === ks.subject && g.status === 'active');
           const proposed = goals.find((g) => g.subject === ks.subject && g.status === 'proposed');
           const doneCount = goals.filter((g) => g.subject === ks.subject && g.status === 'completed').length;

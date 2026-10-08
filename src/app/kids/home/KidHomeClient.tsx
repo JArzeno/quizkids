@@ -8,7 +8,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
-import { subjectInfo, levelLabel } from '@/lib/subjects';
+import { subjectInfo, kidSubjectInfo, levelLabel } from '@/lib/subjects';
 import { goalProgress } from '@/lib/goals';
 import { syncTodayPlan, prepareItem, dateKey, isWeekday } from '@/lib/plan';
 import type { ResultRow } from '@/lib/adapt';
@@ -308,7 +308,7 @@ export default function KidHomeClient() {
               <div style={{ display: 'grid', gap: 10 }}>
                 {planItems.map((item) => {
                   const done = item.status === 'completed';
-                  const info = subjectInfo(item.subject, lang, customSubjects);
+                  const info = kidSubjectInfo(kid.subjects, item.subject, lang, customSubjects);
                   const tone = item.type === 'guide' ? 'sky' : item.type === 'pdf' ? 'coral' : 'primary';
                   return (
                     <button key={item.id} onClick={() => openPlanItem(item)} className="qk-card"
@@ -339,7 +339,7 @@ export default function KidHomeClient() {
               <h2 className="qk-h2" style={{ margin: '0 0 14px' }}>{lang === 'es' ? 'Mis materias' : 'My subjects'}</h2>
               <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(200px, 100%), 1fr))', gap: 12 }}>
                 {(kid.subjects || []).map((ks) => {
-                  const info = subjectInfo(ks.subject, lang, customSubjects);
+                  const info = subjectInfo(ks.subject, lang, customSubjects, ks);
                   const goal = (kid.goals || []).find((g) => g.subject === ks.subject && g.status === 'active');
                   const pct = goal ? goalProgress(goal, results).pct : null;
                   return (
@@ -380,7 +380,7 @@ export default function KidHomeClient() {
                 {lang === 'es' ? 'Todo' : 'All'}
               </button>
               {subjects.map((subj) => {
-                const info = subjectInfo(subj, lang, customSubjects);
+                const info = kidSubjectInfo(kid.subjects, subj, lang, customSubjects);
                 const on = filterSubject === subj;
                 return (
                   <button key={subj} onClick={() => setFilterSubject(on ? null : subj)}
@@ -411,7 +411,7 @@ export default function KidHomeClient() {
                 const tone = r.kind === 'quiz' ? 'primary' : r.kind === 'guide' ? 'sky' : 'coral';
                 const bg = `var(--${tone === 'primary' ? 'primary-l' : tone + '-l'})`;
                 const fg = `var(--${tone === 'primary' ? 'primary' : tone})`;
-                const subjInfo = r.subject ? subjectInfo(r.subject, lang, customSubjects) : null;
+                const subjInfo = r.subject ? kidSubjectInfo(kid.subjects, r.subject, lang, customSubjects) : null;
                 const isCompleted = r.status === 'completed';
 
                 return (

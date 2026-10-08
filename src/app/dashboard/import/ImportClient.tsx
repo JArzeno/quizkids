@@ -7,7 +7,7 @@ import { Btn } from '@/components/ui/Btn';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
-import { subjectInfo, subjectOptions } from '@/lib/subjects';
+import { kidSubjectInfo, subjectOptions } from '@/lib/subjects';
 import { addTopic, lessonNotes } from '@/lib/topics';
 import type { ImportedLesson } from '@/types';
 
@@ -146,7 +146,7 @@ export default function ImportClient() {
   };
 
   const subject = fixedSubject || lesson?.subject || '';
-  const subjectLabel = subjectInfo(subject, lang, customSubjects).label;
+  const subjectLabel = kidSubjectInfo(kid?.subjects, subject, lang, customSubjects).label;
   const backTo = !kid ? '/dashboard' : fixedSubject ? `/dashboard/kid/${kid.id}/subject/${encodeURIComponent(fixedSubject)}` : `/dashboard/kid/${kid.id}`;
 
   /** Saves the class as a topic of the subject (with its notes), then opens the subject or the generator */

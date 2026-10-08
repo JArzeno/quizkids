@@ -8,7 +8,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
-import { subjectInfo, subjectPromptName, levelLabel } from '@/lib/subjects';
+import { subjectInfo, subjectLabelFields, subjectPromptName, levelLabel } from '@/lib/subjects';
 import { requestGoalDraft, saveGoal } from '@/lib/goals';
 import { scorePlacement, type PlacementOutcome } from '@/lib/placement';
 import type { PlacementQuestion } from '@/types';
@@ -22,8 +22,8 @@ export default function PlacementClient() {
   const t = useT(lang);
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
-  const info = subjectInfo(subject, lang, customSubjects);
   const kidSubject = kid?.subjects?.find((s) => s.subject === subject);
+  const info = subjectInfo(subject, lang, customSubjects, kidSubject);
   const focus = kidSubject?.focus;
   const subjectLang = kidSubject?.lang || lang;
 
@@ -65,6 +65,8 @@ export default function PlacementClient() {
     setPhase('saving');
     const result = scorePlacement(questions, finalPicks, kid.grade);
     const placedAt = new Date().toISOString();
+    // Name/icon of a custom subject; a subject the parent already deleted keeps what its row has stored
+    const labels = subjectLabelFields(subject, customSubjects);
 
     let saved = true;
     if (!isDemo) {
@@ -74,6 +76,7 @@ export default function PlacementClient() {
           subject,
           lang: subjectLang,
           focus: focus ?? null,
+          ...labels,
           level: result.level,
           strong_topics: result.strongTopics,
           weak_topics: result.weakTopics,
@@ -88,7 +91,7 @@ export default function PlacementClient() {
     }
 
     if (saved) {
-      const entry = { subject, lang: subjectLang, focus, level: result.level, strongTopics: result.strongTopics, weakTopics: result.weakTopics, placementAccuracy: result.accuracy, placedAt };
+      const entry = { subject, lang: subjectLang, focus, name: kidSubject?.name, icon: kidSubject?.icon, ...labels, level: result.level, strongTopics: result.strongTopics, weakTopics: result.weakTopics, placementAccuracy: result.accuracy, placedAt };
       const others = (kid.subjects || []).filter((s) => s.subject !== subject);
       const nextSubjects = [...others, entry];
       updateKid(kid.id, { subjects: nextSubjects });

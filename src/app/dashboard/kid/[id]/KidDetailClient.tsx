@@ -10,7 +10,7 @@ import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { studyTimeSaved } from '@/lib/studyTimer';
-import { subjectOptions, subjectInfo, levelLabel, fromRow } from '@/lib/subjects';
+import { subjectOptions, subjectInfo, kidSubjectInfo, subjectLabelFields, levelLabel, fromRow } from '@/lib/subjects';
 import { goalFromRow, goalProgress } from '@/lib/goals';
 import GoalsSection from './GoalsSection';
 import PlanSection from './PlanSection';
@@ -293,11 +293,12 @@ export default function KidDetailClient() {
   const addSubject = async (id: string) => {
     if (!kid || kidSubjects.some((s) => s.subject === id)) return;
     setSubjectError(false);
+    const labels = subjectLabelFields(id, customSubjects);
     if (!isDemo) {
-      const { error } = await createClient().from('kid_subjects').insert({ kid_id: kid.id, subject: id });
+      const { error } = await createClient().from('kid_subjects').insert({ kid_id: kid.id, subject: id, ...labels });
       if (error) { setSubjectError(true); return; }
     }
-    updateKid(kid.id, { subjects: [...kidSubjects, { subject: id }] });
+    updateKid(kid.id, { subjects: [...kidSubjects, { subject: id, ...labels }] });
     setAddingSubject(false);
   };
 
@@ -384,7 +385,7 @@ export default function KidDetailClient() {
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px, 100%), 1fr))', gap: 12 }}>
                   {kidSubjects.map((ks) => {
-                    const info = subjectChoices.find((c) => c.id === ks.subject) || { id: ks.subject, label: ks.subject, icon: '📚' };
+                    const info = subjectInfo(ks.subject, lang, customSubjects, ks);
                     const placed = !!ks.placedAt;
                     const goal = (kid.goals || []).find((g) => g.subject === ks.subject && g.status === 'active');
                     const pct = goal ? goalProgress(goal, quizzes).pct : null;
@@ -460,7 +461,7 @@ export default function KidDetailClient() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   {subjectStats.map((s) => {
-                    const info = subjectInfo(s.subject, lang, customSubjects);
+                    const info = kidSubjectInfo(kidSubjects, s.subject, lang, customSubjects);
                     return (
                       <AccuracyRow
                         key={s.subject}
@@ -486,7 +487,7 @@ export default function KidDetailClient() {
                     <AccuracyRow
                       key={s.topic}
                       label={s.topic}
-                      icon={s.subject ? subjectInfo(s.subject, lang, customSubjects).icon : undefined}
+                      icon={s.subject ? kidSubjectInfo(kidSubjects, s.subject, lang, customSubjects).icon : undefined}
                       meta={`${s.attempts} ${s.attempts === 1 ? t('attemptLabel') : t('attemptsLabel')}`}
                       accuracy={s.accuracy}
                       tone="var(--primary)"
@@ -506,7 +507,7 @@ export default function KidDetailClient() {
                     <AccuracyRow
                       key={s.topic}
                       label={s.topic}
-                      icon={s.subject ? subjectInfo(s.subject, lang, customSubjects).icon : undefined}
+                      icon={s.subject ? kidSubjectInfo(kidSubjects, s.subject, lang, customSubjects).icon : undefined}
                       meta={`${s.attempts} ${s.attempts === 1 ? t('attemptLabel') : t('attemptsLabel')}`}
                       accuracy={s.accuracy}
                       tone={s.accuracy >= 50 ? 'var(--honey)' : 'var(--coral)'}
@@ -527,7 +528,7 @@ export default function KidDetailClient() {
                     return (
                       <div key={`${q.created_at}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', background: 'var(--surface-2)', borderRadius: 12 }}>
                         <div style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--primary-l)', color: 'var(--primary-d)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                          {q.subject ? <span style={{ fontSize: 15 }}>{subjectInfo(q.subject, lang, customSubjects).icon}</span> : ICONS.cards}
+                          {q.subject ? <span style={{ fontSize: 15 }}>{kidSubjectInfo(kidSubjects, q.subject, lang, customSubjects).icon}</span> : ICONS.cards}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.topic || '—'}</div>
@@ -559,7 +560,7 @@ export default function KidDetailClient() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.topic || '—'}</div>
                           <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-                            {a.subject ? subjectInfo(a.subject, lang, customSubjects).label + ' · ' : ''}
+                            {a.subject ? kidSubjectInfo(kidSubjects, a.subject, lang, customSubjects).label + ' · ' : ''}
                             {relativeDate(a.assigned_at, lang)}
                           </div>
                         </div>

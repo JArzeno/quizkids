@@ -252,3 +252,5 @@ create policy "custom_subjects_update" on public.custom_subjects
   for update using (parent_id = auth.uid());
 create policy "custom_subjects_delete" on public.custom_subjects
   for delete using (parent_id = auth.uid());
+
+-- Custom subject labels (see migrations/010_kid_subject_labels.sql): kid_subjects.name text, kid_subjects.icon text (custom subjects only; kept after the parent deletes the subject)

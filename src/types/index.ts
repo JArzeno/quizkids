@@ -179,6 +179,9 @@ export interface KidSubject {
   levelUpdatedAt?: string;
   /** Left out of the daily plan while true */
   paused?: boolean;
+  /** Name and icon of a custom subject, saved here so they survive the parent deleting the subject in Settings; unset for builtin subjects */
+  name?: string;
+  icon?: string;
 }
 
 /** band: -1 = below the kid's grade, 0 = at grade, 1 = above grade */
