@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { generateGuide, parseContext } from '@/lib/openai';
+import { GUIDE_VERSION, generateGuide, parseContext } from '@/lib/openai';
 import { createClient } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
@@ -26,7 +26,9 @@ export async function POST(req: NextRequest) {
         .eq('type', 'guide')
         .eq('topic', topic)
         .eq('grade', grade)
-        .eq('lang', lng);
+        .eq('lang', lng)
+        // Guides from an older prompt are shorter: only serve the current version
+        .eq('content->>v', String(GUIDE_VERSION));
       if (sourceHash) cacheQuery = cacheQuery.eq('source_hash', sourceHash);
       const { data: cached } = isVariant ? { data: null } : await cacheQuery.order('created_at').limit(1).maybeSingle();
 

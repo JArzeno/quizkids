@@ -3,14 +3,14 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
-import { Btn } from '@/components/ui/Btn';
+import { Btn, Chip } from '@/components/ui/Btn';
 import { ImgPlaceholder } from '@/components/ui/Stars';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { completePlanItem } from '@/lib/plan';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
-import type { Guide } from '@/types';
+import type { Guide, GuideSection } from '@/types';
 
 const FALLBACK_EN: Guide = {
   intro: 'Our solar system is a giant family. The Sun sits in the middle, and 8 planets travel around it in big circles called orbits.',
@@ -34,6 +34,9 @@ const FALLBACK_ES: Guide = {
   fact: '¡Si pudieras ir en carro a la Luna a velocidad de autopista, tardarías unos 5 meses sin parar!',
 };
 
+/** Cap on "keep learning" sections per visit */
+const MAX_EXTRA = 6;
+
 export default function GuideClient() {
   const { lang, kids, activeKidId, studyParams, setStudyParams, gamification, setMode, isDemo } = useStore();
   const contentLang = studyParams.contentLang ?? lang;
@@ -48,6 +51,17 @@ export default function GuideClient() {
   const [guide, setGuide] = React.useState<Guide | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [active, setActive] = React.useState(0);
+  // Sections the kid asked for with "keep learning", appended after the guide
+  const [extra, setExtra] = React.useState<GuideSection[]>([]);
+  const [related, setRelated] = React.useState<string[]>([]);
+  const [moreLoading, setMoreLoading] = React.useState<string | null>(null);
+  const [moreError, setMoreError] = React.useState(false);
+
+  React.useEffect(() => {
+    setExtra([]);
+    setRelated(guide?.related || []);
+    setMoreError(false);
+  }, [guide]);
 
   React.useEffect(() => {
     const fetchGuide = async () => {
@@ -105,6 +119,81 @@ export default function GuideClient() {
   );
   if (!guide) return null;
 
+  const allSections = [...guide.sections, ...extra];
+  const goTo = (idx: number) => {
+    setActive(idx);
+    document.getElementById(`guide-sec-${idx}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const askMore = async (focus?: string) => {
+    if (moreLoading != null) return;
+    setMoreLoading(focus ?? '');
+    setMoreError(false);
+    try {
+      const res = await fetch('/api/generate/guide/more', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: studyParams.topic,
+          grade: studyParams.grade,
+          lang: contentLang,
+          source: studyParams.source,
+          focus,
+          covered: allSections.map((x) => x.title),
+        }),
+      });
+      if (!res.ok) throw new Error('more failed');
+      const data = (await res.json()) as { sections?: GuideSection[]; related?: string[] };
+      if (!data.sections?.length) throw new Error('no sections');
+      const first = allSections.length;
+      setExtra((e) => [...e, ...data.sections!]);
+      setRelated((r) => {
+        const left = r.filter((x) => x !== focus);
+        return [...left, ...(data.related || []).filter((x) => !left.includes(x))].slice(0, 4);
+      });
+      setTimeout(() => goTo(first), 60);
+    } catch {
+      setMoreError(true);
+    }
+    setMoreLoading(null);
+  };
+
+  const renderSection = (s: GuideSection, idx: number, isNew: boolean) => {
+    const toneBg = `var(--${s.tone === 'primary' ? 'primary-l' : s.tone + '-l'})`;
+    const toneFg = `var(--${s.tone === 'primary' ? 'primary' : s.tone})`;
+    return (
+      <section key={idx} id={`guide-sec-${idx}`} className="qk-card" style={{ padding: 24, scrollMarginTop: 16 }} onMouseEnter={() => setActive(idx)}>
+        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+          <div style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 14, background: toneBg, color: toneFg, display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18 }}>{idx + 1}</div>
+          <div style={{ flex: 1 }}>
+            <h2 className="qk-h2">
+              {s.title}
+              {isNew && <span style={{ marginLeft: 10, verticalAlign: 'middle', fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: toneBg, color: toneFg, textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('guideMoreNew')}</span>}
+            </h2>
+            {s.body.split(/\n\s*\n/).map((para, pi) => (
+              <p key={pi} style={{ marginTop: pi === 0 ? 10 : 12, marginBottom: 0, fontSize: 17, lineHeight: 1.55, color: 'var(--ink)' }}>{para.trim()}</p>
+            ))}
+          </div>
+        </div>
+        {s.example && (
+          <div style={{ marginTop: 16, padding: 16, borderRadius: 14, background: 'var(--surface-2)', border: '1.5px dashed var(--line)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: toneFg, textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('guideExample')}</div>
+            <div style={{ marginTop: 6, fontSize: 16, lineHeight: 1.5, color: 'var(--ink)', whiteSpace: 'pre-line' }}>{s.example}</div>
+          </div>
+        )}
+        <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: s.key ? '1.4fr 1fr' : '1fr', gap: 14 }}>
+          <ImgPlaceholder label={`[ ${lang === 'es' ? 'ilustración' : 'illustration'}: ${s.title.toLowerCase()} ]`} h={150} tone={s.tone} />
+          {s.key && (
+            <div style={{ padding: 16, borderRadius: 14, background: toneBg, borderLeft: `4px solid ${toneFg}` }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: toneFg, textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('keyIdea')}</div>
+              <div style={{ marginTop: 6, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 18, lineHeight: 1.3 }}>{s.key}</div>
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  };
+
   return (
     <AppShell>
       <div className="qk-screen qk-page-enter" style={{ padding: 0, minHeight: 'calc(100dvh - 65px)' }}>
@@ -142,8 +231,8 @@ export default function GuideClient() {
             <aside style={{ position: 'sticky', top: 0, alignSelf: 'flex-start' }}>
               <div className="qk-label" style={{ marginBottom: 10 }}>{t('onThisPage')}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {guide.sections.map((s, idx) => (
-                  <button key={idx} onClick={() => setActive(idx)}
+                {allSections.map((s, idx) => (
+                  <button key={idx} onClick={() => goTo(idx)}
                     style={{ appearance: 'none', textAlign: 'left', padding: '10px 12px', borderRadius: 12, background: active === idx ? 'var(--primary-l)' : 'transparent', border: '1.5px solid ' + (active === idx ? 'var(--primary)' : 'transparent'), cursor: 'pointer', fontWeight: 600, fontSize: 14, color: 'var(--ink-2)', display: 'flex', alignItems: 'center', gap: 10, transition: 'all .15s ease' }}>
                     <span style={{ width: 24, height: 24, borderRadius: 8, background: active === idx ? 'var(--primary)' : 'var(--surface-2)', color: active === idx ? '#fff' : 'var(--ink-3)', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 700 }}>{idx + 1}</span>
                     {s.title}
@@ -158,28 +247,56 @@ export default function GuideClient() {
 
             {/* content */}
             <article className="qk-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-              {guide.sections.map((s, idx) => {
-                const toneBg = `var(--${s.tone === 'primary' ? 'primary-l' : s.tone + '-l'})`;
-                const toneFg = `var(--${s.tone === 'primary' ? 'primary' : s.tone})`;
-                return (
-                  <section key={idx} className="qk-card" style={{ padding: 24 }} onMouseEnter={() => setActive(idx)}>
-                    <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                      <div style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 14, background: toneBg, color: toneFg, display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18 }}>{idx + 1}</div>
-                      <div style={{ flex: 1 }}>
-                        <h2 className="qk-h2">{s.title}</h2>
-                        <p style={{ marginTop: 10, fontSize: 17, lineHeight: 1.55, color: 'var(--ink)' }}>{s.body}</p>
+              {guide.sections.map((s, idx) => renderSection(s, idx, false))}
+
+              {!!guide.vocab?.length && (
+                <section className="qk-card" style={{ padding: 24 }}>
+                  <h2 className="qk-h2">{t('guideVocab')}</h2>
+                  <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
+                    {guide.vocab.map((v, vi) => (
+                      <div key={vi} style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--surface-2)' }}>
+                        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16 }}>{v.term}</div>
+                        <div style={{ marginTop: 4, fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.45 }}>{v.def}</div>
                       </div>
-                    </div>
-                    <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
-                      <ImgPlaceholder label={`[ ${lang === 'es' ? 'ilustración' : 'illustration'}: ${s.title.toLowerCase()} ]`} h={150} tone={s.tone} />
-                      <div style={{ padding: 16, borderRadius: 14, background: toneBg, borderLeft: `4px solid ${toneFg}` }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: toneFg, textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('keyIdea')}</div>
-                        <div style={{ marginTop: 6, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 18, lineHeight: 1.3 }}>{s.key}</div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {!!guide.recap?.length && (
+                <section className="qk-card" style={{ padding: 24, background: 'var(--sky-l)' }}>
+                  <h2 className="qk-h2">{t('guideRecap')}</h2>
+                  <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {guide.recap.map((r, ri) => (
+                      <div key={ri} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 16, lineHeight: 1.45 }}>
+                        <span style={{ color: 'var(--sky)', flexShrink: 0, marginTop: 1 }}>{ICONS.check}</span>
+                        <span>{r}</span>
                       </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {extra.map((s, i) => renderSection(s, guide.sections.length + i, true))}
+
+              {extra.length < MAX_EXTRA && (
+                <section className="qk-card" style={{ padding: 24 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 48, height: 48, borderRadius: 16, background: 'var(--honey-l)', color: '#7C5410', display: 'grid', placeItems: 'center', flexShrink: 0 }}>{ICONS.book}</div>
+                    <div style={{ flex: 1 }}>
+                      <h2 className="qk-h2">{t('guideMoreTitle')}</h2>
+                      <p style={{ margin: '4px 0 0', fontSize: 15, color: 'var(--ink-2)' }}>{t('guideMoreSub')}</p>
                     </div>
-                  </section>
-                );
-              })}
+                  </div>
+                  <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {related.map((r) => (
+                      <Chip key={r} on={moreLoading === r} onClick={() => askMore(r)}>{moreLoading === r ? t('generating') : r}</Chip>
+                    ))}
+                    <Btn kind="soft" icon={ICONS.plus} disabled={moreLoading != null} onClick={() => askMore()}>{moreLoading === '' ? t('generating') : t('guideMoreBtn')}</Btn>
+                  </div>
+                  {moreError && <div style={{ marginTop: 10, fontSize: 14, color: 'var(--coral)' }}>{t('guideMoreError')}</div>}
+                </section>
+              )}
 
               {studyParams.planItemId && (
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
