@@ -12,7 +12,7 @@ import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { studyTimeSaved } from '@/lib/studyTimer';
 import { computeStreak, computeWeeklyPct } from '@/lib/streak';
-import { fromRow } from '@/lib/subjects';
+import { fromRow, subjectOptions } from '@/lib/subjects';
 import { goalFromRow, goalProgress } from '@/lib/goals';
 import type { Kid } from '@/types';
 
@@ -176,7 +176,7 @@ function KidSummaryPanel({ kid, summary, lang }: { kid: Kid; summary: KidSummary
 }
 
 export default function DashboardClient() {
-  const { lang, kids, account, setActiveKidId, gamification, setKids, isDemo } = useStore();
+  const { lang, kids, account, setActiveKidId, gamification, setKids, isDemo, customSubjects } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const [historyKid, setHistoryKid] = React.useState<Kid | null>(null);
@@ -294,7 +294,7 @@ export default function DashboardClient() {
   const longest = Math.max(0, ...kids.map(streakFor));
 
   const openKidDetail = (id: string) => { setActiveKidId(id); router.push('/dashboard/kid/' + id); };
-  const createFor = (id: string) => { setActiveKidId(id); router.push('/dashboard/picker'); };
+  const subjectChoices = subjectOptions(lang, customSubjects);
 
   return (
     <AppShell>
@@ -308,7 +308,6 @@ export default function DashboardClient() {
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <Link href="/dashboard/add-kid" className="qk-btn qk-btn-ghost">{ICONS.plus}<span>{t('addKid')}</span></Link>
-              <Btn kind="primary" icon={ICONS.spark} onClick={() => createFor(kids[0]?.id || '')}>{t('createNew')}</Btn>
             </div>
           </div>
 
@@ -348,6 +347,27 @@ export default function DashboardClient() {
                   <div className="qk-progress"><span style={{ width: weeklyFor(k) + '%' }} /></div>
                 </div>
 
+                {/* Subjects: each one opens its own page with topics, quizzes and progress */}
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+                    {lang === 'es' ? 'Materias' : 'Subjects'}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {(k.subjects || []).map((ks) => {
+                      const info = subjectChoices.find((c) => c.id === ks.subject) || { label: ks.subject, icon: '📚' };
+                      return (
+                        <Link key={ks.subject} href={`/dashboard/kid/${k.id}/subject/${encodeURIComponent(ks.subject)}`} onClick={() => setActiveKidId(k.id)} className="qk-chip"
+                          style={{ textDecoration: 'none', color: 'var(--ink)' }}>
+                          {info.icon} {info.label}
+                        </Link>
+                      );
+                    })}
+                    <Link href={`/dashboard/kid/${k.id}`} onClick={() => setActiveKidId(k.id)} className="qk-chip" style={{ textDecoration: 'none', color: 'var(--ink-3)', borderStyle: 'dashed' }}>
+                      {ICONS.plus} {t('addSubject')}
+                    </Link>
+                  </div>
+                </div>
+
                 {/* Study summary */}
                 <KidGoalsPanel summary={summaries[k.id]} lang={lang} />
                 <KidSummaryPanel kid={k} summary={summaries[k.id]} lang={lang} />
@@ -371,10 +391,7 @@ export default function DashboardClient() {
                 )}
 
                 <div style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'nowrap' }}>
-                  <Btn kind="primary" onClick={() => createFor(k.id)} icon={ICONS.spark} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t('createNew')}</Btn>
-                  <button className="qk-btn qk-btn-ghost" onClick={() => openKidDetail(k.id)} title={t('viewDetails')} style={{ padding: '0 12px', flexShrink: 0 }}>
-                    {ICONS.eye}
-                  </button>
+                  <Btn kind="primary" onClick={() => openKidDetail(k.id)} icon={ICONS.eye} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t('viewDetails')}</Btn>
                   <button className="qk-btn qk-btn-ghost" onClick={() => setHistoryKid(k)} title={t('history')} style={{ padding: '0 12px', flexShrink: 0 }}>
                     {ICONS.clock}
                   </button>

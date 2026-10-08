@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/client';
 import { subjectPromptName } from '@/lib/subjects';
 import type { GoalDraft, Kid, KidGoal } from '@/types';
 
-const MASTERY = 70;
+export const MASTERY = 70;
 
 export function goalFromRow(r: Record<string, unknown>): KidGoal {
   return {

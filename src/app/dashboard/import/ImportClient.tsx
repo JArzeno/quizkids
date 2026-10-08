@@ -1,17 +1,16 @@
 'use client';
 import React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Btn } from '@/components/ui/Btn';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
+import { subjectInfo, subjectOptions } from '@/lib/subjects';
+import { addTopic, lessonNotes } from '@/lib/topics';
 import type { ImportedLesson } from '@/types';
 
-const SUBJECTS = [
-  { id: 'sci', icon: '🔬' }, { id: 'math', icon: '➗' }, { id: 'lang', icon: '📖' }, { id: 'soc', icon: '🌎' }, { id: 'art', icon: '🎨' },
-];
 const MAX_FILES = 6;
 const MAX_PDF_BYTES = 15 * 1024 * 1024;
 const MAX_IMAGE_SIDE = 1600;
@@ -54,11 +53,14 @@ async function compressImage(file: File): Promise<string> {
 }
 
 export default function ImportClient() {
-  const { lang, kids, activeKidId, setActiveKidId, studyParams, setStudyParams, difficulty, importedLesson, setImportedLesson } = useStore();
+  const { lang, kids, activeKidId, setActiveKidId, studyParams, setStudyParams, difficulty, importedLesson, setImportedLesson, customSubjects, isDemo, updateKid } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
   const es = lang === 'es';
+  // Opened from a subject's page: the class is added to that subject
+  const fixedSubject = useSearchParams().get('subject');
+  const [saving, setSaving] = React.useState(false);
 
   const [files, setFiles] = React.useState<PickedFile[]>([]);
   const [hint, setHint] = React.useState('');
@@ -143,18 +145,26 @@ export default function ImportClient() {
     setError(null);
   };
 
-  const createMaterials = () => {
-    if (!lesson) return;
-    const keyPoints = lesson.keyPoints.length ? `\n\nKey points:\n- ${lesson.keyPoints.join('\n- ')}` : '';
-    const vocab = lesson.vocabulary.length ? `\n\nVocabulary:\n${lesson.vocabulary.map((v) => `- ${v.term}: ${v.def}`).join('\n')}` : '';
-    setStudyParams({
-      subject: lesson.subject,
-      topic: lesson.title.trim() || (es ? 'Mi clase' : 'My class'),
-      grade,
-      difficulty,
-      lang,
-      source: lesson.notes + keyPoints + vocab,
-    });
+  const subject = fixedSubject || lesson?.subject || '';
+  const subjectLabel = subjectInfo(subject, lang, customSubjects).label;
+  const backTo = !kid ? '/dashboard' : fixedSubject ? `/dashboard/kid/${kid.id}/subject/${encodeURIComponent(fixedSubject)}` : `/dashboard/kid/${kid.id}`;
+
+  /** Saves the class as a topic of the subject (with its notes), then opens the subject or the generator */
+  const saveClass = async (then: 'subject' | 'create') => {
+    if (!lesson || !kid || !subject) return;
+    const title = lesson.title.trim() || (es ? 'Mi clase' : 'My class');
+    const notes = lessonNotes(lesson);
+    setSaving(true);
+    setError(null);
+    const existing = isDemo ? kid.topics || [] : [];
+    const saved = await addTopic(kid.id, subject, { title, notes, source: 'import' }, isDemo, existing);
+    setSaving(false);
+    if (!saved) { setError(es ? 'No pudimos guardar la clase. Intenta de nuevo.' : "Couldn't save the class. Please try again."); return; }
+    if (isDemo) updateKid(kid.id, { topics: [...existing.filter((x) => x.id !== saved.id), saved] });
+    setImportedLesson(null);
+    if (then === 'subject') { router.push(`/dashboard/kid/${kid.id}/subject/${encodeURIComponent(subject)}`); return; }
+    const ks = kid.subjects?.find((x) => x.subject === subject);
+    setStudyParams({ ...studyParams, subject, topic: saved.title, grade, difficulty, lang, contentLang: ks?.lang, source: notes, contentId: undefined, assignmentId: undefined, planItemId: undefined, returnTo: undefined });
     router.push('/dashboard/generate');
   };
 
@@ -162,10 +172,11 @@ export default function ImportClient() {
     <AppShell>
       <div className="qk-screen qk-page-enter">
         <div style={{ maxWidth: 980, margin: '0 auto' }}>
-          <button className="qk-btn qk-btn-ghost" onClick={() => router.push('/dashboard/picker')}>{ICONS.back} <span>{t('back')}</span></button>
+          <button className="qk-btn qk-btn-ghost" onClick={() => router.push(backTo)}>{ICONS.back} <span>{t('back')}</span></button>
 
           <div style={{ marginTop: 18 }}>
-            <h1 className="qk-h1" style={{ margin: 0 }}>{es ? 'Importar una clase' : 'Import a class'}</h1>
+            {fixedSubject && kid && <span className="qk-eyebrow">{kid.name} · {subjectLabel}</span>}
+            <h1 className="qk-h1" style={{ margin: fixedSubject ? '10px 0 0' : 0 }}>{es ? 'Importar una clase' : 'Import a class'}</h1>
             <p className="qk-sub" style={{ margin: '6px 0 0' }}>
               {es
                 ? 'Sube un PDF o fotos del cuaderno, la tarea o el libro. Entendemos el tema y creamos guías, exámenes y hojas de práctica de esa misma clase.'
@@ -174,7 +185,7 @@ export default function ImportClient() {
           </div>
 
           {/* kid assignment */}
-          {kids.length > 0 && (
+          {kids.length > 0 && !fixedSubject && (
             <section style={{ marginTop: 24 }}>
               <div className="qk-label" style={{ marginBottom: 10, fontSize: 14 }}>{es ? 'Para' : 'For'}</div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -275,18 +286,22 @@ export default function ImportClient() {
                 <div className="qk-label" style={{ marginTop: 16, marginBottom: 8, fontSize: 14 }}>{t('topic')}</div>
                 <input className="qk-input" style={{ width: '100%', fontSize: 18, fontWeight: 600 }} value={lesson.title} onChange={(e) => updateLesson({ title: e.target.value })} />
 
-                <div className="qk-label" style={{ marginTop: 16, marginBottom: 8, fontSize: 14 }}>{t('subject')}</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {SUBJECTS.map((s) => {
-                    const on = lesson.subject === s.id;
-                    return (
-                      <button key={s.id} onClick={() => updateLesson({ subject: s.id })}
-                        style={{ appearance: 'none', padding: '8px 14px', borderRadius: 999, border: '1.5px solid ' + (on ? 'var(--primary)' : 'var(--line)'), background: on ? 'var(--primary-l)' : 'var(--surface)', cursor: 'pointer', fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>
-                        {s.icon} {t(s.id)}
-                      </button>
-                    );
-                  })}
-                </div>
+                {!fixedSubject && (
+                  <>
+                    <div className="qk-label" style={{ marginTop: 16, marginBottom: 8, fontSize: 14 }}>{t('subject')}</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {subjectOptions(lang, customSubjects).map((s) => {
+                        const on = lesson.subject === s.id;
+                        return (
+                          <button key={s.id} onClick={() => updateLesson({ subject: s.id })}
+                            style={{ appearance: 'none', padding: '8px 14px', borderRadius: 999, border: '1.5px solid ' + (on ? 'var(--primary)' : 'var(--line)'), background: on ? 'var(--primary-l)' : 'var(--surface)', cursor: 'pointer', fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>
+                            {s.icon} {s.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
 
                 <p style={{ marginTop: 18, fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.5 }}>{lesson.summary}</p>
 
@@ -321,9 +336,14 @@ export default function ImportClient() {
 
               <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <Btn kind="ghost" icon={ICONS.shuffle} onClick={startOver}>{es ? 'Importar otra clase' : 'Import another class'}</Btn>
-                <Btn kind="primary" iconRight={ICONS.next} onClick={createMaterials} disabled={!lesson.title.trim()} style={{ opacity: lesson.title.trim() ? 1 : .5 }}>
-                  {es ? 'Crear guía, examen o PDF' : 'Create guide, test, or PDF'}
-                </Btn>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <Btn kind="ghost" icon={ICONS.spark} onClick={() => saveClass('create')} disabled={saving || !kid || !lesson.title.trim()}>
+                    {es ? 'Agregar y crear guía o examen' : 'Add and create a guide or test'}
+                  </Btn>
+                  <Btn kind="primary" icon={ICONS.plus} onClick={() => saveClass('subject')} disabled={saving || !kid || !lesson.title.trim()} style={{ opacity: kid && lesson.title.trim() ? 1 : .5 }}>
+                    {es ? `Agregar a ${subjectLabel}` : `Add to ${subjectLabel}`}
+                  </Btn>
+                </div>
               </div>
             </>
           )}
