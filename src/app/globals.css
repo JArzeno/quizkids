@@ -393,6 +393,9 @@ input, textarea, select { font-family: inherit; color: inherit; }
 .qk-role button.qk-role-kid { padding: 3px 10px 3px 4px; }
 .qk-role button.on { background: var(--ink); color: var(--surface); }
 
+/* only shown on phones (see max-width: 640px) */
+.qk-show-sm { display: none !important; }
+
 /* avatar picker: avatars shrink with their column */
 .qk-avatar-grid svg { max-width: 100%; height: auto; }
 
@@ -413,6 +416,7 @@ input, textarea, select { font-family: inherit; color: inherit; }
   .qk-chrome { padding: 10px 16px; gap: 10px; }
   .qk-chrome-right { gap: 8px; min-width: 0; }
   .qk-hide-sm { display: none !important; }
+  .qk-show-sm { display: flex !important; }
   .qk-stack-sm { grid-template-columns: 1fr !important; }
   .qk-full-sm { width: 100%; }
 
@@ -438,17 +442,12 @@ input, textarea, select { font-family: inherit; color: inherit; }
   .qk-paper-head > div:last-child { text-align: left !important; }
 }
 @media (max-width: 480px) {
-  .qk-brand-name { display: none; }
-  .qk-role { font-size: 12px; }
-  .qk-role button { padding: 5px 9px 5px 8px; gap: 5px; }
-  .qk-role button.qk-role-kid { padding: 3px 9px 3px 4px; }
   .qk-hide-xs { display: none !important; }
   .qk-stack-xs { grid-template-columns: 1fr !important; }
   .qk-avatar-stack svg { width: 56px; height: 56px; }
 }
 @media (max-width: 359px) {
-  .qk-role-label { display: none; }
-  .qk-role button, .qk-role button.qk-role-kid { padding: 4px 8px; }
+  .qk-brand-name { display: none; }
 }
 
 /* ---------- print ---------- */

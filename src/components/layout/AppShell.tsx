@@ -78,14 +78,14 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
           <div className="qk-chrome-right">
             {/* role switcher */}
             {kids.length > 0 && account && !isDemo && (
-              <div className="qk-role">
-                <button onClick={() => switchMode('parent')} className={mode === 'parent' ? 'on' : ''} title={t('parent')} aria-label={t('parent')}>
+              <div className="qk-role qk-hide-sm">
+                <button onClick={() => switchMode('parent')} className={mode === 'parent' ? 'on' : ''}>
                   <Ico d={<g><circle cx="12" cy="8" r="4" /><path d="M4 22c0-4 4-6 8-6s8 2 8 6" /></g>} size={13} />
-                  <span className="qk-role-label">{t('parent')}</span>
+                  <span>{t('parent')}</span>
                 </button>
-                <button onClick={() => switchMode('kid')} className={`qk-role-kid${mode === 'kid' ? ' on' : ''}`} title={t('kid')} aria-label={t('kid')}>
+                <button onClick={() => switchMode('kid')} className={`qk-role-kid${mode === 'kid' ? ' on' : ''}`}>
                   {activeKid ? <Avatar id={activeKid.avatar} size={22} /> : <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--honey-l)', display: 'inline-block' }} />}
-                  <span className="qk-role-label">{t('kid')}</span>
+                  <span>{t('kid')}</span>
                 </button>
               </div>
             )}
@@ -97,6 +97,13 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
                 kidAvatar={mode === 'kid' && activeKid ? activeKid.avatar : undefined}
                 showSettings={mode === 'parent'}
                 onLogout={handleLogout}
+                switchItem={kids.length > 0 ? {
+                  label: mode === 'kid' ? t('switchToParent') : t('switchToKid'),
+                  icon: mode === 'kid' || !activeKid
+                    ? <Ico d={<g><circle cx="12" cy="8" r="4" /><path d="M4 22c0-4 4-6 8-6s8 2 8 6" /></g>} size={16} />
+                    : <Avatar id={activeKid.avatar} size={18} />,
+                  onClick: () => switchMode(mode === 'kid' ? 'parent' : 'kid'),
+                } : undefined}
               />
             ) : (
               <div className="qk-lang" role="tablist" aria-label="language">
@@ -118,8 +125,10 @@ function initials(name: string) {
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
 }
 
-function UserMenu({ lang, name, email, kidAvatar, showSettings, onLogout }: {
+function UserMenu({ lang, name, email, kidAvatar, showSettings, onLogout, switchItem }: {
   lang: 'en' | 'es'; name: string; email: string; kidAvatar?: string; showSettings: boolean; onLogout: () => void;
+  /** Parent/kid switch, shown in the menu on phones where the header switcher is hidden */
+  switchItem?: { label: string; icon: React.ReactNode; onClick: () => void };
 }) {
   const t = useT(lang);
   const [open, setOpen] = React.useState(false);
@@ -157,6 +166,12 @@ function UserMenu({ lang, name, email, kidAvatar, showSettings, onLogout }: {
               {email && <div className="qk-user-head-email">{email}</div>}
             </div>
           </div>
+          {switchItem && (
+            <button className="qk-user-item qk-show-sm" role="menuitem" onClick={() => { setOpen(false); switchItem.onClick(); }}>
+              {switchItem.icon}
+              <span>{switchItem.label}</span>
+            </button>
+          )}
           {showSettings && (
             <Link href="/dashboard/settings" className="qk-user-item" role="menuitem" onClick={() => setOpen(false)}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
