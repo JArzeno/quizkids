@@ -2,7 +2,9 @@ import { createClient } from '@/lib/supabase/client';
 import { goalFromRow } from '@/lib/goals';
 import { fromRow, gradeToNumber } from '@/lib/subjects';
 import { adaptQueue, latestAccuracy, nextSubjectState, type ResultRow } from '@/lib/adapt';
-import type { Kid, KidGoal, KidSubject, PlanItem, PlanItemType } from '@/types';
+import { loadKidTopics } from '@/lib/topics';
+import { testSource } from '@/lib/tests';
+import type { Kid, KidGoal, KidSubject, KidTopic, PlanItem, PlanItemType } from '@/types';
 
 export const ITEM_MINUTES: Record<PlanItemType, number> = { guide: 8, quiz: 6, pdf: 10, test: 10 };
 
@@ -117,6 +119,8 @@ export interface TodayPlan {
   goals: KidGoal[];
   subjects: KidSubject[];
   results: ResultRow[];
+  /** The kid's topics and classes (their notes ground the generated content) */
+  topics: KidTopic[];
 }
 
 /** Loads goals + subjects + plan items, creates/hands out what is missing, and returns everything fresh */
@@ -135,15 +139,17 @@ export async function syncTodayPlan(kid: Kid, isDemo: boolean, today = new Date(
       next = [...next, ...c.create.map((n) => ({ ...n, id: 'demo-' + Math.random().toString(36).slice(2, 9) }))];
       next = next.map((i) => (c.assign.includes(i.id) ? { ...i, planDate: key } : i));
     }
-    return { items: next, goals, subjects: kid.subjects || [], results: [] };
+    return { items: next, goals, subjects: kid.subjects || [], results: [], topics: kid.topics || [] };
   }
 
   const supabase = createClient();
-  const [g, s, p, q] = await Promise.all([
+  const [g, s, p, q, topics] = await Promise.all([
     supabase.from('kid_goals').select('*').eq('kid_id', kid.id).order('created_at'),
     supabase.from('kid_subjects').select('*').eq('kid_id', kid.id).order('created_at'),
     supabase.from('kid_plan_items').select('*').eq('kid_id', kid.id).order('position'),
     supabase.from('quiz_results').select('subject, topic, correct, total, created_at').eq('kid_id', kid.id).order('created_at', { ascending: false }).limit(500),
+    // Topics only add class notes to the content; the plan still works without them
+    loadKidTopics(kid, false).catch((e) => { console.warn('Could not load topics:', e); return [] as KidTopic[]; }),
   ]);
   const goals = (g.data || []).map(goalFromRow);
   let subjects = (s.data || []).map(fromRow);
@@ -204,7 +210,7 @@ export async function syncTodayPlan(kid: Kid, isDemo: boolean, today = new Date(
       }
     }
   }
-  return { items, goals, subjects, results };
+  return { items, goals, subjects, results, topics };
 }
 
 /** Difficulty for generated quizzes: easier when the placement level is below the kid's grade */
@@ -216,8 +222,24 @@ export function difficultyFor(kid: Kid, subject: KidSubject | undefined): 'easy'
 
 const ROUTE: Record<PlanItemType, string> = { guide: '/api/generate/guide', quiz: '/api/generate/quiz', pdf: '/api/generate/worksheet', test: '/api/generate/quiz' };
 
+const norm = (s: string) => s.trim().toLowerCase();
+
+/**
+ * What a plan item is built from: the class notes of its topic when it is an imported class, and for a goal's
+ * final test all the topics of the goal (so the test covers them instead of only the goal's title).
+ */
+export function itemMaterial(item: PlanItem, topics: KidTopic[], goals: KidGoal[]): { source?: string; topics?: string[] } {
+  const mine = topics.filter((t) => t.subject === item.subject);
+  if (item.type === 'test') {
+    const names = goals.find((g) => g.id === item.goalId)?.topics || [];
+    const picked = mine.filter((t) => names.some((n) => norm(n) === norm(t.title)));
+    return { topics: names.length > 1 ? names : undefined, source: testSource(picked) };
+  }
+  return { source: mine.find((t) => norm(t.title) === norm(item.topic))?.notes };
+}
+
 /** Generates (or fetches cached) content for one plan item and stores its content id */
-export async function prepareItem(kid: Kid, item: PlanItem, subject: KidSubject | undefined, isDemo: boolean, fallbackLang: string, results: ResultRow[] = []): Promise<PlanItem> {
+export async function prepareItem(kid: Kid, item: PlanItem, subject: KidSubject | undefined, isDemo: boolean, fallbackLang: string, results: ResultRow[] = [], material: { source?: string; topics?: string[] } = {}): Promise<PlanItem> {
   if (item.contentId) return item;
   try {
     const res = await fetch(ROUTE[item.type], {
@@ -228,6 +250,8 @@ export async function prepareItem(kid: Kid, item: PlanItem, subject: KidSubject 
         grade: kid.grade,
         lang: subject?.lang || fallbackLang,
         subject: item.subject,
+        ...(material.source ? { source: material.source } : {}),
+        ...(material.topics ? { topics: material.topics } : {}),
         difficulty: item.type === 'test' ? (item.review ? 'medium' : 'hard') : item.review ? 'easy' : difficultyFor(kid, subject),
         // Review material and retakes are personalised (and never taken from the shared cache)
         ...(item.review ? {

@@ -97,6 +97,7 @@ export default function GuideClient() {
             lang: contentLang,
             subject: studyParams.subject,
             source: studyParams.source,
+            ...(studyParams.topics ? { topics: studyParams.topics } : {}),
           }),
         });
         if (res.ok) setGuide(await res.json());
@@ -313,7 +314,7 @@ export default function GuideClient() {
                       {lang === 'es' ? 'Pon a prueba lo que aprendiste con un quiz de 8 tarjetas.' : 'Test what you just learned with an 8-card quiz.'}
                     </p>
                   </div>
-                  <Btn kind="primary" icon={ICONS.cards} className="qk-full-sm" onClick={() => { setStudyParams({ ...studyParams, contentId: undefined, planItemId: undefined }); router.push('/kids/quiz'); }}>{t('genQuiz')}</Btn>
+                  <Btn kind="primary" icon={ICONS.cards} className="qk-full-sm" onClick={() => { setStudyParams({ ...studyParams, contentId: studyParams.pairedContentId, pairedContentId: undefined, planItemId: undefined }); router.push('/kids/quiz'); }}>{t('genQuiz')}</Btn>
                 </div>
               </section>
             </article>

@@ -103,6 +103,7 @@ export default function QuizClient() {
             lang: contentLang,
             subject: studyParams.subject,
             source: studyParams.source,
+            ...(studyParams.topics ? { topics: studyParams.topics } : {}),
             ...(more ? { variant: 'more', exclude: asked?.topic === studyParams.topic ? asked.questions : [] } : {}),
           }),
         });

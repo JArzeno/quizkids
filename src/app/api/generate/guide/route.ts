@@ -2,16 +2,19 @@ import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { GUIDE_VERSION, generateGuide, parseContext } from '@/lib/openai';
 import { createClient } from '@/lib/supabase/server';
+import { parseTopics } from '@/lib/topicsParam';
 
 export async function POST(req: NextRequest) {
   try {
-    const { topic, grade, source, lang, subject, variant, context } = await req.json();
+    const { topic, grade, source, lang, subject, variant, context, topics } = await req.json();
     if (!topic || !grade) return NextResponse.json({ error: 'Missing topic or grade' }, { status: 400 });
 
     const lng = lang || 'en';
     const ctx = parseContext(context);
-    // A variant is a personalised request (review / retake): never served from, or mistaken for, the shared cache
-    const isVariant = typeof variant === 'string' && variant.length > 0;
+    // Several topics at once (a school test): the guide covers all of them
+    const multi = parseTopics(topics);
+    // A variant is a personalised request (review / retake / several topics): never served from, or mistaken for, the shared cache
+    const isVariant = (typeof variant === 'string' && variant.length > 0) || !!multi;
     const subj = subject || 'sci';
     // Imported class material: cache per exact material, not just per topic
     const src: string | undefined = typeof source === 'string' && source.trim() ? source.trim() : undefined;
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Generate new
-      const data = await generateGuide(topic, grade, lng, src, ctx);
+      const data = await generateGuide(topic, grade, lng, src, ctx, multi);
 
       // Save to cache
       const { data: saved } = await supabase
@@ -49,7 +52,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ...data, contentId: saved?.id ?? null, cached: false });
     } catch (dbErr) {
       console.warn('Supabase cache miss/error, generating fresh:', dbErr);
-      const data = await generateGuide(topic, grade, lng, src, ctx);
+      const data = await generateGuide(topic, grade, lng, src, ctx, multi);
       return NextResponse.json({ ...data, contentId: null, cached: false });
     }
   } catch (err) {

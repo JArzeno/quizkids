@@ -11,8 +11,13 @@ export async function POST(req: NextRequest) {
     const b = await req.json();
     if (!b.subject || !b.grade) return NextResponse.json({ error: 'Missing subject or grade' }, { status: 400 });
 
+    // Goals are built only from the topics the parent added to the subject
+    const available = strList(b.topics, 40)?.map((t) => t.trim()).filter(Boolean) ?? [];
+    if (available.length === 0) return NextResponse.json({ error: 'No topics to build a goal from' }, { status: 400 });
+
     const data = await generateGoal({
       subject: String(b.subject).slice(0, 80),
+      available,
       grade: String(b.grade),
       level: Number.isInteger(b.level) ? b.level : undefined,
       focus: typeof b.focus === 'string' && b.focus.trim() ? b.focus.trim().slice(0, 200) : undefined,
@@ -22,8 +27,12 @@ export async function POST(req: NextRequest) {
       lang: b.lang === 'es' || b.lang === 'fr' ? b.lang : 'en',
     });
 
-    const topics = strList(data.topics, 6)?.map((t) => t.trim()).filter(Boolean) ?? [];
-    if (typeof data.title !== 'string' || !data.title.trim() || topics.length < 2) {
+    // Keep only topics that are really in the list (written back exactly as the parent added them)
+    const byName = new Map(available.map((t) => [t.toLowerCase(), t]));
+    const chosen = (strList(data.topics, 8) ?? []).map((t) => byName.get(t.trim().toLowerCase())).filter((t): t is string => !!t);
+    const topics = Array.from(new Set(chosen)).slice(0, 6);
+    // With a single added topic the goal is just that topic; otherwise the AI must have picked at least two
+    if (typeof data.title !== 'string' || !data.title.trim() || topics.length < Math.min(2, available.length)) {
       return NextResponse.json({ error: 'Generation failed' }, { status: 502 });
     }
     const weeks = Number.isInteger(data.weeks) ? Math.min(4, Math.max(1, data.weeks)) : 2;
