@@ -8,10 +8,11 @@ import { SessionBadge, useSession } from '@/components/ui/SessionPill';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
-import { useStudyTracker, endStudySession } from '@/lib/studyTimer';
+import { useStudyTracker } from '@/lib/studyTimer';
+import { signOut } from '@/lib/auth';
 
 export function AppShell({ children, showNav = true }: { children: React.ReactNode; showNav?: boolean }) {
-  const { lang, setLang, mode, kids, activeKidId, setMode, setActiveKidId, palette, font, setAccount, setKids, setIsDemo } = useStore();
+  const { lang, setLang, mode, kids, activeKidId, setMode, setActiveKidId, palette, font } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const activeKid = kids.find((k) => k.id === activeKidId) || kids[0];
@@ -22,14 +23,7 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
   useStudyTracker();
 
   const handleLogout = async () => {
-    // Save the running study time while still signed in
-    await endStudySession();
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    setAccount(null);
-    setKids([]);
-    setIsDemo(false);
-    setMode('parent');
+    await signOut();
     router.push('/auth');
   };
 
