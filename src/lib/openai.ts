@@ -64,8 +64,18 @@ function studentBlock(ctx?: StudentContext): string {
 const MAX_SOURCE_CHARS = 12000;
 
 /** Prompt block that grounds generation in material imported from the kid's actual class */
-function sourceBlock(source?: string): string {
+function sourceBlock(source?: string, topics?: string[]): string {
   if (!source) return '';
+  // A test over several topics: only some of them may come with class material
+  if (topics && topics.length > 1) {
+    return `
+
+IMPORTANT: Some of the topics come from the student's own class notes (below, each under a "###" heading with the topic name). For those topics, base everything ONLY on that material: use its examples, vocabulary, and methods, and do not introduce concepts it does not cover. For the other topics, teach the standard material for the grade.
+<class_material>
+${source.slice(0, MAX_SOURCE_CHARS)}
+</class_material>
+`;
+  }
   return `
 
 IMPORTANT: Base everything ONLY on the class material below (imported from the student's own class notes, worksheet, or textbook page). Use its examples, vocabulary, and methods. Do not introduce concepts the material does not cover.
@@ -86,13 +96,23 @@ ${exclude.map((q) => `- ${q}`).join('\n')}
 `;
 }
 
-export async function generateQuiz(topic: string, grade: string, difficulty: string, lang: string, source?: string, ctx?: StudentContext, exclude?: string[]) {
+/** Several topics at once (a school test, a goal's final test): the quiz must spread across all of them */
+function topicsBlock(topics: string[] | undefined, what: string): string {
+  if (!topics || topics.length < 2) return '';
+  return `
+This ${what} covers ALL of these topics: ${topics.map((t) => `"${t}"`).join('; ')}. Spread it evenly so every topic is covered, and never write something that belongs to none of them.
+`;
+}
+
+export async function generateQuiz(topic: string, grade: string, difficulty: string, lang: string, source?: string, ctx?: StudentContext, exclude?: string[], topics?: string[]) {
   const openai = getClient();
-  const cardCount = difficulty === 'easy' ? 6 : 8;
+  const multi = !!topics && topics.length > 1;
+  // A test over several topics gets more questions, about 3 per topic
+  const cardCount = multi ? Math.min(15, Math.max(8, topics!.length * 3)) : difficulty === 'easy' ? 6 : 8;
   const diffLabel = difficulty === 'easy' ? 'simple and straightforward' : difficulty === 'hard' ? 'challenging with tricky distractors and nuanced distinctions' : 'moderately challenging';
   const gradeDesc = gradeContext(grade);
 
-  const prompt = `Generate ${cardCount} multiple-choice flashcard questions about "${topic}" for a student at: ${gradeDesc}
+  const prompt = `Generate ${cardCount} multiple-choice flashcard questions about "${multi ? topics!.join('; ') : topic}" for a student at: ${gradeDesc}
 
 Questions must be ${diffLabel} and exactly appropriate for that grade level — not too easy, not too hard.
 ${languageRule(lang)}
@@ -102,7 +122,7 @@ Rules:
 - Kindergarten and 1st grade: use pictures-in-words ("the big yellow star"), very short questions
 - 4th grade and above: include one or two questions that require applying knowledge, not just recalling it
 - Hard difficulty: include distractors that are plausible but clearly wrong to someone who studied the topic
-${studentBlock(ctx)}${excludeBlock(exclude)}${sourceBlock(source)}
+${topicsBlock(topics, 'quiz')}${studentBlock(ctx)}${excludeBlock(exclude)}${sourceBlock(source, topics)}
 Return ONLY valid JSON in this exact format:
 {
   "questions": [
@@ -121,7 +141,7 @@ The "a" field is the 0-based index of the correct answer in choices.`;
     messages: [{ role: 'user', content: prompt }],
     response_format: { type: 'json_object' },
     temperature: exclude?.length ? 0.9 : 0.7,
-    max_tokens: 2000,
+    max_tokens: multi ? Math.min(4500, 300 * cardCount) : 2000,
   });
 
   const content = response.choices[0].message.content;
@@ -160,25 +180,27 @@ function sectionRules(): string {
 - "key": one memorable sentence — the #1 takeaway of that section`;
 }
 
-export async function generateGuide(topic: string, grade: string, lang: string, source?: string, ctx?: StudentContext) {
+export async function generateGuide(topic: string, grade: string, lang: string, source?: string, ctx?: StudentContext, topics?: string[]) {
   const openai = getClient();
   const gradeDesc = gradeContext(grade);
+  const multi = !!topics && topics.length > 1;
 
-  const prompt = `Create a complete study guide about "${topic}" for a student at: ${gradeDesc}
-
+  const prompt = `Create a complete study guide ${multi ? `to prepare for a test on these topics: ${topics!.map((t) => `"${t}"`).join('; ')}` : `about "${topic}"`} for a student at: ${gradeDesc}
+${multi ? `
+Cover EVERY topic: give each topic its own section or two (about 2 sections per topic, 6–10 sections in total), in the order listed, and start each section title with the topic it belongs to. Focus on what is most likely to be asked in a test: key facts, rules, methods, and common mistakes. The "intro" says what the test covers and the "recap" lists the most important points across all topics.
+` : ''}
 ${languageRule(lang)}
 
 It should read like a full lesson the student can learn from on their own, not a short summary: start with the basics, build up step by step, and end with how the idea is used in real life.
 
 Rules:
 - Every sentence must match the reading level and vocabulary of that grade
-- Kindergarten–2nd grade: 5 sections. 3rd grade and above: 6 sections
-${sectionRules()}
+${multi ? '' : '- Kindergarten–2nd grade: 5 sections. 3rd grade and above: 6 sections\n'}${sectionRules()}
 - Order the sections from foundation to application and never repeat the same idea in two sections
 - "vocab": 3–6 important words used in the guide, each with a short grade-level definition
 - "recap": 3–5 short sentences with the most important points to remember
 - "related": 3 short ideas (2–6 words) closely connected to the topic that the guide does NOT cover yet, for the student to explore next${source ? '. Keep them inside the class material.' : ''}
-${studentBlock(ctx)}${sourceBlock(source)}
+${studentBlock(ctx)}${sourceBlock(source, topics)}
 Return ONLY valid JSON in this exact format:
 {
   "intro": "A 2–3 sentence friendly introduction at the grade level",
@@ -204,7 +226,7 @@ Keep language simple and engaging for the grade level.`;
     messages: [{ role: 'user', content: prompt }],
     response_format: { type: 'json_object' },
     temperature: 0.7,
-    max_tokens: 4500,
+    max_tokens: multi ? 9000 : 4500,
   });
 
   const content = response.choices[0].message.content;
@@ -386,23 +408,31 @@ The "a" field is the 0-based index of the correct answer in choices. Shuffle the
   return JSON.parse(content);
 }
 
-/** Proposes the next learning goal for one subject, based on the kid's level and what they have already done */
+/**
+ * Builds the next learning goal for one subject out of the topics and classes the parent added (school topics).
+ * It only chooses, orders and names them: it never invents a topic.
+ */
 export async function generateGoal(input: {
   subject: string; grade: string; level?: number; focus?: string;
+  /** The topics the goal may use: the ones the parent added to this subject */
+  available: string[];
   strong?: string[]; weak?: string[]; done?: string[]; lang: string;
 }) {
   const openai = getClient();
   const gradeDesc = gradeContext(input.grade);
 
-  const prompt = `Propose ONE learning goal for a student in the subject "${input.subject}". The student is enrolled at: ${gradeDesc}
-${input.level != null ? `A placement quiz put them at roughly grade level ${input.level === 0 ? 'K' : input.level} in this subject.\n` : ''}${input.focus ? `The parent wants the focus to be: "${input.focus}"\n` : ''}${input.strong?.length ? `Strong at: ${input.strong.join(', ')}\n` : ''}${input.weak?.length ? `Needs practice in: ${input.weak.join(', ')}\n` : ''}${input.done?.length ? `Goals already completed (do NOT repeat, build on them): ${input.done.join('; ')}\n` : ''}
-Pick the most useful next goal: start where the student really is (their level, not only their grade), address weak areas first, and keep it achievable in 1-4 weeks of short daily study.
+  const prompt = `Build ONE learning goal for a student in the subject "${input.subject}" out of the topics their parent has added from school. The student is enrolled at: ${gradeDesc}
+${input.level != null ? `A placement quiz put them at roughly grade level ${input.level === 0 ? 'K' : input.level} in this subject.\n` : ''}${input.focus ? `The parent wants the focus to be: "${input.focus}"\n` : ''}${input.strong?.length ? `Strong at: ${input.strong.join(', ')}\n` : ''}${input.weak?.length ? `Needs practice in: ${input.weak.join(', ')}\n` : ''}${input.done?.length ? `Goals already completed (build on them, do not repeat): ${input.done.join('; ')}\n` : ''}
+Available topics (the ONLY topics you may use):
+${input.available.map((t) => `- ${t}`).join('\n')}
+
+Choose 2-6 of the available topics that belong together and can be learned in 1-4 weeks of short daily study. Put them in a sensible learning order, foundation first, and prefer topics that match the student's weak areas.
 ${languageRule(input.lang)}
 
 Rules:
-- "title": a clear, motivating goal in one sentence, max 80 characters (e.g. "Add and subtract fractions with unlike denominators")
+- "topics": the chosen topics, copied EXACTLY as written above. Never add, rename, translate or invent a topic.
+- "title": a clear, motivating goal in one sentence that sums up the chosen topics, max 80 characters
 - "description": 1-2 plain sentences explaining what the student will be able to do
-- "topics": 3-6 short, specific topic names (2-6 words each), ordered from foundation to goal. Each must work as the topic of a quiz on its own.
 - "weeks": integer 1-4
 
 Return ONLY valid JSON:
@@ -412,7 +442,7 @@ Return ONLY valid JSON:
     model: 'gpt-4o-mini',
     messages: [{ role: 'user', content: prompt }],
     response_format: { type: 'json_object' },
-    temperature: 0.6,
+    temperature: 0.4,
     max_tokens: 600,
   });
 

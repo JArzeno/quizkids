@@ -164,7 +164,7 @@ export default function ImportClient() {
     setImportedLesson(null);
     if (then === 'subject') { router.push(`/dashboard/kid/${kid.id}/subject/${encodeURIComponent(subject)}`); return; }
     const ks = kid.subjects?.find((x) => x.subject === subject);
-    setStudyParams({ ...studyParams, subject, topic: saved.title, grade, difficulty, lang, contentLang: ks?.lang, source: notes, contentId: undefined, assignmentId: undefined, planItemId: undefined, returnTo: undefined });
+    setStudyParams({ ...studyParams, subject, topic: saved.title, grade, difficulty, lang, contentLang: ks?.lang, source: notes, contentId: undefined, assignmentId: undefined, planItemId: undefined, returnTo: undefined, topics: undefined, pairedContentId: undefined });
     router.push('/dashboard/generate');
   };
 

@@ -9,7 +9,8 @@ import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { subjectInfo, subjectPromptName, levelLabel } from '@/lib/subjects';
-import { requestGoalDraft, saveGoal } from '@/lib/goals';
+import { goalCandidates, requestGoalDraft, saveGoal } from '@/lib/goals';
+import { loadTopics } from '@/lib/topics';
 import { scorePlacement, type PlacementOutcome } from '@/lib/placement';
 import type { PlacementQuestion } from '@/types';
 
@@ -93,10 +94,12 @@ export default function PlacementClient() {
       const nextSubjects = [...others, entry];
       updateKid(kid.id, { subjects: nextSubjects });
 
-      // Suggest a first goal (the parent approves it on the kid page); skip if the subject already has one
+      // Build a first goal from the topics the parent added (the parent approves it on the kid page); skip if the subject already has one or has no topics yet
       const goals = kid.goals || [];
       if (!goals.some((g) => g.subject === subject && (g.status === 'active' || g.status === 'proposed'))) {
-        const draft = await requestGoalDraft({ ...kid, subjects: nextSubjects }, subject, lang, customSubjects);
+        const added = await loadTopics(kid, subject, isDemo).catch(() => []);
+        const available = goalCandidates(goals, subject, added);
+        const draft = available.length ? await requestGoalDraft({ ...kid, subjects: nextSubjects }, subject, lang, customSubjects, available) : null;
         const goal = draft && await saveGoal(kid.id, subject, draft, 'proposed', isDemo, goals);
         if (goal) updateKid(kid.id, { goals: [...goals, goal] });
       }

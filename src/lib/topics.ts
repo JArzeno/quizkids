@@ -30,6 +30,14 @@ export async function loadTopics(kid: { id: string; topics?: KidTopic[] }, subje
   return (data || []).map(topicFromRow);
 }
 
+/** Every topic of a kid, across subjects, newest first. Demo mode reads them from the kid. */
+export async function loadKidTopics(kid: { id: string; topics?: KidTopic[] }, isDemo: boolean): Promise<KidTopic[]> {
+  if (isDemo) return [...(kid.topics || [])].reverse();
+  const { data, error } = await createClient().from('kid_topics').select('*').eq('kid_id', kid.id).order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(topicFromRow);
+}
+
 /** Adds a topic to a kid's subject. Adding a name that already exists returns the existing topic. */
 export async function addTopic(kidId: string, subject: string, input: { title: string; notes?: string; source?: KidTopic['source'] }, isDemo: boolean, existing: KidTopic[]): Promise<KidTopic | null> {
   const title = input.title.trim();
@@ -66,7 +74,6 @@ export async function removeTopic(id: string, isDemo: boolean): Promise<boolean>
 }
 
 interface QuizLike { subject: string | null; topic: string | null; correct: number | null; total: number | null; created_at: string }
-interface AssignmentLike { subject: string | null; topic: string | null; assigned_at: string }
 
 export interface TopicRow {
   title: string;
@@ -82,12 +89,13 @@ export interface TopicRow {
 }
 
 /**
- * Everything learned in one subject, as one list: topics the parent added (newest first), then the active
- * goal's topics, then anything else studied in that subject (most recent first). Pure: no I/O.
+ * The topics of one subject, as one list: the topics and classes the parent added (newest first), then any topics
+ * of the active goal that are not in that list (goals made before topics existed). Studying always follows what the
+ * parent added, so nothing else is listed. Pure: no I/O.
  */
-export function subjectTopics(subject: string, topics: KidTopic[], goals: KidGoal[], quizzes: QuizLike[], assignments: AssignmentLike[] = []): TopicRow[] {
+export function subjectTopics(subject: string, topics: KidTopic[], goals: KidGoal[], quizzes: QuizLike[]): TopicRow[] {
   const rows: TopicRow[] = [];
-  const seen = new Map<string, TopicRow>();
+  const seen = new Set<string>();
   const mine = quizzes.filter((q) => q.subject === subject && q.topic && (q.total || 0) > 0);
   const goal = goals.find((g) => g.subject === subject && g.status === 'active');
   const goalTopics = new Set((goal?.topics || []).map(norm));
@@ -98,21 +106,11 @@ export function subjectTopics(subject: string, topics: KidTopic[], goals: KidGoa
     const attempts = mine.filter((q) => norm(q.topic!) === key).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
     const last = attempts[0];
     const lastPct = last ? Math.round(((last.correct || 0) / (last.total || 1)) * 100) : null;
-    const row: TopicRow = { title, topic, inGoal: goalTopics.has(key), attempts: attempts.length, lastPct, lastAt: last?.created_at ?? null, mastered: lastPct != null && lastPct >= MASTERY };
-    seen.set(key, row);
-    rows.push(row);
+    seen.add(key);
+    rows.push({ title, topic, inGoal: goalTopics.has(key), attempts: attempts.length, lastPct, lastAt: last?.created_at ?? null, mastered: lastPct != null && lastPct >= MASTERY });
   };
 
   topics.filter((t) => t.subject === subject).forEach((t) => push(t.title, t));
   (goal?.topics || []).forEach((t) => push(t));
-
-  const history = [
-    ...mine.map((q) => ({ title: q.topic!, at: q.created_at })),
-    ...assignments.filter((a) => a.subject === subject && a.topic).map((a) => ({ title: a.topic!, at: a.assigned_at })),
-  ].sort((a, b) => (a.at < b.at ? 1 : -1));
-  history.forEach((h) => push(h.title));
-
-  // A goal's final test is a quiz named after the goal; it belongs to the goal, not to the topic list
-  const goalTitles = new Set(goals.filter((g) => g.subject === subject).map((g) => norm(g.title)));
-  return rows.filter((r) => r.topic || r.inGoal || !goalTitles.has(norm(r.title)));
+  return rows;
 }
