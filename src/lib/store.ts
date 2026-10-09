@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { createClient } from '@/lib/supabase/client';
+import { DEMO_COOKIE } from '@/lib/demo';
 import type { Kid, ParentPrefs, QuizResult, StudyParams, Lang, ImportedLesson, StudySession, CustomSubject } from '@/types';
 
 interface AppState {
@@ -120,7 +121,13 @@ export const useStore = create<AppState>()(
       },
 
       isDemo: false,
-      setIsDemo: (isDemo) => set({ isDemo }),
+      setIsDemo: (isDemo) => {
+        set({ isDemo });
+        // Middleware lets a signed-out visitor in only while this cookie is set (see src/middleware.ts)
+        if (typeof document !== 'undefined') {
+          document.cookie = isDemo ? `${DEMO_COOKIE}=1; path=/; SameSite=Lax` : `${DEMO_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+        }
+      },
 
       account: null,
       setAccount: (account) => set({ account }),
