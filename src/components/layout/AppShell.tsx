@@ -43,6 +43,17 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
 
   React.useEffect(() => { document.documentElement.lang = lang; }, [lang]);
 
+  // Kid mode is saved between visits, so reloading, going back or following a link can land a kid on a parent page.
+  // Send them to the kid view instead. Keyed on the path only: flows that set kid mode and then push a kid page
+  // (e.g. opening a quiz from the dashboard) would otherwise be redirected before their own navigation lands.
+  React.useEffect(() => {
+    if (!pathname?.startsWith('/dashboard')) return;
+    const { mode: current, kids: all, setMode: apply } = useStore.getState();
+    if (current !== 'kid') return;
+    if (all.length === 0) { apply('parent'); return; }
+    router.replace('/kids/home');
+  }, [pathname]);
+
   React.useEffect(() => {
     const el = document.documentElement;
     el.setAttribute('data-palette', palette);
