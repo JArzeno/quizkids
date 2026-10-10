@@ -92,7 +92,9 @@ export default function AuthClient() {
           recent: [],
         })));
       }
-      router.push('/profile');
+      // Sent here by the login guard: go back to the page that was asked for
+      const next = searchParams.get('next');
+      router.push(next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\') ? next : '/profile');
     }
   };
 
