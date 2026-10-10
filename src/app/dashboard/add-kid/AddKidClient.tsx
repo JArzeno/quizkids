@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
 import { Avatar, AVATARS } from '@/components/ui/Avatar';
 import { Btn } from '@/components/ui/Btn';
+import { CustomSubjectAdder } from '@/components/ui/CustomSubjectAdder';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
@@ -130,6 +131,7 @@ export default function AddKidClient() {
                       </button>
                     );
                   })}
+                  <CustomSubjectAdder lang={lang} options={subjectList} variant="tile" onAdded={(id) => setSubjects((cur) => (id in cur ? cur : { ...cur, [id]: '' }))} />
                 </div>
                 {Object.keys(subjects).length > 0 ? (
                   <div style={{ marginTop: 22, display: 'grid', gap: 10 }}>

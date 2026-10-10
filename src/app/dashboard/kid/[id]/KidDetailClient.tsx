@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Stars, StatCard } from '@/components/ui/Stars';
+import { CustomSubjectAdder } from '@/components/ui/CustomSubjectAdder';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
@@ -291,9 +292,11 @@ export default function KidDetailClient() {
   const [subjectError, setSubjectError] = React.useState(false);
 
   const addSubject = async (id: string) => {
-    if (!kid || kidSubjects.some((s) => s.subject === id)) return;
+    if (!kid) return;
+    if (kidSubjects.some((s) => s.subject === id)) { setAddingSubject(false); return; }
     setSubjectError(false);
-    const labels = subjectLabelFields(id, customSubjects);
+    // read from the store so a custom subject created a moment ago keeps its name and icon
+    const labels = subjectLabelFields(id, useStore.getState().customSubjects);
     if (!isDemo) {
       const { error } = await createClient().from('kid_subjects').insert({ kid_id: kid.id, subject: id, ...labels });
       if (error) { setSubjectError(true); return; }
@@ -378,6 +381,7 @@ export default function KidDetailClient() {
                   {subjectChoices.filter((c) => !kidSubjects.some((s) => s.subject === c.id)).map((c) => (
                     <button key={c.id} className="qk-chip" onClick={() => addSubject(c.id)}>{c.icon} {c.label}</button>
                   ))}
+                  <CustomSubjectAdder lang={lang} options={subjectChoices} variant="chip" onAdded={addSubject} />
                 </div>
               )}
               {kidSubjects.length === 0 ? (
