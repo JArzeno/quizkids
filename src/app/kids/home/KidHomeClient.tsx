@@ -40,6 +40,7 @@ export default function KidHomeClient() {
 
   const [dbRecent, setDbRecent] = React.useState<RecentItem[] | null>(null);
   const [loadingHistory, setLoadingHistory] = React.useState(false);
+  const [showCompleted, setShowCompleted] = React.useState(false);
   const session = useSession(kid?.id);
 
   React.useEffect(() => { setMode('kid'); }, []);
@@ -213,6 +214,9 @@ export default function KidHomeClient() {
   // Filter by subject
   const subjects = Array.from(new Set(allRecent.map((r) => r.subject).filter(Boolean))) as string[];
   const filtered = filterSubject ? allRecent.filter((r) => r.subject === filterSubject) : allRecent;
+  // Finished items fold away so only what's left to do shows under "pick up where you left off"
+  const pendingRecent = filtered.filter((r) => r.status !== 'completed');
+  const completedRecent = filtered.filter((r) => r.status === 'completed');
 
   const openRecent = (r: RecentItem) => {
     // Auto-start session timer
@@ -238,6 +242,55 @@ export default function KidHomeClient() {
   };
 
   if (!kid) return null;
+
+  const renderRecent = (r: RecentItem, key: string) => {
+    const tone = r.kind === 'quiz' ? 'primary' : r.kind === 'guide' ? 'sky' : 'coral';
+    const bg = `var(--${tone === 'primary' ? 'primary-l' : tone + '-l'})`;
+    const fg = `var(--${tone === 'primary' ? 'primary' : tone})`;
+    const subjInfo = r.subject ? kidSubjectInfo(kid.subjects, r.subject, lang, customSubjects) : null;
+    const isCompleted = r.status === 'completed';
+
+    return (
+      <button key={key} onClick={() => openRecent(r)} className="qk-card qk-wiggle"
+        style={{ appearance: 'none', textAlign: 'left', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'pointer', border: '1px solid var(--line)', transition: 'transform .2s ease, box-shadow .2s ease', position: 'relative' }}>
+
+        {/* completion badge */}
+        {isCompleted && (
+          <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 2, width: 24, height: 24, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center' }}>
+            {ICONS.check}
+          </div>
+        )}
+
+        <div style={{ height: 96, background: bg, color: fg, display: 'grid', placeItems: 'center', position: 'relative' }}>
+          <div style={{ position: 'absolute', inset: 0, opacity: .18, backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)', backgroundSize: '12px 12px' }} />
+          <div style={{ position: 'relative', transform: 'scale(2)' }}>
+            {r.kind === 'quiz' ? ICONS.cards : r.kind === 'guide' ? ICONS.book : ICONS.pdf}
+          </div>
+        </div>
+        <div style={{ padding: 16, flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, color: 'var(--ink-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em' }}>
+              {r.kind === 'quiz' ? t('genQuiz') : r.kind === 'guide' ? t('genGuide') : t('genPdf')}
+            </span>
+            {subjInfo && (
+              <span style={{ fontSize: 11, color: fg, background: bg, padding: '1px 7px', borderRadius: 999, fontWeight: 700 }}>
+                {subjInfo.icon} {subjInfo.label}
+              </span>
+            )}
+          </div>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, lineHeight: 1.25 }}>{r.title}</div>
+          <div style={{ marginTop: 'auto', paddingTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{r.when}</span>
+            {r.score > 0 && (
+              <span style={{ fontSize: 12, color: 'var(--honey)', fontWeight: 700 }}>
+                {'⭐'.repeat(Math.min(r.score, 5))}
+              </span>
+            )}
+          </div>
+        </div>
+      </button>
+    );
+  };
 
   return (
     <AppShell>
@@ -405,7 +458,7 @@ export default function KidHomeClient() {
           <section style={{ marginTop: 28 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
               <h2 className="qk-h2" style={{ margin: 0 }}>
-                {filtered.length ? t('kidHomeRecent') : t('kidHomePick')}
+                {pendingRecent.length ? t('kidHomeRecent') : t('kidHomePick')}
               </h2>
               {loadingHistory && (
                 <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>
@@ -415,54 +468,8 @@ export default function KidHomeClient() {
             </div>
 
             <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px, 100%), 1fr))', gap: 14 }}>
-              {filtered.length > 0 ? filtered.map((r, idx) => {
-                const tone = r.kind === 'quiz' ? 'primary' : r.kind === 'guide' ? 'sky' : 'coral';
-                const bg = `var(--${tone === 'primary' ? 'primary-l' : tone + '-l'})`;
-                const fg = `var(--${tone === 'primary' ? 'primary' : tone})`;
-                const subjInfo = r.subject ? kidSubjectInfo(kid.subjects, r.subject, lang, customSubjects) : null;
-                const isCompleted = r.status === 'completed';
-
-                return (
-                  <button key={idx} onClick={() => openRecent(r)} className="qk-card qk-wiggle"
-                    style={{ appearance: 'none', textAlign: 'left', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'pointer', border: '1px solid var(--line)', transition: 'transform .2s ease, box-shadow .2s ease', position: 'relative' }}>
-
-                    {/* completion badge */}
-                    {isCompleted && (
-                      <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 2, width: 24, height: 24, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center' }}>
-                        {ICONS.check}
-                      </div>
-                    )}
-
-                    <div style={{ height: 96, background: bg, color: fg, display: 'grid', placeItems: 'center', position: 'relative' }}>
-                      <div style={{ position: 'absolute', inset: 0, opacity: .18, backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)', backgroundSize: '12px 12px' }} />
-                      <div style={{ position: 'relative', transform: 'scale(2)' }}>
-                        {r.kind === 'quiz' ? ICONS.cards : r.kind === 'guide' ? ICONS.book : ICONS.pdf}
-                      </div>
-                    </div>
-                    <div style={{ padding: 16, flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 11, color: 'var(--ink-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em' }}>
-                          {r.kind === 'quiz' ? t('genQuiz') : r.kind === 'guide' ? t('genGuide') : t('genPdf')}
-                        </span>
-                        {subjInfo && (
-                          <span style={{ fontSize: 11, color: fg, background: bg, padding: '1px 7px', borderRadius: 999, fontWeight: 700 }}>
-                            {subjInfo.icon} {subjInfo.label}
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, lineHeight: 1.25 }}>{r.title}</div>
-                      <div style={{ marginTop: 'auto', paddingTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{r.when}</span>
-                        {r.score > 0 && (
-                          <span style={{ fontSize: 12, color: 'var(--honey)', fontWeight: 700 }}>
-                            {'⭐'.repeat(Math.min(r.score, 5))}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              }) : (
+              {pendingRecent.map((r, idx) => renderRecent(r, `p${idx}`))}
+              {filtered.length === 0 && (
                 <div className="qk-card" style={{ padding: 24, textAlign: 'center', color: 'var(--ink-3)', gridColumn: '1 / -1' }}>
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: 18 }}>{t('kidHomeNothing')}</div>
                   <div style={{ marginTop: 8, fontSize: 14 }}>
@@ -470,7 +477,28 @@ export default function KidHomeClient() {
                   </div>
                 </div>
               )}
+              {filtered.length > 0 && pendingRecent.length === 0 && (
+                <div className="qk-card" style={{ padding: 20, textAlign: 'center', color: 'var(--ink-3)', gridColumn: '1 / -1', fontFamily: 'var(--font-display)', fontSize: 18 }}>
+                  {t('kidHomeAllDone')}
+                </div>
+              )}
             </div>
+
+            {/* completed items, collapsed by default */}
+            {completedRecent.length > 0 && (
+              <div style={{ marginTop: 20 }}>
+                <button onClick={() => setShowCompleted((v) => !v)} aria-expanded={showCompleted}
+                  style={{ appearance: 'none', background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                  <span aria-hidden style={{ display: 'inline-block', transition: 'transform .2s ease', transform: showCompleted ? 'rotate(90deg)' : 'none' }}>▸</span>
+                  {t('kidHomeCompleted')} ({completedRecent.length})
+                </button>
+                {showCompleted && (
+                  <div className="qk-stagger" style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px, 100%), 1fr))', gap: 14 }}>
+                    {completedRecent.map((r, idx) => renderRecent(r, `c${idx}`))}
+                  </div>
+                )}
+              </div>
+            )}
           </section>
         </div>
       </div>
