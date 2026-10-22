@@ -213,7 +213,7 @@ create table if not exists public.kid_topics (
   subject text not null,
   title text not null,
   notes text,                              -- class notes from an imported PDF / photos; grounds generated content
-  source text not null default 'manual',   -- 'manual' | 'import' (room for classroom integrations later)
+  source text not null default 'manual',   -- 'manual' | 'import' | 'classroom' (Google Classroom post)
   created_at timestamptz default now()
 );
 

@@ -9,6 +9,9 @@ import type { NextRequest, NextResponse } from 'next/server';
 
 export const TOKEN_COOKIE = 'qk_gclass';
 export const STATE_COOKIE = 'qk_gclass_state';
+/** Page to return to after the Google sign-in (set by /api/classroom/connect?next=…) */
+export const NEXT_COOKIE = 'qk_gclass_next';
+const DEFAULT_RETURN = '/dashboard/classroom';
 
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -32,6 +35,18 @@ export interface GoogleTokens {
 
 export function isConfigured() {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+}
+
+/** Only our own dashboard pages are allowed as a return path, never another site */
+export function safeNext(next: string | null | undefined) {
+  return next && next.startsWith('/dashboard/') && !next.includes('//') && !next.includes('\\') ? next : DEFAULT_RETURN;
+}
+
+/** URL of the return page, with `?error=` when the sign-in failed */
+export function returnUrl(req: NextRequest, next: string | null | undefined, error?: string) {
+  const url = new URL(safeNext(next), req.url);
+  if (error) url.searchParams.set('error', error);
+  return url;
 }
 
 export function redirectUri(req: NextRequest) {
@@ -150,6 +165,19 @@ async function get<T>(accessToken: string, path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** Follows nextPageToken until `max` items are read */
+async function getAll<T>(accessToken: string, path: string, key: string, max: number): Promise<T[]> {
+  const items: T[] = [];
+  let pageToken = '';
+  do {
+    const sep = path.includes('?') ? '&' : '?';
+    const data = await get<Record<string, unknown>>(accessToken, `${path}${sep}pageSize=100${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`);
+    items.push(...((data[key] as T[] | undefined) || []));
+    pageToken = (data.nextPageToken as string | undefined) || '';
+  } while (pageToken && items.length < max);
+  return items.slice(0, max);
+}
+
 interface GDate { year: number; month: number; day: number }
 interface GTime { hours?: number; minutes?: number }
 interface GMaterial {
@@ -233,9 +261,9 @@ export async function getCourseDetails(accessToken: string, courseId: string): P
 
   const [teachersR, topicsR, workR, materialsR, announcementsR] = await Promise.allSettled([
     get<{ teachers?: { profile?: { name?: { fullName?: string } } }[] }>(accessToken, `/courses/${id}/teachers?pageSize=20`),
-    get<{ topic?: { topicId: string; name: string }[] }>(accessToken, `/courses/${id}/topics?pageSize=50`),
-    get<{ courseWork?: Record<string, unknown>[] }>(accessToken, `/courses/${id}/courseWork?pageSize=30&orderBy=${encodeURIComponent('updateTime desc')}`),
-    get<{ courseWorkMaterial?: Record<string, unknown>[] }>(accessToken, `/courses/${id}/courseWorkMaterials?pageSize=30`),
+    getAll<{ topicId: string; name: string }>(accessToken, `/courses/${id}/topics`, 'topic', 200),
+    getAll<Record<string, unknown>>(accessToken, `/courses/${id}/courseWork?orderBy=${encodeURIComponent('updateTime desc')}`, 'courseWork', 300),
+    getAll<Record<string, unknown>>(accessToken, `/courses/${id}/courseWorkMaterials`, 'courseWorkMaterial', 300),
     get<{ announcements?: Record<string, unknown>[] }>(accessToken, `/courses/${id}/announcements?pageSize=20`),
   ]);
 
@@ -245,11 +273,11 @@ export async function getCourseDetails(accessToken: string, courseId: string): P
   }
 
   const val = <T,>(r: PromiseSettledResult<T>): T | undefined => (r.status === 'fulfilled' ? r.value : undefined);
-  const topicList = val(topicsR)?.topic || [];
+  const topicList = val(topicsR) || [];
   const topicName = (tid?: unknown) => topicList.find((t) => t.topicId === tid)?.name;
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
-  const assignments: ClassroomItem[] = (val(workR)?.courseWork || []).map((w: any) => ({
+  const assignments: ClassroomItem[] = (val(workR) || []).map((w: any) => ({
     id: w.id,
     kind: 'assignment',
     title: w.title || 'Untitled',
@@ -263,7 +291,7 @@ export async function getCourseDetails(accessToken: string, courseId: string): P
     materials: mapMaterials(w.materials),
   }));
 
-  const materials: ClassroomItem[] = (val(materialsR)?.courseWorkMaterial || []).map((m: any) => ({
+  const materials: ClassroomItem[] = (val(materialsR) || []).map((m: any) => ({
     id: m.id,
     kind: 'material',
     title: m.title || 'Untitled',

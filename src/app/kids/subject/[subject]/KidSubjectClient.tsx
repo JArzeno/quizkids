@@ -249,7 +249,7 @@ export default function KidSubjectClient() {
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
                       {r.lastPct == null ? L('New! Start with the guide.', '¡Nuevo! Empieza con la guía.') : `${L('Last quiz', 'Último quiz')}: ${r.lastPct}%`}
-                      {r.topic?.source === 'import' ? ` · 📎 ${L('From your class', 'De tu clase')}` : ''}
+                      {r.topic?.source === 'import' || r.topic?.source === 'classroom' ? ` · 📎 ${L('From your class', 'De tu clase')}` : ''}
                     </div>
                     <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
                       <Btn kind="ghost" icon={ICONS.book} style={{ flex: 1, fontSize: 13, padding: '8px 10px' }} onClick={() => study(r, 'guide')}>{L('Learn', 'Aprender')}</Btn>
