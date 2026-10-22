@@ -1,14 +1,20 @@
 import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { generateGuide } from '@/lib/openai';
+import { GUIDE_VERSION, generateGuide, parseContext } from '@/lib/openai';
 import { createClient } from '@/lib/supabase/server';
+import { parseTopics } from '@/lib/topicsParam';
 
 export async function POST(req: NextRequest) {
   try {
-    const { topic, grade, source, lang, subject } = await req.json();
+    const { topic, grade, source, lang, subject, variant, context, topics } = await req.json();
     if (!topic || !grade) return NextResponse.json({ error: 'Missing topic or grade' }, { status: 400 });
 
     const lng = lang || 'en';
+    const ctx = parseContext(context);
+    // Several topics at once (a school test): the guide covers all of them
+    const multi = parseTopics(topics);
+    // A variant is a personalised request (review / retake / several topics): never served from, or mistaken for, the shared cache
+    const isVariant = (typeof variant === 'string' && variant.length > 0) || !!multi;
     const subj = subject || 'sci';
     // Imported class material: cache per exact material, not just per topic
     const src: string | undefined = typeof source === 'string' && source.trim() ? source.trim() : undefined;
@@ -23,16 +29,18 @@ export async function POST(req: NextRequest) {
         .eq('type', 'guide')
         .eq('topic', topic)
         .eq('grade', grade)
-        .eq('lang', lng);
+        .eq('lang', lng)
+        // Guides from an older prompt are shorter: only serve the current version
+        .eq('content->>v', String(GUIDE_VERSION));
       if (sourceHash) cacheQuery = cacheQuery.eq('source_hash', sourceHash);
-      const { data: cached } = await cacheQuery.single();
+      const { data: cached } = isVariant ? { data: null } : await cacheQuery.order('created_at').limit(1).maybeSingle();
 
       if (cached?.content) {
         return NextResponse.json({ ...(cached.content as object), contentId: cached.id, cached: true });
       }
 
       // Generate new
-      const data = await generateGuide(topic, grade, lng, src);
+      const data = await generateGuide(topic, grade, lng, src, ctx, multi);
 
       // Save to cache
       const { data: saved } = await supabase
@@ -44,7 +52,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ...data, contentId: saved?.id ?? null, cached: false });
     } catch (dbErr) {
       console.warn('Supabase cache miss/error, generating fresh:', dbErr);
-      const data = await generateGuide(topic, grade, lng, src);
+      const data = await generateGuide(topic, grade, lng, src, ctx, multi);
       return NextResponse.json({ ...data, contentId: null, cached: false });
     }
   } catch (err) {

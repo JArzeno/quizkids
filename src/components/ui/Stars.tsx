@@ -17,12 +17,12 @@ export function StatCard({ icon, value, label, tone = 'primary' }: { icon: React
   const toneColor: Record<string, string> = { primary: 'var(--primary)', honey: 'var(--honey)', coral: 'var(--coral)', sky: 'var(--sky)', berry: 'var(--berry)' };
   const toneBg: Record<string, string> = { primary: 'var(--primary-l)', honey: 'var(--honey-l)', coral: 'var(--coral-l)', sky: 'var(--sky-l)', berry: 'var(--berry-l)' };
   return (
-    <div className="qk-card" style={{ padding: 18 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ width: 44, height: 44, borderRadius: 14, background: toneBg[tone], color: toneColor[tone], display: 'grid', placeItems: 'center' }}>{icon}</div>
-        <div>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, lineHeight: 1 }}>{value}</div>
-          <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 4 }}>{label}</div>
+    <div className="qk-card qk-stat" style={{ padding: 18, minWidth: 0 }}>
+      <div className="qk-stat-row" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="qk-stat-icon" style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 14, background: toneBg[tone], color: toneColor[tone], display: 'grid', placeItems: 'center' }}>{icon}</div>
+        <div style={{ minWidth: 0 }}>
+          <div className="qk-stat-value" style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, lineHeight: 1 }}>{value}</div>
+          <div className="qk-stat-label" style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 4 }}>{label}</div>
         </div>
       </div>
     </div>
@@ -32,7 +32,7 @@ export function StatCard({ icon, value, label, tone = 'primary' }: { icon: React
 export function ImgPlaceholder({ label, h = 160, tone = 'primary' }: { label: string; h?: number; tone?: string }) {
   const stripeColor: Record<string, string> = { primary: 'rgba(63,122,79,.18)', honey: 'rgba(226,154,43,.22)', coral: 'rgba(226,109,90,.22)', sky: 'rgba(107,168,201,.22)' };
   return (
-    <div style={{ height: h, borderRadius: 18, border: '1.5px dashed var(--line)', background: `repeating-linear-gradient(135deg, ${stripeColor[tone] || stripeColor.primary} 0 10px, transparent 10px 24px), var(--surface-2)`, display: 'grid', placeItems: 'center', color: 'var(--ink-3)', fontFamily: 'ui-monospace, monospace', fontSize: 12, letterSpacing: '.04em' }}>
+    <div style={{ height: h, borderRadius: 18, border: '1.5px dashed var(--line)', background: `repeating-linear-gradient(135deg, ${stripeColor[tone] || stripeColor.primary} 0 10px, transparent 10px 24px), var(--surface-2)`, display: 'grid', placeItems: 'center', padding: 12, textAlign: 'center', color: 'var(--ink-3)', fontFamily: 'ui-monospace, monospace', fontSize: 12, letterSpacing: '.04em' }}>
       {label}
     </div>
   );

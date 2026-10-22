@@ -1,15 +1,25 @@
 import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { generateQuiz } from '@/lib/openai';
+import { generateQuiz, parseContext } from '@/lib/openai';
 import { createClient } from '@/lib/supabase/server';
+import { parseTopics } from '@/lib/topicsParam';
 
 export async function POST(req: NextRequest) {
   try {
-    const { topic, grade, source, difficulty, lang, subject } = await req.json();
+    const { topic, grade, source, difficulty, lang, subject, variant, context, exclude, topics } = await req.json();
     if (!topic || !grade) return NextResponse.json({ error: 'Missing topic or grade' }, { status: 400 });
 
     const diff = difficulty || 'medium';
     const lng = lang || 'en';
+    const ctx = parseContext(context);
+    // Questions already answered on this topic ("more questions" round): the new set must not repeat them
+    const asked: string[] = Array.isArray(exclude)
+      ? exclude.filter((q): q is string => typeof q === 'string' && q.trim().length > 0).map((q) => q.trim().slice(0, 200)).slice(-40)
+      : [];
+    // Several topics at once (a school test, a goal's final test): the quiz covers all of them
+    const multi = parseTopics(topics);
+    // A variant is a personalised request (review / retake / more questions / several topics): never served from, or mistaken for, the shared cache
+    const isVariant = (typeof variant === 'string' && variant.length > 0) || asked.length > 0 || !!multi;
     const subj = subject || 'sci';
     // Imported class material: cache per exact material, not just per topic
     const src: string | undefined = typeof source === 'string' && source.trim() ? source.trim() : undefined;
@@ -27,14 +37,14 @@ export async function POST(req: NextRequest) {
         .eq('difficulty', diff)
         .eq('lang', lng);
       if (sourceHash) cacheQuery = cacheQuery.eq('source_hash', sourceHash);
-      const { data: cached } = await cacheQuery.single();
+      const { data: cached } = isVariant ? { data: null } : await cacheQuery.order('created_at').limit(1).maybeSingle();
 
       if (cached?.content) {
         return NextResponse.json({ ...(cached.content as object), contentId: cached.id, cached: true });
       }
 
       // Generate new
-      const data = await generateQuiz(topic, grade, diff, lng, src);
+      const data = await generateQuiz(topic, grade, diff, lng, src, ctx, asked, multi);
 
       // Save to cache
       const { data: saved } = await supabase
@@ -47,7 +57,7 @@ export async function POST(req: NextRequest) {
     } catch (dbErr) {
       // DB unavailable — generate without caching
       console.warn('Supabase cache miss/error, generating fresh:', dbErr);
-      const data = await generateQuiz(topic, grade, diff, lng, src);
+      const data = await generateQuiz(topic, grade, diff, lng, src, ctx, asked, multi);
       return NextResponse.json({ ...data, contentId: null, cached: false });
     }
   } catch (err) {

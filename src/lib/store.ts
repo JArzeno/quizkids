@@ -1,11 +1,14 @@
 'use client';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Kid, ParentPrefs, QuizResult, StudyParams, Lang, ImportedLesson } from '@/types';
+import { createClient } from '@/lib/supabase/client';
+import { DEMO_COOKIE } from '@/lib/demo';
+import type { Kid, ParentPrefs, QuizResult, StudyParams, Lang, ImportedLesson, StudySession, CustomSubject } from '@/types';
 
 interface AppState {
   // lang
   lang: Lang;
+  /** Changes the language and saves it on the signed-in account */
   setLang: (l: Lang) => void;
 
   // demo mode
@@ -51,9 +54,15 @@ interface AppState {
   quizResult: QuizResult | null;
   setQuizResult: (r: QuizResult | null) => void;
 
-  // custom subjects
-  customSubjects: Array<{ id: string; name: string; icon: string; color: string }>;
-  setCustomSubjects: (s: Array<{ id: string; name: string; icon: string; color: string }>) => void;
+  // questions already shown on the current topic, so "more questions" rounds don't repeat them
+  quizAsked: { topic: string; questions: string[] } | null;
+  addQuizAsked: (topic: string, questions: string[]) => void;
+
+  // custom subjects; saved on the account and pulled by AppShell while signed in (see lib/customSubjects)
+  customSubjects: CustomSubject[];
+  setCustomSubjects: (s: CustomSubject[]) => void;
+  /** Account the local customSubjects were last loaded for; null = created here before they were saved to the account */
+  customSubjectsOwner: string | null;
 
   // history subject filter (kids home)
   filterSubject: string | null;
@@ -72,6 +81,11 @@ interface AppState {
   // session auto-start signal
   autoStartSession: boolean;
   setAutoStartSession: (v: boolean) => void;
+
+  // study timer, kept here so it keeps running across pages and reloads (see lib/studyTimer)
+  studySession: StudySession | null;
+  /** Kid whose timer stopped for inactivity; their next click starts it again */
+  studyIdleKidId: string | null;
 }
 
 export const DEMO_KIDS: Kid[] = [
@@ -96,12 +110,24 @@ export const DEMO_KIDS: Kid[] = [
 
 export const useStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       lang: 'en',
-      setLang: (lang) => set({ lang }),
+      setLang: (lang) => {
+        set((s) => ({ lang, studyParams: { ...s.studyParams, lang } }));
+        const { account, isDemo } = get();
+        if (account && !isDemo) {
+          createClient().auth.updateUser({ data: { lang } }).catch((e) => console.warn('Could not save language:', e));
+        }
+      },
 
       isDemo: false,
-      setIsDemo: (isDemo) => set({ isDemo }),
+      setIsDemo: (isDemo) => {
+        set({ isDemo });
+        // Middleware lets a signed-out visitor in only while this cookie is set (see src/middleware.ts)
+        if (typeof document !== 'undefined') {
+          document.cookie = isDemo ? `${DEMO_COOKIE}=1; path=/; SameSite=Lax` : `${DEMO_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+        }
+      },
 
       account: null,
       setAccount: (account) => set({ account }),
@@ -136,8 +162,16 @@ export const useStore = create<AppState>()(
       quizResult: null,
       setQuizResult: (quizResult) => set({ quizResult }),
 
+      quizAsked: null,
+      addQuizAsked: (topic, questions) => set((s) => {
+        const prev = s.quizAsked?.topic === topic ? s.quizAsked.questions : [];
+        const merged = [...prev.filter((q) => !questions.includes(q)), ...questions].slice(-40);
+        return { quizAsked: { topic, questions: merged } };
+      }),
+
       customSubjects: [],
       setCustomSubjects: (customSubjects) => set({ customSubjects }),
+      customSubjectsOwner: null,
 
       filterSubject: null,
       setFilterSubject: (filterSubject) => set({ filterSubject }),
@@ -153,6 +187,9 @@ export const useStore = create<AppState>()(
 
       autoStartSession: false,
       setAutoStartSession: (autoStartSession) => set({ autoStartSession }),
+
+      studySession: null,
+      studyIdleKidId: null,
     }),
     { name: 'quizkids-store' }
   )

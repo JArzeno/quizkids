@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Ico, ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Btn } from '@/components/ui/Btn';
@@ -8,9 +8,10 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
+import { completePlanItem } from '@/lib/plan';
 import type { QuizQuestion } from '@/types';
 
-const FALLBACK_QUIZ: QuizQuestion[] = [
+const FALLBACK_QUIZ_EN: QuizQuestion[] = [
   { q: 'How many planets are in our solar system?', choices: ['6', '7', '8', '9'], a: 2, hint: "Pluto is now a 'dwarf planet'." },
   { q: 'Which planet is closest to the Sun?', choices: ['Mercury', 'Venus', 'Earth', 'Mars'], a: 0, hint: 'It is also the smallest.' },
   { q: 'Which is the largest planet?', choices: ['Saturn', 'Jupiter', 'Neptune', 'Earth'], a: 1, hint: 'It has a giant red spot.' },
@@ -21,11 +22,26 @@ const FALLBACK_QUIZ: QuizQuestion[] = [
   { q: 'What is the Sun?', choices: ['A planet', 'A star', 'A moon', 'A comet'], a: 1, hint: 'It makes its own light.' },
 ];
 
+const FALLBACK_QUIZ_ES: QuizQuestion[] = [
+  { q: '¿Cuántos planetas hay en nuestro sistema solar?', choices: ['6', '7', '8', '9'], a: 2, hint: "Plutón ahora es un 'planeta enano'." },
+  { q: '¿Qué planeta está más cerca del Sol?', choices: ['Mercurio', 'Venus', 'Tierra', 'Marte'], a: 0, hint: 'También es el más pequeño.' },
+  { q: '¿Cuál es el planeta más grande?', choices: ['Saturno', 'Júpiter', 'Neptuno', 'Tierra'], a: 1, hint: 'Tiene una gran mancha roja.' },
+  { q: '¿En qué planeta vivimos?', choices: ['Marte', 'Venus', 'Tierra', 'Saturno'], a: 2, hint: 'Desde el espacio se ve azul.' },
+  { q: '¿Qué planeta tiene los anillos más famosos?', choices: ['Urano', 'Saturno', 'Marte', 'Mercurio'], a: 1, hint: 'Están hechos de hielo y roca.' },
+  { q: '¿Cómo se llama el satélite natural de la Tierra?', choices: ['Sol', 'Estrella', 'Luna', 'Cometa'], a: 2, hint: 'Brilla de noche.' },
+  { q: "¿Qué planeta es conocido como el 'Planeta Rojo'?", choices: ['Mercurio', 'Venus', 'Marte', 'Júpiter'], a: 2, hint: 'El óxido lo hace rojo.' },
+  { q: '¿Qué es el Sol?', choices: ['Un planeta', 'Una estrella', 'Una luna', 'Un cometa'], a: 1, hint: 'Produce su propia luz.' },
+];
+
 export default function QuizClient() {
-  const { lang, kids, activeKidId, studyParams, difficulty, gamification, setQuizResult, setMode, isDemo } = useStore();
+  const { lang, kids, activeKidId, studyParams, difficulty, gamification, setQuizResult, setMode, isDemo, addQuizAsked } = useStore();
   const t = useT(lang);
+  const FALLBACK_QUIZ = lang === 'es' ? FALLBACK_QUIZ_ES : FALLBACK_QUIZ_EN;
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
+  const contentLang = studyParams.contentLang ?? lang;
+  // "More questions" round from the results screen: a new set on the same topic, without repeats
+  const more = useSearchParams().get('more') === '1';
 
   React.useEffect(() => { setMode('kid'); }, []);
 
@@ -39,25 +55,34 @@ export default function QuizClient() {
   const [streak, setStreak] = React.useState(0);
   const [stars, setStars] = React.useState(0);
   const startedAt = React.useRef(Date.now());
+  const contentIdRef = React.useRef<string | undefined>(undefined);
 
   React.useEffect(() => {
     const fetchQuiz = async () => {
       setLoading(true);
       startedAt.current = Date.now();
+      contentIdRef.current = undefined;
+      const limit = difficulty === 'easy' ? 6 : 8;
+      const show = (qs: QuizQuestion[]) => {
+        const set = qs.slice(0, limit);
+        setCards(set);
+        addQuizAsked(studyParams.topic, set.map((c) => c.q));
+      };
       try {
         // If we have a cached contentId, load from Supabase directly
-        if (studyParams.contentId && !isDemo) {
+        if (studyParams.contentId && !isDemo && !more) {
           try {
             const supabase = createClient();
             const { data } = await supabase
               .from('generated_content')
-              .select('content')
+              .select('content, lang')
               .eq('id', studyParams.contentId)
               .single();
-            if (data?.content) {
+            // Only reuse assigned content if it is in the account's current language
+            if (data?.content && (data.lang || 'en') === contentLang) {
               const content = data.content as { questions?: QuizQuestion[] };
-              const limit = difficulty === 'easy' ? 6 : 8;
-              setCards((content.questions || FALLBACK_QUIZ).slice(0, limit));
+              if (content.questions) contentIdRef.current = studyParams.contentId;
+              show(content.questions || FALLBACK_QUIZ);
               setLoading(false);
               return;
             }
@@ -67,6 +92,7 @@ export default function QuizClient() {
         }
 
         // Generate fresh (API also checks cache server-side)
+        const asked = useStore.getState().quizAsked;
         const res = await fetch('/api/generate/quiz', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -74,25 +100,27 @@ export default function QuizClient() {
             topic: studyParams.topic,
             grade: studyParams.grade,
             difficulty,
-            lang,
+            lang: contentLang,
             subject: studyParams.subject,
             source: studyParams.source,
+            ...(studyParams.topics ? { topics: studyParams.topics } : {}),
+            ...(more ? { variant: 'more', exclude: asked?.topic === studyParams.topic ? asked.questions : [] } : {}),
           }),
         });
         if (res.ok) {
           const data = await res.json();
-          const limit = difficulty === 'easy' ? 6 : 8;
-          setCards((data.questions || FALLBACK_QUIZ).slice(0, limit));
+          if (data.questions) contentIdRef.current = data.contentId ?? undefined;
+          show(data.questions || FALLBACK_QUIZ);
         } else {
-          setCards(FALLBACK_QUIZ.slice(0, difficulty === 'easy' ? 6 : 8));
+          show(FALLBACK_QUIZ);
         }
       } catch {
-        setCards(FALLBACK_QUIZ.slice(0, difficulty === 'easy' ? 6 : 8));
+        show(FALLBACK_QUIZ);
       }
       setLoading(false);
     };
     fetchQuiz();
-  }, [studyParams.topic, studyParams.grade, studyParams.contentId, difficulty, lang]);
+  }, [studyParams.topic, studyParams.grade, studyParams.contentId, difficulty, lang, contentLang, more]);
 
   const cur = cards[i];
   const userPick = picks[i];
@@ -109,7 +137,7 @@ export default function QuizClient() {
     setFlipped(false); setFeedback(null);
     if (i + 1 >= cards.length) {
       const correct = cards.reduce((acc, c, idx) => acc + (picks[idx] === c.a ? 1 : 0), 0);
-      const result = { total: cards.length, correct, picks, cards, stars };
+      const result = { total: cards.length, correct, picks, cards, stars, contentId: contentIdRef.current, more };
       setQuizResult(result);
 
       // Save quiz result to Supabase
@@ -127,7 +155,7 @@ export default function QuizClient() {
           total: cards.length,
           correct,
           stars: goldStars,
-          lang,
+          lang: contentLang,
         }).then(() => {
           // Mark assignment as completed
           if (studyParams.assignmentId) {
@@ -139,6 +167,7 @@ export default function QuizClient() {
         });
       }
 
+      if (studyParams.planItemId) void completePlanItem(studyParams.planItemId, isDemo);
       router.push('/kids/results');
     } else setI(i + 1);
   };
@@ -146,7 +175,7 @@ export default function QuizClient() {
   if (loading) return (
     <AppShell>
       <div className="qk-screen" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
-        <div className="qk-progress" style={{ width: 280 }}><span style={{ width: '60%', animation: 'qk-pulse 1.2s ease infinite' }} /></div>
+        <div className="qk-progress" style={{ width: 'min(280px, 100%)' }}><span style={{ width: '60%', animation: 'qk-pulse 1.2s ease infinite' }} /></div>
         <div style={{ fontSize: 16, color: 'var(--ink-3)', fontFamily: 'var(--font-display)' }}>{t('generating')}</div>
       </div>
     </AppShell>
@@ -158,9 +187,9 @@ export default function QuizClient() {
     <AppShell>
       <div className="qk-screen qk-page-enter" style={{ padding: 0, minHeight: 'calc(100dvh - 65px)', display: 'flex', flexDirection: 'column' }}>
         {/* kid bar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 22px 0', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
-          <button onClick={() => router.push('/kids/home')} className="qk-btn qk-btn-ghost" style={{ padding: '8px 12px' }}>{ICONS.back} <span>{t('back')}</span></button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '14px clamp(16px, 4vw, 22px) 0', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
+          <button onClick={() => router.push(studyParams.returnTo || '/kids/home')} className="qk-btn qk-btn-ghost" style={{ padding: '8px 12px' }}>{ICONS.back} <span>{t('back')}</span></button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(8px, 2vw, 14px)' }}>
             {gamification !== 'minimal' && (
               <>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: 'var(--honey-l)', color: '#7C5410', fontWeight: 700 }}>{ICONS.star} {stars}</div>
@@ -168,7 +197,7 @@ export default function QuizClient() {
               </>
             )}
             {kid && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)' }}>
+              <div className="qk-hide-sm" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)', whiteSpace: 'nowrap' }}>
                 <Avatar id={kid.avatar} size={32} />
                 <div>
                   <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{kid.name}</span>
@@ -181,17 +210,17 @@ export default function QuizClient() {
           </div>
         </div>
 
-        <div style={{ maxWidth: 720, margin: '24px auto 0', padding: '0 22px', width: '100%' }}>
+        <div style={{ maxWidth: 720, margin: '24px auto 0', padding: '0 clamp(16px, 4vw, 22px)', width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 12 }}>
-            <div style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 700 }}>{t('card')} {i + 1} / {cards.length}</div>
+            <div style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 700, whiteSpace: 'nowrap' }}>{t('card')} {i + 1} / {cards.length}</div>
             <div style={{ fontSize: 13, color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{studyParams.topic}</div>
           </div>
           <div className="qk-progress"><span style={{ width: `${((i + 1) / cards.length) * 100}%` }} /></div>
         </div>
 
-        <div style={{ flex: 1, display: 'grid', placeItems: 'center', padding: '24px 22px' }}>
+        <div style={{ flex: 1, display: 'grid', placeItems: 'center', padding: '24px clamp(16px, 4vw, 22px)' }}>
           <div style={{ width: '100%', maxWidth: 560, perspective: 1200 }}>
-            <div onClick={() => setFlipped((f) => !f)} style={{ position: 'relative', transformStyle: 'preserve-3d', transition: 'transform .55s cubic-bezier(.2,.7,.2,1)', transform: flipped ? 'rotateY(180deg)' : 'rotateY(0)', cursor: 'pointer', aspectRatio: '4/5', maxHeight: 520 }}>
+            <div className="qk-flip" onClick={() => setFlipped((f) => !f)} style={{ position: 'relative', transformStyle: 'preserve-3d', transition: 'transform .55s cubic-bezier(.2,.7,.2,1)', transform: flipped ? 'rotateY(180deg)' : 'rotateY(0)', cursor: 'pointer', aspectRatio: '4/5', maxHeight: 520 }}>
               {/* front */}
               <div className="qk-card" style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderColor: feedback === 'correct' ? 'var(--primary)' : feedback === 'wrong' ? 'var(--coral)' : 'var(--line)', boxShadow: feedback ? `0 0 0 6px ${feedback === 'correct' ? 'var(--primary-l)' : 'var(--coral-l)'}, var(--shadow)` : 'var(--shadow)', transition: 'box-shadow .25s ease', opacity: flipped ? 0 : 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -207,7 +236,7 @@ export default function QuizClient() {
                     return (
                       <button key={ci} onClick={() => !revealed[i] && setPicks({ ...picks, [i]: ci })}
                         style={{ appearance: 'none', textAlign: 'left', padding: '12px 14px', background: isAnswer ? 'var(--primary-l)' : isWrong ? 'var(--coral-l)' : isPicked ? 'var(--surface-2)' : 'var(--surface)', border: '2px solid ' + (isAnswer ? 'var(--primary)' : isWrong ? 'var(--coral)' : isPicked ? 'var(--ink-3)' : 'var(--line)'), borderRadius: 14, cursor: revealed[i] ? 'default' : 'pointer', fontWeight: 600, fontSize: 15, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 10, transition: 'all .15s ease' }}>
-                        <span style={{ width: 24, height: 24, borderRadius: 8, background: isAnswer ? 'var(--primary)' : isWrong ? 'var(--coral)' : 'var(--surface-2)', color: (isAnswer || isWrong) ? '#fff' : 'var(--ink-3)', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13 }}>{String.fromCharCode(65 + ci)}</span>
+                        <span style={{ width: 24, height: 24, flexShrink: 0, borderRadius: 8, background: isAnswer ? 'var(--primary)' : isWrong ? 'var(--coral)' : 'var(--surface-2)', color: (isAnswer || isWrong) ? '#fff' : 'var(--ink-3)', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13 }}>{String.fromCharCode(65 + ci)}</span>
                         <span style={{ flex: 1 }}>{c}</span>
                         {isAnswer && <span style={{ color: 'var(--primary)' }}>{ICONS.check}</span>}
                         {isWrong && <span style={{ color: 'var(--coral)' }}>{ICONS.x}</span>}
@@ -231,7 +260,7 @@ export default function QuizClient() {
               </div>
             )}
 
-            <div style={{ marginTop: 18, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ marginTop: 18, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
               <button className="qk-btn qk-btn-ghost" onClick={() => { setRevealed({ ...revealed, [i]: true }); setFeedback('wrong'); setStreak(0); }} style={{ visibility: revealed[i] ? 'hidden' : 'visible' }}>{t('skipCard')}</button>
               {!revealed[i]
                 ? <Btn kind="primary" disabled={userPick == null} onClick={check} icon={ICONS.check} style={{ opacity: userPick == null ? .5 : 1 }}>{t('checkAnswer')}</Btn>

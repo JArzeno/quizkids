@@ -5,15 +5,16 @@ import { Ico, ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
+import { signOut } from '@/lib/auth';
 
 export default function ProfileClient() {
-  const { lang, kids, account, setMode, setActiveKidId, setAccount, setIsDemo, setKids } = useStore();
+  const { lang, kids, account, setMode, setActiveKidId } = useStore();
   const t = useT(lang);
   const router = useRouter();
 
   const pickParent = () => router.push('/profile/pin');
   const pickKid = (id: string) => { setActiveKidId(id); setMode('kid'); router.push('/kids/home'); };
-  const signOut = () => { setAccount(null); setIsDemo(false); setKids([]); router.push('/'); };
+  const handleSignOut = async () => { await signOut(); router.push('/'); };
 
   return (
     <div className="qk-screen qk-page-enter" style={{ padding: '40px clamp(20px, 5vw, 56px) 56px', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
@@ -53,7 +54,7 @@ export default function ProfileClient() {
             <Ico d={<g><rect x="3" y="7" width="18" height="14" rx="2" /><path d="M8 7V5a4 4 0 018 0v2" /></g>} size={16} />
             <span>{t('useKidCode')}</span>
           </button>
-          <button onClick={signOut} style={{ appearance: 'none', border: 0, background: 'transparent', color: 'var(--ink-3)', fontSize: 14, padding: '10px 16px', cursor: 'pointer' }}>{t('signOut')}</button>
+          <button onClick={handleSignOut} style={{ appearance: 'none', border: 0, background: 'transparent', color: 'var(--ink-3)', fontSize: 14, padding: '10px 16px', cursor: 'pointer' }}>{t('signOut')}</button>
         </div>
       </div>
     </div>

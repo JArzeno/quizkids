@@ -4,25 +4,18 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
-import { Btn } from '@/components/ui/Btn';
 import { Stars, StatCard } from '@/components/ui/Stars';
+import { CustomSubjectAdder } from '@/components/ui/CustomSubjectAdder';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
-import type { Kid } from '@/types';
-
-const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> = {
-  sci:  { en: 'Science',        es: 'Ciencias',          icon: '🔬' },
-  math: { en: 'Math',           es: 'Matemáticas',       icon: '➗' },
-  lang: { en: 'Language Arts',  es: 'Lengua',            icon: '📖' },
-  soc:  { en: 'Social Studies', es: 'Estudios Sociales', icon: '🌎' },
-  art:  { en: 'Art',            es: 'Arte',              icon: '🎨' },
-};
-
-function subjectInfo(subject: string) {
-  return SUBJECT_LABELS[subject] || { en: subject, es: subject, icon: '📚' };
-}
+import { studyTimeSaved } from '@/lib/studyTimer';
+import { subjectOptions, subjectInfo, kidSubjectInfo, subjectLabelFields, levelLabel, fromRow } from '@/lib/subjects';
+import { goalFromRow, goalProgress } from '@/lib/goals';
+import GoalsSection from './GoalsSection';
+import PlanSection from './PlanSection';
+import type { Kid, KidSubject } from '@/types';
 
 function gradeLabel(grade: string, lang: string) {
   const g = (grade || '').toUpperCase();
@@ -93,7 +86,7 @@ interface TopicStat {
 function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="qk-card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17 }}>{title}</div>
         {action}
       </div>
@@ -152,7 +145,7 @@ function AccuracyRow({ label, icon, meta, accuracy, tone }: { label: string; ico
 export default function KidDetailClient() {
   const params = useParams<{ id: string }>();
   const kidId = typeof params?.id === 'string' ? params.id : Array.isArray(params?.id) ? params.id[0] : '';
-  const { lang, kids, gamification, setActiveKidId, setMode, isDemo } = useStore();
+  const { lang, kids, gamification, setActiveKidId, setMode, isDemo, updateKid, customSubjects } = useStore();
   const t = useT(lang);
   const router = useRouter();
 
@@ -194,8 +187,9 @@ export default function KidDetailClient() {
     const load = async () => {
       setLoading(true);
       try {
+        await studyTimeSaved();
         const supabase = createClient();
-        const [quizRes, sessionRes, assignRes] = await Promise.all([
+        const [quizRes, sessionRes, assignRes, subjRes, goalRes] = await Promise.all([
           supabase.from('quiz_results')
             .select('subject, topic, grade, difficulty, total, correct, stars, created_at')
             .eq('kid_id', kidId).order('created_at', { ascending: false }).limit(300),
@@ -205,8 +199,12 @@ export default function KidDetailClient() {
           supabase.from('kid_assignments')
             .select('id, subject, topic, type, status, assigned_at')
             .eq('kid_id', kidId).order('assigned_at', { ascending: false }).limit(40),
+          supabase.from('kid_subjects').select('*').eq('kid_id', kidId).order('created_at'),
+          supabase.from('kid_goals').select('*').eq('kid_id', kidId).order('created_at'),
         ]);
         if (cancelled) return;
+        if (subjRes.data) updateKid(kidId, { subjects: subjRes.data.map(fromRow) });
+        if (goalRes.data) updateKid(kidId, { goals: goalRes.data.map(goalFromRow) });
         setQuizzes((quizRes.data as QuizRow[]) || []);
         setSessions((sessionRes.data as SessionRow[]) || []);
         setAssignments((assignRes.data as AssignmentRow[]) || []);
@@ -288,17 +286,30 @@ export default function KidDetailClient() {
   const weeklyGoal = goalMin * 7;
   const weeklyPct = Math.min(100, Math.round((last7Minutes / Math.max(1, weeklyGoal)) * 100));
 
+  const kidSubjects: KidSubject[] = kid?.subjects || [];
+  const subjectChoices = subjectOptions(lang, customSubjects);
+  const [addingSubject, setAddingSubject] = React.useState(false);
+  const [subjectError, setSubjectError] = React.useState(false);
+
+  const addSubject = async (id: string) => {
+    if (!kid) return;
+    if (kidSubjects.some((s) => s.subject === id)) { setAddingSubject(false); return; }
+    setSubjectError(false);
+    // read from the store so a custom subject created a moment ago keeps its name and icon
+    const labels = subjectLabelFields(id, useStore.getState().customSubjects);
+    if (!isDemo) {
+      const { error } = await createClient().from('kid_subjects').insert({ kid_id: kid.id, subject: id, ...labels });
+      if (error) { setSubjectError(true); return; }
+    }
+    updateKid(kid.id, { subjects: [...kidSubjects, { subject: id, ...labels }] });
+    setAddingSubject(false);
+  };
+
   const openKidHome = () => {
     if (!kid) return;
     setActiveKidId(kid.id);
     setMode('kid');
     router.push('/kids/home');
-  };
-
-  const createFor = () => {
-    if (!kid) return;
-    setActiveKidId(kid.id);
-    router.push('/dashboard/picker');
   };
 
   if (!kid) {
@@ -324,11 +335,11 @@ export default function KidDetailClient() {
 
           {/* header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
               <Avatar id={kid.avatar} size={72} ring={kid.color || 'var(--primary)'} />
               <div>
                 <span className="qk-eyebrow">{t('kidProgress')}</span>
-                <h1 className="qk-h1" style={{ marginTop: 8, fontSize: 38 }}>{kid.name}</h1>
+                <h1 className="qk-h1" style={{ marginTop: 8, fontSize: 'clamp(28px, 6vw, 38px)' }}>{kid.name}</h1>
                 <p className="qk-sub" style={{ fontSize: 14, marginTop: 4 }}>
                   {gradeLabel(kid.grade, lang)}
                   {kid.code ? ` · ${t('kidCode')}: ` : ''}
@@ -338,12 +349,11 @@ export default function KidDetailClient() {
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button className="qk-btn qk-btn-ghost" onClick={openKidHome}>{t('kidView')}</button>
-              <Btn kind="primary" icon={ICONS.spark} onClick={createFor}>{t('createNew')}</Btn>
             </div>
           </div>
 
           {/* top stats */}
-          <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14, marginTop: 24 }}>
+          <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(130px, 100%), 1fr))', gap: 14, marginTop: 24 }}>
             <StatCard tone="sky" icon={ICONS.book} value={formatMinutes(totalMinutes, lang)} label={t('totalTime')} />
             <StatCard tone="primary" icon={ICONS.cards} value={quizzesDone} label={t('quizzesTaken')} />
             <StatCard tone="berry" icon={ICONS.check} value={accuracy + '%'} label={t('accuracy')} />
@@ -360,7 +370,70 @@ export default function KidDetailClient() {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginTop: 24, alignItems: 'start' }}>
+          <div style={{ marginTop: 24 }}>
+            <Section
+              title={t('kidSubjects')}
+              action={<button className="qk-btn qk-btn-ghost" style={{ fontSize: 13, padding: '6px 10px' }} onClick={() => setAddingSubject((v) => !v)}>{ICONS.plus}<span>{t('addSubject')}</span></button>}
+            >
+              {subjectError && <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600, fontSize: 13 }}>{t('placeError')}</div>}
+              {addingSubject && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {subjectChoices.filter((c) => !kidSubjects.some((s) => s.subject === c.id)).map((c) => (
+                    <button key={c.id} className="qk-chip" onClick={() => addSubject(c.id)}>{c.icon} {c.label}</button>
+                  ))}
+                  <CustomSubjectAdder lang={lang} options={subjectChoices} variant="chip" onAdded={addSubject} />
+                </div>
+              )}
+              {kidSubjects.length === 0 ? (
+                <EmptyNote text={t('kidSubjectsEmpty')} />
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px, 100%), 1fr))', gap: 12 }}>
+                  {kidSubjects.map((ks) => {
+                    const info = subjectInfo(ks.subject, lang, customSubjects, ks);
+                    const placed = !!ks.placedAt;
+                    const goal = (kid.goals || []).find((g) => g.subject === ks.subject && g.status === 'active');
+                    const pct = goal ? goalProgress(goal, quizzes).pct : null;
+                    const stat = subjectStats.find((s) => s.subject === ks.subject);
+                    return (
+                      <Link key={ks.subject} href={`/dashboard/kid/${kid.id}/subject/${encodeURIComponent(ks.subject)}`} className="qk-card-interactive"
+                        style={{ padding: 14, background: 'var(--surface-2)', borderRadius: 14, display: 'flex', flexDirection: 'column', gap: 10, textDecoration: 'none', color: 'inherit' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 22 }}>{info.icon}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15 }}>{info.label}{ks.paused ? ' · ⏸' : ''}</div>
+                            <div style={{ fontSize: 12, color: placed ? 'var(--primary-d)' : 'var(--ink-3)', fontWeight: placed ? 700 : 400 }}>
+                              {placed && ks.level != null ? `${t('placeEstLevel')} ${levelLabel(ks.level, lang)}` : t('placeNotTaken')}
+                              {stat ? ` · ${stat.quizzes} quiz${stat.quizzes === 1 ? '' : 'zes'} · ${stat.accuracy}%` : ''}
+                            </div>
+                          </div>
+                          <span style={{ color: 'var(--ink-3)' }}>{ICONS.next}</span>
+                        </div>
+                        {goal && pct != null && (
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, color: 'var(--ink-3)', marginBottom: 5 }}>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🎯 {goal.title}</span>
+                              <span>{pct}%</span>
+                            </div>
+                            <div className="qk-progress"><span style={{ width: pct + '%' }} /></div>
+                          </div>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </Section>
+          </div>
+
+          <div style={{ marginTop: 24 }}>
+            <GoalsSection kid={kid} quizzes={quizzes} />
+          </div>
+
+          <div style={{ marginTop: 24 }}>
+            <PlanSection kid={kid} quizzes={quizzes} sessions={sessions} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: 16, marginTop: 24, alignItems: 'start' }}>
             {/* time studied */}
             <Section title={t('timeStudied')}>
               <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', fontSize: 13, color: 'var(--ink-3)' }}>
@@ -392,12 +465,12 @@ export default function KidDetailClient() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   {subjectStats.map((s) => {
-                    const info = subjectInfo(s.subject);
+                    const info = kidSubjectInfo(kidSubjects, s.subject, lang, customSubjects);
                     return (
                       <AccuracyRow
                         key={s.subject}
                         icon={info.icon}
-                        label={lang === 'es' ? info.es : info.en}
+                        label={info.label}
                         meta={`${s.quizzes} ${s.quizzes === 1 ? t('attemptLabel') : t('attemptsLabel')}${s.lastAt ? ' · ' + relativeDate(s.lastAt, lang) : ''}`}
                         accuracy={s.accuracy}
                         tone={s.accuracy >= 75 ? 'var(--primary)' : s.accuracy >= 50 ? 'var(--honey)' : 'var(--coral)'}
@@ -418,7 +491,7 @@ export default function KidDetailClient() {
                     <AccuracyRow
                       key={s.topic}
                       label={s.topic}
-                      icon={s.subject ? subjectInfo(s.subject).icon : undefined}
+                      icon={s.subject ? kidSubjectInfo(kidSubjects, s.subject, lang, customSubjects).icon : undefined}
                       meta={`${s.attempts} ${s.attempts === 1 ? t('attemptLabel') : t('attemptsLabel')}`}
                       accuracy={s.accuracy}
                       tone="var(--primary)"
@@ -438,7 +511,7 @@ export default function KidDetailClient() {
                     <AccuracyRow
                       key={s.topic}
                       label={s.topic}
-                      icon={s.subject ? subjectInfo(s.subject).icon : undefined}
+                      icon={s.subject ? kidSubjectInfo(kidSubjects, s.subject, lang, customSubjects).icon : undefined}
                       meta={`${s.attempts} ${s.attempts === 1 ? t('attemptLabel') : t('attemptsLabel')}`}
                       accuracy={s.accuracy}
                       tone={s.accuracy >= 50 ? 'var(--honey)' : 'var(--coral)'}
@@ -459,7 +532,7 @@ export default function KidDetailClient() {
                     return (
                       <div key={`${q.created_at}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', background: 'var(--surface-2)', borderRadius: 12 }}>
                         <div style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--primary-l)', color: 'var(--primary-d)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                          {q.subject ? <span style={{ fontSize: 15 }}>{subjectInfo(q.subject).icon}</span> : ICONS.cards}
+                          {q.subject ? <span style={{ fontSize: 15 }}>{kidSubjectInfo(kidSubjects, q.subject, lang, customSubjects).icon}</span> : ICONS.cards}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.topic || '—'}</div>
@@ -491,7 +564,7 @@ export default function KidDetailClient() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.topic || '—'}</div>
                           <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-                            {a.subject ? (lang === 'es' ? subjectInfo(a.subject).es : subjectInfo(a.subject).en) + ' · ' : ''}
+                            {a.subject ? kidSubjectInfo(kidSubjects, a.subject, lang, customSubjects).label + ' · ' : ''}
                             {relativeDate(a.assigned_at, lang)}
                           </div>
                         </div>

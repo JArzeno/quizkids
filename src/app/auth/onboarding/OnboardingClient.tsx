@@ -41,17 +41,17 @@ export default function OnboardingClient() {
   return (
     <div className="qk-screen qk-page-enter" style={{ padding: '40px clamp(20px, 5vw, 56px) 64px' }}>
       <div style={{ maxWidth: 720, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 700 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <div style={{ width: 36, height: 36, flexShrink: 0, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 700 }}>
               {(account?.name || 'A').trim().charAt(0).toUpperCase()}
             </div>
-            <div>
-              <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{account?.name || 'Ana'}</div>
-              <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{account?.email || '—'}</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{account?.name || 'Ana'}</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{account?.email || '—'}</div>
             </div>
           </div>
-          <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{t('pobStep')} {step + 1} {t('of')} {STEPS}</div>
+          <div style={{ fontSize: 13, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{t('pobStep')} {step + 1} {t('of')} {STEPS}</div>
         </div>
         <div className="qk-progress" style={{ marginBottom: 28 }}><span style={{ width: `${((step + 1) / STEPS) * 100}%` }} /></div>
 
@@ -61,7 +61,7 @@ export default function OnboardingClient() {
               <h2 className="qk-h1" style={{ fontSize: 'clamp(22px, 2.6vw, 30px)' }}>{t('pobTitle1')}</h2>
               <p className="qk-sub" style={{ marginTop: 6, marginBottom: 22 }}>{t('pobSub1')}</p>
               <div className="qk-label" style={{ marginBottom: 10 }}>{t('pobYouAre')}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(84px, 1fr))', gap: 10 }}>
                 {ROLES.map((r) => {
                   const on = prefs.role === r.id;
                   return (
@@ -113,7 +113,7 @@ export default function OnboardingClient() {
               <h2 className="qk-h1" style={{ fontSize: 'clamp(22px, 2.6vw, 30px)' }}>{t('pobTitle3')}</h2>
               <p className="qk-sub" style={{ marginTop: 6, marginBottom: 22 }}>{t('pobSub3')}</p>
               <div className="qk-label" style={{ marginBottom: 10 }}>{t('pobGoal')} · {lang === 'es' ? 'por peque' : 'per kid'}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
                 {[15, 30, 60, 90].map((m) => {
                   const on = prefs.goalMin === m;
                   return <button key={m} onClick={() => setPrefs({ ...prefs, goalMin: m })} style={{ appearance: 'none', padding: '14px 10px', background: on ? 'var(--primary-l)' : 'var(--surface-2)', border: '2px solid ' + (on ? 'var(--primary)' : 'transparent'), borderRadius: 14, cursor: 'pointer', transition: 'all .15s ease' }}><div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22 }}>{m}</div><div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{t('minutes')} / {lang === 'es' ? 'día' : 'day'}</div></button>;
@@ -132,14 +132,14 @@ export default function OnboardingClient() {
 
           {step === 4 && (
             <div style={{ textAlign: 'center', padding: '12px 0' }}>
-              <div style={{ display: 'inline-flex', gap: -12 }}>
+              <div className="qk-avatar-stack" style={{ display: 'inline-flex' }}>
                 {['sprout', 'fox', 'bee', 'owl'].map((a, i) => (
                   <div key={a} style={{ marginLeft: i ? -16 : 0, borderRadius: '50%', background: 'var(--surface)', border: '4px solid var(--surface)', transform: `rotate(${[-6, 2, -3, 4][i]}deg)` }}><Avatar id={a} size={68} /></div>
                 ))}
               </div>
               <h2 className="qk-h1" style={{ fontSize: 'clamp(24px, 3vw, 34px)', marginTop: 18 }}>{t('pobFinishTitle')}</h2>
               <p className="qk-sub" style={{ margin: '6px auto 24px' }}>{t('pobFinishSub')}</p>
-              <div style={{ display: 'inline-flex', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 10 }}>
                 <Btn kind="ghost" onClick={() => finish(false)}>{t('pobLater')}</Btn>
                 <Btn kind="primary" icon={ICONS.plus} onClick={() => finish(true)}>{t('pobAddFirst')}</Btn>
               </div>
@@ -147,7 +147,7 @@ export default function OnboardingClient() {
           )}
 
           {step < 4 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 32, gap: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', marginTop: 32, gap: 12 }}>
               <button className="qk-btn qk-btn-ghost" onClick={() => step === 0 ? router.push('/auth') : setStep((s) => s - 1)}>
                 {ICONS.back} <span>{t('back')}</span>
               </button>

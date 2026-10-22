@@ -2,6 +2,8 @@
 import React from 'react';
 import { Ico, ICONS } from './Icons';
 import { useT } from '@/lib/i18n';
+import { useStore } from '@/lib/store';
+import { sessionElapsedMs, startStudySession, pauseStudySession, resumeStudySession, endStudySession } from '@/lib/studyTimer';
 import type { Lang } from '@/types';
 
 export function formatElapsed(ms: number): string {
@@ -26,29 +28,28 @@ export interface SessionState {
   end: () => void;
 }
 
-export function useSession(onEnd?: (elapsedMs: number) => void): SessionState {
-  const [state, setState] = React.useState({ running: false, paused: false, startedAt: null as number | null, accumulated: 0 });
+/** The kid's study timer. It lives in the store, so it keeps counting on other pages and after a reload. */
+export function useSession(kidId?: string): SessionState {
+  const stored = useStore((s) => s.studySession);
+  const session = stored && stored.kidId === kidId ? stored : null;
+  const ticking = !!session && session.runningSince != null;
   const [now, setNow] = React.useState(Date.now());
 
   React.useEffect(() => {
-    if (!state.running || state.paused) return;
+    if (!ticking) return;
+    setNow(Date.now());
     const i = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(i);
-  }, [state.running, state.paused]);
-
-  const elapsedMs = state.accumulated + (state.running && !state.paused && state.startedAt ? now - state.startedAt : 0);
+  }, [ticking]);
 
   return {
-    running: state.running,
-    paused: state.paused,
-    elapsedMs,
-    start: () => setState({ running: true, paused: false, startedAt: Date.now(), accumulated: 0 }),
-    pause: () => setState((s) => s.running && !s.paused ? { ...s, paused: true, accumulated: s.accumulated + (Date.now() - (s.startedAt || 0)), startedAt: null } : s),
-    resume: () => setState((s) => s.paused ? { ...s, paused: false, startedAt: Date.now() } : s),
-    end: () => {
-      setState({ running: false, paused: false, startedAt: null, accumulated: 0 });
-      onEnd?.(Math.max(0, elapsedMs));
-    },
+    running: !!session,
+    paused: !!session && !ticking,
+    elapsedMs: session ? sessionElapsedMs(session, now) : 0,
+    start: () => { if (kidId) startStudySession(kidId); },
+    pause: pauseStudySession,
+    resume: resumeStudySession,
+    end: () => { void endStudySession(); },
   };
 }
 
@@ -81,6 +82,19 @@ export function SessionPill({ lang, session, onStart, onTogglePause, onEnd, comp
       <button onClick={onEnd} style={{ appearance: 'none', border: 0, padding: '0 12px', background: 'transparent', color: 'var(--coral)', cursor: 'pointer', borderLeft: '1px solid var(--line)' }}>
         <Ico d={<rect x="6" y="6" width="12" height="12" />} fill="currentColor" stroke="none" size={12} />
       </button>
+    </div>
+  );
+}
+
+/** Read-only timer for the header, so it stays visible during a quiz or guide */
+export function SessionBadge({ lang, session }: { lang: Lang; session: SessionState }) {
+  const t = useT(lang);
+  if (!session.running) return null;
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 999, border: '1px solid var(--line)', background: session.paused ? 'var(--honey-l)' : 'var(--primary-l)', color: session.paused ? '#7C5410' : 'var(--primary-d)', boxShadow: 'var(--shadow-sm)' }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: session.paused ? 'var(--honey)' : 'var(--primary)', animation: session.paused ? 'none' : 'qk-pulse 1.4s ease-in-out infinite' }} />
+      <span className="qk-session-label" style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13 }}>{session.paused ? t('sessionPaused') : t('sessionRunning')}</span>
+      <span style={{ fontFamily: 'ui-monospace, monospace', fontWeight: 700, fontSize: 13 }}>{formatElapsed(session.elapsedMs)}</span>
     </div>
   );
 }

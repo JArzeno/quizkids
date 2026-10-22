@@ -11,7 +11,7 @@ import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 
 export default function ResultsClient() {
-  const { lang, kids, activeKidId, quizResult, studyParams, gamification, setQuizResult, updateKid, isDemo } = useStore();
+  const { lang, kids, activeKidId, quizResult, studyParams, setStudyParams, gamification, setQuizResult, updateKid, isDemo } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
@@ -66,20 +66,37 @@ export default function ResultsClient() {
   const pct = Math.round((correct / total) * 100);
   const goldStars = pct >= 90 ? 5 : pct >= 75 ? 4 : pct >= 60 ? 3 : pct >= 40 ? 2 : 1;
 
+  // Back to the subject page when the quiz was started there
+  const backTo = studyParams.returnTo || '/kids/home';
+  const backLabel = studyParams.returnTo ? t('back') : t('backHome');
+
+  // New questions on the same topic; a separate practice round, not tied to the assignment or plan item
+  const moreQuestions = () => {
+    setStudyParams({ ...studyParams, contentId: undefined, assignmentId: undefined, planItemId: undefined });
+    setQuizResult(null);
+    router.push('/kids/quiz?more=1');
+  };
+  // Same questions again; a "more" round is replayed from its saved content
+  const tryAgain = () => {
+    if (quizResult.more && quizResult.contentId) setStudyParams({ ...studyParams, contentId: quizResult.contentId });
+    setQuizResult(null);
+    router.push('/kids/quiz');
+  };
+
   return (
     <AppShell>
       <div className="qk-screen qk-page-enter" style={{ padding: 0, minHeight: 'calc(100dvh - 65px)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 22px 0', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
-          <button onClick={() => router.push('/kids/home')} className="qk-btn qk-btn-ghost">{ICONS.back} <span>{t('backHome')}</span></button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '14px clamp(16px, 4vw, 22px) 0', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
+          <button onClick={() => router.push(backTo)} className="qk-btn qk-btn-ghost">{ICONS.back} <span>{backLabel}</span></button>
           {kid && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)' }}>
+            <div className="qk-hide-xs" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)', whiteSpace: 'nowrap' }}>
               <Avatar id={kid.avatar} size={32} /><span style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{kid.name}</span>
             </div>
           )}
         </div>
 
-        <div style={{ maxWidth: 820, margin: '24px auto 0', padding: '0 22px 64px' }}>
-          <div className="qk-card qk-slide-up" style={{ padding: 32, position: 'relative', overflow: 'hidden' }}>
+        <div style={{ maxWidth: 820, margin: '24px auto 0', padding: '0 clamp(16px, 4vw, 22px) 64px' }}>
+          <div className="qk-card qk-slide-up" style={{ padding: 'clamp(20px, 5vw, 32px)', position: 'relative', overflow: 'hidden' }}>
             {/* confetti dots */}
             <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: .5 }}>
               {[...Array(18)].map((_, i) => (
@@ -106,7 +123,7 @@ export default function ResultsClient() {
               )}
             </div>
 
-            <div className="qk-stagger" style={{ marginTop: 24, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, position: 'relative' }}>
+            <div className="qk-stagger" style={{ marginTop: 24, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 'clamp(8px, 2vw, 14px)', position: 'relative' }}>
               <StatCard tone="primary" icon={ICONS.check} value={`${correct}/${total}`} label={t('correctCt')} />
               <StatCard tone="honey" icon={ICONS.star} value={pct + '%'} label={t('accuracy')} />
               <StatCard tone="coral" icon={ICONS.flame} value={correct} label={t('streakNow')} />
@@ -114,8 +131,8 @@ export default function ResultsClient() {
 
             {gamification !== 'minimal' && pct >= 60 && (
               <div className="qk-bounce-in" style={{ marginTop: 18, padding: 16, background: 'var(--honey-l)', borderRadius: 18, display: 'flex', gap: 14, alignItems: 'center', position: 'relative' }}>
-                <div style={{ width: 48, height: 48, borderRadius: 14, background: 'var(--honey)', color: '#fff', display: 'grid', placeItems: 'center' }}>{ICONS.star}</div>
-                <div style={{ flex: 1 }}>
+                <div style={{ width: 48, height: 48, flexShrink: 0, borderRadius: 14, background: 'var(--honey)', color: '#fff', display: 'grid', placeItems: 'center' }}>{ICONS.star}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>{t('rewardEarned')}</div>
                   <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>
                     {lang === 'es'
@@ -137,7 +154,7 @@ export default function ResultsClient() {
                       <div style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, background: right ? 'var(--primary)' : 'var(--coral)', color: '#fff', display: 'grid', placeItems: 'center' }}>
                         {right ? ICONS.check : ICONS.x}
                       </div>
-                      <div style={{ flex: 1, fontSize: 14 }}>
+                      <div style={{ flex: 1, minWidth: 0, fontSize: 14, overflowWrap: 'anywhere' }}>
                         <div style={{ fontWeight: 700 }}>{c.q}</div>
                         <div style={{ marginTop: 2, color: 'var(--ink-3)', fontSize: 13 }}>
                           {lang === 'es' ? 'Respuesta:' : 'Answer:'} <strong style={{ color: 'var(--ink-2)' }}>{c.choices[c.a]}</strong>
@@ -150,9 +167,20 @@ export default function ResultsClient() {
               </div>
             </div>
 
-            <div style={{ marginTop: 24, display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', position: 'relative' }}>
-              <Btn kind="ghost" icon={ICONS.shuffle} onClick={() => { setQuizResult(null); router.push('/kids/quiz'); }}>{t('again')}</Btn>
-              <Btn kind="primary" onClick={() => { setQuizResult(null); router.push('/kids/home'); }}>{t('backHome')}</Btn>
+            <section className="qk-card" style={{ marginTop: 24, padding: 20, background: 'var(--primary-l)', borderColor: 'var(--primary)', position: 'relative' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                <div style={{ width: 48, height: 48, borderRadius: 16, background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>{ICONS.plus}</div>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <h2 className="qk-h2">{t('moreQuizTitle')}</h2>
+                  <p style={{ margin: '4px 0 0', fontSize: 15, color: 'var(--ink-2)' }}>{t('moreQuizSub').replace('{n}', String(total))}</p>
+                </div>
+                <Btn kind="primary" icon={ICONS.cards} className="qk-full-sm" onClick={moreQuestions}>{t('moreQuizBtn')}</Btn>
+              </div>
+            </section>
+
+            <div style={{ marginTop: 18, display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', position: 'relative' }}>
+              <Btn kind="ghost" icon={ICONS.shuffle} onClick={tryAgain}>{t('again')}</Btn>
+              <Btn kind="ghost" onClick={() => { setQuizResult(null); router.push(backTo); }}>{backLabel}</Btn>
             </div>
           </div>
         </div>

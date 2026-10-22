@@ -10,16 +10,11 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
+import { studyTimeSaved } from '@/lib/studyTimer';
 import { computeStreak, computeWeeklyPct } from '@/lib/streak';
+import { fromRow, subjectInfo, kidSubjectInfo } from '@/lib/subjects';
+import { goalFromRow, goalProgress } from '@/lib/goals';
 import type { Kid } from '@/types';
-
-const SUBJECT_LABELS: Record<string, { en: string; es: string; icon: string }> = {
-  sci:  { en: 'Science',       es: 'Ciencias',         icon: '🔬' },
-  math: { en: 'Math',          es: 'Matemáticas',      icon: '➗' },
-  lang: { en: 'Language Arts', es: 'Lengua',           icon: '📖' },
-  soc:  { en: 'Social Studies',es: 'Estudios Sociales',icon: '🌎' },
-  art:  { en: 'Art',           es: 'Arte',             icon: '🎨' },
-};
 
 function gradeLabel(grade: string, lang: string) {
   const g = grade.toUpperCase();
@@ -46,6 +41,7 @@ interface KidSummary {
   streak: number;
   weeklyPct: number;
   history: QuizHistoryRow[];
+  goals: Array<{ id: string; subject: string; title: string; pct: number }>;
 }
 
 function relativeDate(iso: string, lang: string) {
@@ -59,8 +55,9 @@ function relativeDate(iso: string, lang: string) {
 
 function HistoryModal({ kid, history, lang, onClose }: { kid: Kid; history: QuizHistoryRow[]; lang: string; onClose: () => void }) {
   const t = useT(lang as 'en' | 'es');
+  const customSubjects = useStore((s) => s.customSubjects);
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,.45)', backdropFilter: 'blur(4px)', display: 'grid', placeItems: 'center', padding: 24 }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,.45)', backdropFilter: 'blur(4px)', display: 'grid', placeItems: 'center', padding: 'clamp(16px, 4vw, 24px)' }} onClick={onClose}>
       <div className="qk-card" style={{ width: '100%', maxWidth: 460, maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: 24 }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <Avatar id={kid.avatar} size={40} ring={kid.color} />
@@ -74,7 +71,7 @@ function HistoryModal({ kid, history, lang, onClose }: { kid: Kid; history: Quiz
           {history.length === 0 ? (
             <div style={{ fontSize: 13, color: 'var(--ink-3)', padding: '20px 0', textAlign: 'center' }}>{t('historyEmpty')}</div>
           ) : history.map((h, i) => {
-            const info = h.subject ? (SUBJECT_LABELS[h.subject] || { en: h.subject, es: h.subject, icon: '📚' }) : null;
+            const info = h.subject ? kidSubjectInfo(kid.subjects, h.subject, lang, customSubjects) : null;
             const pct = (h.total || 0) > 0 ? Math.round(((h.correct || 0) / (h.total || 1)) * 100) : 0;
             return (
               <div key={`${h.created_at}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', background: 'var(--surface-2)', borderRadius: 12 }}>
@@ -94,7 +91,32 @@ function HistoryModal({ kid, history, lang, onClose }: { kid: Kid; history: Quiz
   );
 }
 
+function KidGoalsPanel({ kid, summary, lang }: { kid: Kid; summary: KidSummary | undefined; lang: string }) {
+  const customSubjects = useStore((s) => s.customSubjects);
+  if (!summary || summary.goals.length === 0) return null;
+  return (
+    <div style={{ marginTop: 14, padding: '14px 16px', background: 'var(--surface-2)', borderRadius: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+        {lang === 'es' ? 'Metas' : 'Goals'}
+      </div>
+      {summary.goals.map((g) => {
+        const info = kidSubjectInfo(kid.subjects, g.subject, lang, customSubjects);
+        return (
+          <div key={g.id}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, marginBottom: 4 }}>
+              <span style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.icon} {g.title}</span>
+              <span style={{ color: 'var(--ink-3)', flexShrink: 0 }}>{g.pct}%</span>
+            </div>
+            <div className="qk-progress"><span style={{ width: g.pct + '%' }} /></div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function KidSummaryPanel({ kid, summary, lang }: { kid: Kid; summary: KidSummary | undefined; lang: string }) {
+  const customSubjects = useStore((s) => s.customSubjects);
   if (!summary) return null;
   const { totalMinutes, quizzesDone, avgScore, topSubjects, recentTopics } = summary;
   if (quizzesDone === 0 && totalMinutes === 0) return null;
@@ -123,10 +145,10 @@ function KidSummaryPanel({ kid, summary, lang }: { kid: Kid; summary: KidSummary
       {topSubjects.length > 0 && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {topSubjects.map((ts) => {
-            const info = SUBJECT_LABELS[ts.subject] || { en: ts.subject, es: ts.subject, icon: '📚' };
+            const info = kidSubjectInfo(kid.subjects, ts.subject, lang, customSubjects);
             return (
               <span key={ts.subject} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 999, background: 'var(--primary-l)', color: 'var(--primary-d)', fontSize: 11, fontWeight: 700 }}>
-                {info.icon} {lang === 'es' ? info.es : info.en} · {ts.count}
+                {info.icon} {info.label} · {ts.count}
               </span>
             );
           })}
@@ -148,7 +170,7 @@ function KidSummaryPanel({ kid, summary, lang }: { kid: Kid; summary: KidSummary
 }
 
 export default function DashboardClient() {
-  const { lang, kids, account, setActiveKidId, gamification, setKids, isDemo } = useStore();
+  const { lang, kids, account, setActiveKidId, gamification, setKids, isDemo, customSubjects } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const [historyKid, setHistoryKid] = React.useState<Kid | null>(null);
@@ -157,11 +179,18 @@ export default function DashboardClient() {
   React.useEffect(() => {
     if (isDemo) return;
     const load = async () => {
+      // Time from a study timer that just ended (switching to parent mode ends it) should show up here
+      await studyTimeSaved();
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data } = await supabase.from('kids').select('*').eq('parent_id', user.id).order('created_at');
       if (data) {
+        const kidIdList = data.map((k) => k.id);
+        const [{ data: subjRows }, { data: goalRows }] = await Promise.all([
+          supabase.from('kid_subjects').select('*').in('kid_id', kidIdList).order('created_at'),
+          supabase.from('kid_goals').select('*').in('kid_id', kidIdList).order('created_at'),
+        ]);
         setKids(data.map((k) => ({
           id: k.id,
           parent_id: k.parent_id,
@@ -177,6 +206,8 @@ export default function DashboardClient() {
           goal_min: k.goal_min || 30,
           lastSubject: k.last_subject || undefined,
           recent: [],
+          subjects: (subjRows || []).filter((r) => r.kid_id === k.id).map(fromRow),
+          goals: (goalRows || []).filter((r) => r.kid_id === k.id).map(goalFromRow),
         })));
 
         // Load summaries for all kids
@@ -236,7 +267,12 @@ export default function DashboardClient() {
 
             const history = [...quizzes].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).slice(0, 20);
 
-            newSummaries[kidId] = { kidId, totalSessions: sessions.length, totalMinutes, quizzesDone, avgScore, topSubjects, recentTopics, streak, weeklyPct, history };
+            const goals = (goalRows || [])
+              .filter((r) => r.kid_id === kidId && r.status === 'active')
+              .map(goalFromRow)
+              .map((g) => ({ id: g.id, subject: g.subject, title: g.title, pct: goalProgress(g, quizzes).pct }));
+
+            newSummaries[kidId] = { kidId, totalSessions: sessions.length, totalMinutes, quizzesDone, avgScore, topSubjects, recentTopics, streak, weeklyPct, history, goals };
           }
           setSummaries(newSummaries);
         }
@@ -252,7 +288,6 @@ export default function DashboardClient() {
   const longest = Math.max(0, ...kids.map(streakFor));
 
   const openKidDetail = (id: string) => { setActiveKidId(id); router.push('/dashboard/kid/' + id); };
-  const createFor = (id: string) => { setActiveKidId(id); router.push('/dashboard/picker'); };
 
   return (
     <AppShell>
@@ -264,21 +299,20 @@ export default function DashboardClient() {
               <h1 className="qk-h1" style={{ marginTop: 10 }}>{t('dashHi')}, {account?.name?.split(' ')[0] || 'Ana'} 👋</h1>
               <p className="qk-sub">{t('dashGreet')}</p>
             </div>
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <Link href="/dashboard/add-kid" className="qk-btn qk-btn-ghost">{ICONS.plus}<span>{t('addKid')}</span></Link>
-              <Btn kind="primary" icon={ICONS.spark} onClick={() => createFor(kids[0]?.id || '')}>{t('createNew')}</Btn>
             </div>
           </div>
 
           {gamification !== 'minimal' && (
-            <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginTop: 24 }}>
+            <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 'clamp(8px, 2vw, 14px)', marginTop: 24 }}>
               <StatCard tone="honey" icon={ICONS.star} value={totalStars} label={t('starsEarned')} />
               <StatCard tone="coral" icon={ICONS.flame} value={longest} label={t('streak')} />
-              <StatCard tone="sky" icon={ICONS.book} value={totalMin + ' ' + t('minutes')} label={t('thisWeek') + ' · ' + t('minStudied')} />
+              <StatCard tone="sky" icon={ICONS.book} value={<span style={{ whiteSpace: 'nowrap' }}>{totalMin} {t('minutes')}</span>} label={t('thisWeek') + ' · ' + t('minStudied')} />
             </div>
           )}
 
-          <div className="qk-stagger" style={{ marginTop: 28, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+          <div className="qk-stagger" style={{ marginTop: 28, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))', gap: 16 }}>
             {kids.map((k) => (
               <div key={k.id} className="qk-card qk-card-interactive" style={{ padding: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -306,7 +340,29 @@ export default function DashboardClient() {
                   <div className="qk-progress"><span style={{ width: weeklyFor(k) + '%' }} /></div>
                 </div>
 
+                {/* Subjects: each one opens its own page with topics, quizzes and progress */}
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+                    {lang === 'es' ? 'Materias' : 'Subjects'}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {(k.subjects || []).map((ks) => {
+                      const info = subjectInfo(ks.subject, lang, customSubjects, ks);
+                      return (
+                        <Link key={ks.subject} href={`/dashboard/kid/${k.id}/subject/${encodeURIComponent(ks.subject)}`} onClick={() => setActiveKidId(k.id)} className="qk-chip"
+                          style={{ textDecoration: 'none', color: 'var(--ink)' }}>
+                          {info.icon} {info.label}
+                        </Link>
+                      );
+                    })}
+                    <Link href={`/dashboard/kid/${k.id}`} onClick={() => setActiveKidId(k.id)} className="qk-chip" style={{ textDecoration: 'none', color: 'var(--ink-3)', borderStyle: 'dashed' }}>
+                      {ICONS.plus} {t('addSubject')}
+                    </Link>
+                  </div>
+                </div>
+
                 {/* Study summary */}
+                <KidGoalsPanel kid={k} summary={summaries[k.id]} lang={lang} />
                 <KidSummaryPanel kid={k} summary={summaries[k.id]} lang={lang} />
 
                 {/* Recent items from local state */}
@@ -328,10 +384,7 @@ export default function DashboardClient() {
                 )}
 
                 <div style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'nowrap' }}>
-                  <Btn kind="primary" onClick={() => createFor(k.id)} icon={ICONS.spark} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t('createNew')}</Btn>
-                  <button className="qk-btn qk-btn-ghost" onClick={() => openKidDetail(k.id)} title={t('viewDetails')} style={{ padding: '0 12px', flexShrink: 0 }}>
-                    {ICONS.eye}
-                  </button>
+                  <Btn kind="primary" onClick={() => openKidDetail(k.id)} icon={ICONS.eye} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t('viewDetails')}</Btn>
                   <button className="qk-btn qk-btn-ghost" onClick={() => setHistoryKid(k)} title={t('history')} style={{ padding: '0 12px', flexShrink: 0 }}>
                     {ICONS.clock}
                   </button>

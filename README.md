@@ -2,7 +2,7 @@
 
 ## Google Classroom connector
 
-Parents can connect a kid's Google school account at `/dashboard/classroom` (also linked from the topic picker) to see their classes, teachers, topics, assignments, materials, and announcements, and turn any of them into a guide, quiz, or worksheet. Access is read-only.
+Parents can connect a kid's Google school account at `/dashboard/classroom` (also linked from each subject page, next to "Import a class") to see their classes, teachers, topics, assignments, materials, and announcements, and turn any of them into a guide, quiz, or worksheet. Access is read-only.
 
 Setup:
 

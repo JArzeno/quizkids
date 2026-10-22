@@ -4,24 +4,38 @@ import { useRouter } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
 import { Avatar, AVATARS } from '@/components/ui/Avatar';
 import { Btn } from '@/components/ui/Btn';
+import { CustomSubjectAdder } from '@/components/ui/CustomSubjectAdder';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
+import { subjectOptions, subjectLabelFields } from '@/lib/subjects';
+import type { KidSubject } from '@/types';
 
-const STEPS = 4;
+const STEPS = 5;
 const COLORS = [['#3F7A4F', 'leaf'], ['#E29A2B', 'honey'], ['#E26D5A', 'coral'], ['#6BA8C9', 'sky'], ['#B14F8C', 'berry'], ['#7A5AE0', 'violet']];
 
 export default function AddKidClient() {
-  const { lang, kids, addKid, setActiveKidId } = useStore();
+  const { lang, kids, addKid, setActiveKidId, customSubjects } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const [step, setStep] = React.useState(0);
   const [draft, setDraft] = React.useState({ name: '', grade: '', avatar: '', color: '#3F7A4F', signature: '' });
+  // subject id -> optional focus note; presence of the key means the subject is selected
+  const [subjects, setSubjects] = React.useState<Record<string, string>>({});
+  const [subjectLangs, setSubjectLangs] = React.useState<Record<string, 'en' | 'es' | 'fr'>>({});
+  const subjectList = subjectOptions(lang, customSubjects);
+  const toggleSubject = (id: string) => setSubjects((cur) => {
+    const next = { ...cur };
+    if (id in next) delete next[id]; else next[id] = '';
+    return next;
+  });
+  const kidSubjects: KidSubject[] = Object.entries(subjects).map(([subject, focus]) => ({ subject, lang: subjectLangs[subject] || (subject === 'fr' ? 'fr' : lang), focus: focus.trim() || undefined, ...subjectLabelFields(subject, customSubjects) }));
 
   const canNext = [
     () => draft.name.trim().length > 0,
     () => !!draft.grade,
+    () => Object.keys(subjects).length > 0,
     () => !!draft.avatar,
     () => true,
   ][step]();
@@ -46,12 +60,16 @@ export default function AddKidClient() {
         .select()
         .single();
       if (!error && data) {
-        addKid({ id: data.id, parent_id: user.id, name: data.name, grade: data.grade, avatar: data.avatar, color: data.color, code: data.code, streak: 0, stars: 0, minutes_total: 0, weekly: 0, goal_min: 30, recent: [], signature: draft.signature });
+        if (kidSubjects.length > 0) {
+          const { error: subjErr } = await supabase.from('kid_subjects').insert(kidSubjects.map((ks) => ({ kid_id: data.id, subject: ks.subject, lang: ks.lang ?? 'en', focus: ks.focus ?? null, name: ks.name ?? null, icon: ks.icon ?? null })));
+          if (subjErr) console.warn('Could not save subjects:', subjErr);
+        }
+        addKid({ id: data.id, parent_id: user.id, name: data.name, grade: data.grade, avatar: data.avatar, color: data.color, code: data.code, streak: 0, stars: 0, minutes_total: 0, weekly: 0, goal_min: 30, recent: [], signature: draft.signature, subjects: kidSubjects });
         setActiveKidId(data.id);
       }
     } else {
       const id = (draft.name.trim().toLowerCase() || 'kid') + '-' + Math.random().toString(36).slice(2, 5);
-      addKid({ id, parent_id: 'demo', name: draft.name.trim() || 'New kid', grade: draft.grade || 'K', avatar: draft.avatar || 'sprout', color: draft.color, code, streak: 0, stars: 0, minutes_total: 0, weekly: 0, goal_min: 30, recent: [], signature: draft.signature });
+      addKid({ id, parent_id: 'demo', name: draft.name.trim() || 'New kid', grade: draft.grade || 'K', avatar: draft.avatar || 'sprout', color: draft.color, code, streak: 0, stars: 0, minutes_total: 0, weekly: 0, goal_min: 30, recent: [], signature: draft.signature, subjects: kidSubjects });
       setActiveKidId(id);
     }
     router.push('/dashboard');
@@ -61,13 +79,13 @@ export default function AddKidClient() {
     <AppShell>
       <div className="qk-screen qk-page-enter">
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 18 }}>
             <button className="qk-btn qk-btn-ghost" onClick={() => step === 0 ? router.back() : setStep((s) => s - 1)}>{ICONS.back} <span>{t('back')}</span></button>
-            <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{t('onbStep')} {step + 1} {t('of')} {STEPS}</div>
+            <div style={{ fontSize: 13, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{t('onbStep')} {step + 1} {t('of')} {STEPS}</div>
           </div>
           <div className="qk-progress" style={{ marginBottom: 24 }}><span style={{ width: `${((step + 1) / STEPS) * 100}%` }} /></div>
 
-          <div className="qk-card qk-slide-up" style={{ padding: 32 }}>
+          <div className="qk-card qk-slide-up" style={{ padding: 'clamp(20px, 5vw, 32px)' }}>
             {step === 0 && (
               <div>
                 <h2 className="qk-h2">{t('onbName')}</h2>
@@ -75,7 +93,7 @@ export default function AddKidClient() {
                 <input className="qk-input" placeholder={t('onbNamePh')} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} autoFocus style={{ fontFamily: 'var(--font-display)', fontSize: 22 }} />
                 <div style={{ marginTop: 24 }}>
                   <div className="qk-label" style={{ marginBottom: 10 }}>{t('chooseColor')}</div>
-                  <div style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                     {COLORS.map(([c]) => (
                       <button key={c} onClick={() => setDraft({ ...draft, color: c })} style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid ' + (draft.color === c ? 'var(--ink)' : 'transparent'), background: c, cursor: 'pointer', padding: 0, transition: 'border-color .15s ease' }} />
                     ))}
@@ -100,13 +118,52 @@ export default function AddKidClient() {
 
             {step === 2 && (
               <div>
+                <h2 className="qk-h2">{t('subjectsStep').replace('{name}', draft.name.trim() || (lang === 'es' ? 'tu peque' : 'your kid'))}</h2>
+                <p className="qk-sub" style={{ marginTop: 6, marginBottom: 20 }}>{t('subjectsStepSub')}</p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+                  {subjectList.map((s) => {
+                    const on = s.id in subjects;
+                    return (
+                      <button key={s.id} onClick={() => toggleSubject(s.id)} style={{ appearance: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 16, background: on ? 'var(--primary-l)' : 'var(--surface-2)', border: '2px solid ' + (on ? 'var(--primary)' : 'transparent'), cursor: 'pointer', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: 'var(--ink)', textAlign: 'left' }}>
+                        <span style={{ fontSize: 22 }}>{s.icon}</span>
+                        <span style={{ flex: 1 }}>{s.label}</span>
+                        {on && <span style={{ color: 'var(--primary)' }}>{ICONS.check}</span>}
+                      </button>
+                    );
+                  })}
+                  <CustomSubjectAdder lang={lang} options={subjectList} variant="tile" onAdded={(id) => setSubjects((cur) => (id in cur ? cur : { ...cur, [id]: '' }))} />
+                </div>
+                {Object.keys(subjects).length > 0 ? (
+                  <div style={{ marginTop: 22, display: 'grid', gap: 10 }}>
+                    {Object.keys(subjects).map((id) => {
+                      const s = subjectList.find((x) => x.id === id);
+                      if (!s) return null;
+                      return (
+                        <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 20, width: 28, textAlign: 'center' }}>{s.icon}</span>
+                          <input className="qk-input" placeholder={`${s.label} · ${t('focusPh')}`} value={subjects[id]} maxLength={120} onChange={(e) => setSubjects({ ...subjects, [id]: e.target.value })} style={{ fontSize: 14, minWidth: 0 }} />
+                          <select className="qk-input" aria-label={t('subjectLang')} value={subjectLangs[id] || (id === 'fr' ? 'fr' : lang)} onChange={(e) => setSubjectLangs({ ...subjectLangs, [id]: e.target.value as 'en' | 'es' | 'fr' })} style={{ width: 'auto', fontSize: 14 }}>
+                            <option value="en">English</option><option value="es">Español</option><option value="fr">Français</option>
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 18, fontSize: 13, color: 'var(--ink-3)' }}>{t('subjectsNeedOne')}</div>
+                )}
+              </div>
+            )}
+
+            {step === 3 && (
+              <div>
                 <h2 className="qk-h2">{t('onbAvatar')}</h2>
                 <p className="qk-sub" style={{ marginTop: 6, marginBottom: 20 }}>{lang === 'es' ? 'Elige un amiguito que les represente.' : 'Pick a little friend to represent them.'}</p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+                <div className="qk-avatar-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 'clamp(8px, 2.5vw, 14px)' }}>
                   {AVATARS.map((a) => {
                     const on = draft.avatar === a.id;
                     return (
-                      <button key={a.id} onClick={() => setDraft({ ...draft, avatar: a.id })} className="qk-wiggle" style={{ appearance: 'none', padding: 14, borderRadius: 18, background: on ? 'var(--primary-l)' : 'var(--surface-2)', border: '2px solid ' + (on ? 'var(--primary)' : 'transparent'), cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, transition: 'all .15s ease' }}>
+                      <button key={a.id} onClick={() => setDraft({ ...draft, avatar: a.id })} className="qk-wiggle" style={{ appearance: 'none', minWidth: 0, padding: 'clamp(8px, 2.5vw, 14px)', borderRadius: 18, background: on ? 'var(--primary-l)' : 'var(--surface-2)', border: '2px solid ' + (on ? 'var(--primary)' : 'transparent'), cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, transition: 'all .15s ease' }}>
                         <Avatar id={a.id} size={64} />
                         <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>{a.name}</span>
                       </button>
@@ -116,14 +173,14 @@ export default function AddKidClient() {
               </div>
             )}
 
-            {step === 3 && (
+            {step === 4 && (
               <div>
                 <h2 className="qk-h2">{t('onbSig')}</h2>
                 <p className="qk-sub" style={{ marginTop: 6, marginBottom: 20 }}>{t('onbSigSub')}</p>
                 <SignatureCanvas value={draft.signature} onChange={(v) => setDraft({ ...draft, signature: v })} />
                 <div style={{ marginTop: 24, padding: 16, background: 'var(--surface-2)', borderRadius: 18, display: 'flex', alignItems: 'center', gap: 14 }}>
                   <Avatar id={draft.avatar || 'sprout'} size={56} />
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 20 }}>{draft.name || (lang === 'es' ? 'Tu peque' : 'Your kid')}</div>
                     <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{lang === 'es' ? 'Grado ' : 'Grade '}{draft.grade || '?'}{draft.color && <span style={{ display: 'inline-block', verticalAlign: 'middle', marginLeft: 8, width: 12, height: 12, borderRadius: '50%', background: draft.color }} />}</div>
                   </div>
@@ -136,7 +193,7 @@ export default function AddKidClient() {
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 32, gap: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', marginTop: 32, gap: 12 }}>
               <button className="qk-btn qk-btn-ghost" onClick={() => step === 0 ? router.back() : setStep((s) => s - 1)}>{ICONS.back} <span>{t('back')}</span></button>
               {step < STEPS - 1
                 ? <Btn kind="primary" disabled={!canNext} onClick={() => setStep((s) => s + 1)} iconRight={ICONS.next} style={{ opacity: canNext ? 1 : .5 }}>{t('next')}</Btn>

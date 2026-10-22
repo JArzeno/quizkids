@@ -1,6 +1,4 @@
-import type { Metadata } from 'next';
-import PickerClient from './PickerClient';
+import { redirect } from 'next/navigation';
 
-export const metadata: Metadata = { title: 'Pick a Subject & Topic', robots: { index: false } };
-
-export default function PickerPage() { return <PickerClient />; }
+// Studies are now created from a subject's page (dashboard → kid → subject → topic)
+export default function PickerPage() { redirect('/dashboard'); }

@@ -16,7 +16,30 @@ export interface Kid {
   weekly?: number;
   lastSubject?: string;
   recent?: RecentItem[];
+  subjects?: KidSubject[];
+  goals?: KidGoal[];
+  /** Demo mode only: plan items are kept locally instead of in Supabase */
+  planItems?: PlanItem[];
+  /** Demo mode only: topics are kept locally instead of in Supabase */
+  topics?: KidTopic[];
+  /** Demo mode only: test prep is kept locally instead of in Supabase */
+  tests?: KidTest[];
   created_at?: string;
+}
+
+/** A study timer in progress. Times are epoch ms so it keeps counting across page changes and reloads. */
+export interface StudySession {
+  kidId: string;
+  startedAt: number;
+  /** When the current running stretch began; null while paused */
+  runningSince: number | null;
+  /** Time counted before the current running stretch */
+  accumulatedMs: number;
+  lastActivityAt: number;
+  /** study_sessions row the time is saved to while it runs */
+  dbId?: string;
+  savedAt?: number;
+  savedMinutes?: number;
 }
 
 export interface RecentItem {
@@ -71,12 +94,37 @@ export interface QuizQuestion {
   hint: string;
 }
 
+/** One block of a printable worksheet; each type prints differently */
+export type WorksheetSection =
+  | { type: 'mc'; items: { q: string; choices: string[]; a: number }[] }
+  /** fix: the corrected statement, for false items (answer key) */
+  | { type: 'tf'; items: { s: string; a: boolean; fix?: string }[] }
+  /** Each sentence has one "___" blank; bank lists the words to pick from (answers + a few extras) */
+  | { type: 'fill'; bank?: string[]; items: { s: string; a: string }[] }
+  /** Pairs in their correct order; the right column is shuffled when printed */
+  | { type: 'match'; items: { left: string; right: string }[] }
+  /** Explain / short answer with writing lines; a = sample answer for the key */
+  | { type: 'open'; items: { q: string; a: string; lines: number }[] };
+
+export type WorksheetSectionType = WorksheetSection['type'];
+
+export interface Worksheet {
+  sections: WorksheetSection[];
+  bonus: string;
+  /** Format version; old cached worksheets ({ questions, bonus }) have none */
+  v?: number;
+}
+
 export interface QuizResult {
   total: number;
   correct: number;
   picks: Record<number, number>;
   cards: QuizQuestion[];
   stars: number;
+  /** generated_content id of these cards, so "try again" can replay them */
+  contentId?: string;
+  /** A "more questions" round: new questions on the same topic */
+  more?: boolean;
 }
 
 export interface GuideSection {
@@ -84,12 +132,20 @@ export interface GuideSection {
   body: string;
   tone: string;
   key: string;
+  /** Worked problem or everyday example for the section */
+  example?: string;
 }
 
 export interface Guide {
   intro: string;
   sections: GuideSection[];
   fact: string;
+  vocab?: { term: string; def: string }[];
+  recap?: string[];
+  /** Related ideas the kid can ask to learn more about */
+  related?: string[];
+  /** Prompt version; older cached guides have none */
+  v?: number;
 }
 
 export interface StudyParams {
@@ -100,8 +156,18 @@ export interface StudyParams {
   lang: 'en' | 'es';
   contentId?: string;
   assignmentId?: string;
+  /** Set when the item comes from the daily plan, so finishing it can tick it off */
+  planItemId?: string;
+  /** Language of the content when it differs from the account language (per-subject language) */
+  contentLang?: Lang | 'fr';
   /** Study notes extracted from an imported class (PDF / photos); grounds generation in that material */
   source?: string;
+  /** Kid screen to go back to after studying (e.g. a subject page); defaults to the kid home */
+  returnTo?: string;
+  /** Several topics at once (test prep, a goal's final test): the quiz or guide covers all of them */
+  topics?: string[];
+  /** Content id of the quiz that goes with the guide being read (test prep), so "take a quiz" opens it */
+  pairedContentId?: string;
 }
 
 export interface ImportedLesson {
@@ -114,3 +180,106 @@ export interface ImportedLesson {
 }
 
 export type Lang = 'en' | 'es';
+
+/** Subject a parent created in Settings (row of public.custom_subjects) */
+export interface CustomSubject {
+  /** 'cus-…', stored as the subject id on kid_subjects, goals, results… */
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+}
+
+/** A subject a kid studies, with the result of its placement quiz once taken */
+export interface KidSubject {
+  subject: string;
+  /** Language the subject is studied in */
+  lang?: 'en' | 'es' | 'fr';
+  focus?: string;
+  /** Estimated grade level for this subject (0 = K); undefined until placement is taken */
+  level?: number;
+  strongTopics?: string[];
+  weakTopics?: string[];
+  placementAccuracy?: number;
+  placedAt?: string;
+  /** When the level was last adjusted from quiz results */
+  levelUpdatedAt?: string;
+  /** Left out of the daily plan while true */
+  paused?: boolean;
+  /** Name and icon of a custom subject, saved here so they survive the parent deleting the subject in Settings; unset for builtin subjects */
+  name?: string;
+  icon?: string;
+}
+
+/** band: -1 = below the kid's grade, 0 = at grade, 1 = above grade */
+export interface PlacementQuestion extends QuizQuestion {
+  band: -1 | 0 | 1;
+  topic: string;
+}
+
+export interface KidGoal {
+  id: string;
+  subject: string;
+  title: string;
+  description?: string;
+  /** Ordered topic names the goal covers; quiz results on these topics drive progress */
+  topics: string[];
+  weeks?: number;
+  targetDate?: string;
+  /** proposed = waiting for the parent to approve */
+  status: 'proposed' | 'active' | 'completed';
+  createdAt?: string;
+  completedAt?: string;
+}
+
+export interface GoalDraft {
+  title: string;
+  description?: string;
+  topics: string[];
+  weeks?: number;
+}
+
+/** A topic or class a parent added inside a kid's subject */
+export interface KidTopic {
+  id: string;
+  subject: string;
+  title: string;
+  /** Class notes from an imported PDF / photos; generated content is based on them */
+  notes?: string;
+  source: 'manual' | 'import';
+  createdAt?: string;
+}
+
+/** A school test: a quiz and a study guide covering the topics the parent picked */
+export interface KidTest {
+  id: string;
+  subject: string;
+  title: string;
+  /** Titles of the topics it covers */
+  topics: string[];
+  /** yyyy-mm-dd of the school test, if known */
+  testDate?: string;
+  guideContentId?: string;
+  quizContentId?: string;
+  lang?: Lang | 'fr';
+  createdAt?: string;
+}
+
+export type PlanItemType = 'guide' | 'quiz' | 'pdf' | 'test';
+
+export interface PlanItem {
+  id: string;
+  /** Undefined for items a parent added by hand */
+  goalId?: string;
+  subject: string;
+  topic: string;
+  type: PlanItemType;
+  position: number;
+  minutes: number;
+  /** yyyy-mm-dd of the weekday it was handed out for; undefined = still queued */
+  planDate?: string;
+  contentId?: string;
+  /** Extra practice added because of a weak result (or a retake) */
+  review?: boolean;
+  status: 'pending' | 'completed' | 'skipped';
+}

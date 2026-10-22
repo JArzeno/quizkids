@@ -37,6 +37,9 @@ export default function ClassroomClient() {
   const [error, setError] = React.useState<string | null>(null);
 
   const oauthError = searchParams.get('error');
+  // Opened from a subject's page: study material goes to that subject
+  const fixedSubject = searchParams.get('subject');
+  const backTo = !kid ? '/dashboard' : fixedSubject ? `/dashboard/kid/${kid.id}/subject/${encodeURIComponent(fixedSubject)}` : `/dashboard/kid/${kid.id}`;
 
   const handleStatus = (code: number) => {
     if (code === 503) setStatus('not_configured');
@@ -91,7 +94,7 @@ export default function ClassroomClient() {
       item.materials.length ? `\nAttached resources:\n- ${item.materials.map((m) => m.title).join('\n- ')}` : '',
     ].filter(Boolean);
     setStudyParams({
-      subject: guessSubject(c.name, studyParams.subject),
+      subject: fixedSubject || guessSubject(c.name, studyParams.subject),
       topic: item.title.slice(0, 120),
       grade: kid?.grade || studyParams.grade,
       difficulty,
@@ -107,7 +110,7 @@ export default function ClassroomClient() {
     <AppShell>
       <div className="qk-screen qk-page-enter">
         <div style={{ maxWidth: 980, margin: '0 auto' }}>
-          <button className="qk-btn qk-btn-ghost" onClick={() => (selectedId ? setSelectedId(null) : router.push('/dashboard/picker'))}>{ICONS.back} <span>{t('back')}</span></button>
+          <button className="qk-btn qk-btn-ghost" onClick={() => (selectedId ? setSelectedId(null) : router.push(backTo))}>{ICONS.back} <span>{t('back')}</span></button>
 
           <div style={{ marginTop: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
             <div>

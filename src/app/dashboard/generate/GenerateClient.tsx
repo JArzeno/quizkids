@@ -8,6 +8,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
+import { kidSubjectInfo } from '@/lib/subjects';
 
 type GenType = 'quiz' | 'guide' | 'pdf';
 
@@ -18,10 +19,12 @@ interface GenResult {
 }
 
 export default function GenerateClient() {
-  const { lang, kids, activeKidId, studyParams, difficulty, setMode, updateKid, isDemo, setStudyParams } = useStore();
+  const { lang, kids, activeKidId, studyParams, difficulty, setDifficulty, setMode, updateKid, isDemo, setStudyParams, customSubjects } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const kid = kids.find((k) => k.id === activeKidId) || kids[0];
+  // Studies are created from a subject's page, so that is where "back" goes
+  const backTo = kid ? `/dashboard/kid/${kid.id}/subject/${encodeURIComponent(studyParams.subject)}` : '/dashboard';
 
   const [genState, setGenState] = React.useState<GenType | null>(null);
   const [progress, setProgress] = React.useState(0);
@@ -55,7 +58,8 @@ export default function GenerateClient() {
       const body: Record<string, string> = {
         topic: studyParams.topic,
         grade: studyParams.grade,
-        lang,
+        // The subject's own language when it has one (e.g. French)
+        lang: studyParams.contentLang ?? lang,
         subject: studyParams.subject,
       };
       if (type === 'quiz') body.difficulty = difficulty;
@@ -142,13 +146,13 @@ export default function GenerateClient() {
     <AppShell>
       <div className="qk-screen qk-page-enter">
         <div style={{ maxWidth: 980, margin: '0 auto' }}>
-          <button className="qk-btn qk-btn-ghost" onClick={() => router.push(studyParams.source ? '/dashboard/import' : '/dashboard/picker')}>
+          <button className="qk-btn qk-btn-ghost" onClick={() => router.push(backTo)}>
             {ICONS.back} <span>{t('back')}</span>
           </button>
 
           <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
             <div>
-              <span className="qk-eyebrow">{t(studyParams.subject)} · {gradeLabel()}</span>
+              <span className="qk-eyebrow">{kidSubjectInfo(kid?.subjects, studyParams.subject, lang, customSubjects).label} · {gradeLabel()}</span>
               <h1 className="qk-h1" style={{ marginTop: 10 }}>{studyParams.topic}</h1>
               <p className="qk-sub">{t('genSub')}</p>
               {studyParams.source && (
@@ -170,6 +174,14 @@ export default function GenerateClient() {
             )}
           </div>
 
+          {/* difficulty (applies to quizzes) */}
+          <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('difficulty')}</span>
+            {(['easy', 'medium', 'hard'] as const).map((d) => (
+              <button key={d} className={`qk-chip${difficulty === d ? ' on' : ''}`} onClick={() => setDifficulty(d)} disabled={!!genState}>{t(d)}</button>
+            ))}
+          </div>
+
           {/* Error */}
           {error && (
             <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 14, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600 }}>
@@ -178,7 +190,7 @@ export default function GenerateClient() {
           )}
 
           {/* Cards */}
-          <div className="qk-stagger" style={{ marginTop: 28, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18, opacity: genState ? 0.45 : 1, pointerEvents: genState ? 'none' : undefined }}>
+          <div className="qk-stagger" style={{ marginTop: 28, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: 18, opacity: genState ? 0.45 : 1, pointerEvents: genState ? 'none' : undefined }}>
             {([
               { id: 'quiz' as GenType, title: t('genQuiz'), sub: t('genQuizSub'), tone: 'primary', icon: ICONS.cards },
               { id: 'guide' as GenType, title: t('genGuide'), sub: t('genGuideSub'), tone: 'sky', icon: ICONS.book },
