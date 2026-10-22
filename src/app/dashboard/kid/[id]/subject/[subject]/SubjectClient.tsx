@@ -227,6 +227,12 @@ export default function SubjectClient() {
     router.push(`/dashboard/import?subject=${encodeURIComponent(subject)}`);
   };
 
+  const openClassroom = () => {
+    if (!kid) return;
+    setActiveKidId(kid.id);
+    router.push(`/dashboard/classroom?subject=${encodeURIComponent(subject)}`);
+  };
+
   const openKidView = () => {
     if (!kid) return;
     setActiveKidId(kid.id);
@@ -350,7 +356,12 @@ export default function SubjectClient() {
             <Section
               title={L('Topics & classes', 'Temas y clases')}
               sub={L(`What ${kid.name} is learning in ${info.label}. Add a topic, then create a guide, quiz or worksheet for it.`, `Lo que ${kid.name} está aprendiendo en ${info.label}. Agrega un tema y crea una guía, quiz u hoja para él.`)}
-              action={<button className="qk-btn qk-btn-ghost" style={smallBtn} onClick={importClass}>{ICONS.pdf}<span>{L('Import a class', 'Importar una clase')}</span></button>}
+              action={
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button className="qk-btn qk-btn-ghost" style={smallBtn} onClick={importClass}>{ICONS.pdf}<span>{L('Import a class', 'Importar una clase')}</span></button>
+                  <button className="qk-btn qk-btn-ghost" style={smallBtn} onClick={openClassroom}>{ICONS.book}<span>Google Classroom</span></button>
+                </div>
+              }
             >
               <form onSubmit={(e) => { e.preventDefault(); void add(draft); }} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <input className="qk-input" value={draft} maxLength={100} onChange={(e) => setDraft(e.target.value)}
