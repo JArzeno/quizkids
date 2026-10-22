@@ -373,7 +373,12 @@ export default function KidDetailClient() {
           <div style={{ marginTop: 24 }}>
             <Section
               title={t('kidSubjects')}
-              action={<button className="qk-btn qk-btn-ghost" style={{ fontSize: 13, padding: '6px 10px' }} onClick={() => setAddingSubject((v) => !v)}>{ICONS.plus}<span>{t('addSubject')}</span></button>}
+              action={
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <Link href={`/dashboard/classroom/import?kid=${kid.id}`} className="qk-btn qk-btn-ghost" style={{ fontSize: 13, padding: '6px 10px' }}>{ICONS.book}<span>{lang === 'es' ? 'Importar de Google Classroom' : 'Import from Google Classroom'}</span></Link>
+                  <button className="qk-btn qk-btn-ghost" style={{ fontSize: 13, padding: '6px 10px' }} onClick={() => setAddingSubject((v) => !v)}>{ICONS.plus}<span>{t('addSubject')}</span></button>
+                </div>
+              }
             >
               {subjectError && <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600, fontSize: 13 }}>{t('placeError')}</div>}
               {addingSubject && (

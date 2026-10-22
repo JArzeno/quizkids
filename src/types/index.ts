@@ -244,9 +244,9 @@ export interface KidTopic {
   id: string;
   subject: string;
   title: string;
-  /** Class notes from an imported PDF / photos; generated content is based on them */
+  /** Class notes from an imported PDF / photos or a Google Classroom post; generated content is based on them */
   notes?: string;
-  source: 'manual' | 'import';
+  source: 'manual' | 'import' | 'classroom';
   createdAt?: string;
 }
 

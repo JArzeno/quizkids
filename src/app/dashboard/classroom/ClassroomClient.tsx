@@ -6,20 +6,10 @@ import { Btn } from '@/components/ui/Btn';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
+import { guessSubject } from '@/lib/classroomImport';
 import type { ClassroomCourse, ClassroomCourseDetails, ClassroomItem } from '@/lib/google-classroom';
 
 type Status = 'loading' | 'not_configured' | 'not_connected' | 'ready' | 'error';
-
-/** Best-effort mapping of a Classroom course name to one of our subjects */
-function guessSubject(name: string, fallback: string) {
-  const n = name.toLowerCase();
-  if (/math|matem|álgebra|algebra|geometr|fraccion|fraction/.test(n)) return 'math';
-  if (/scien|cienc|biolog|chem|quím|physic|físic/.test(n)) return 'sci';
-  if (/social|histor|geograf|civic|cívic/.test(n)) return 'soc';
-  if (/art|music|músic|dibujo|draw/.test(n)) return 'art';
-  if (/english|inglés|spanish|español|lengua|reading|lectura|writing|french|francés|language/.test(n)) return 'lang';
-  return fallback;
-}
 
 export default function ClassroomClient() {
   const { lang, kids, activeKidId, studyParams, setStudyParams, difficulty } = useStore();
@@ -94,7 +84,7 @@ export default function ClassroomClient() {
       item.materials.length ? `\nAttached resources:\n- ${item.materials.map((m) => m.title).join('\n- ')}` : '',
     ].filter(Boolean);
     setStudyParams({
-      subject: fixedSubject || guessSubject(c.name, studyParams.subject),
+      subject: fixedSubject || guessSubject(c.name) || studyParams.subject,
       topic: item.title.slice(0, 120),
       grade: kid?.grade || studyParams.grade,
       difficulty,
@@ -121,7 +111,12 @@ export default function ClassroomClient() {
                   : "Connect your kid's school account to see their classes, assignments, and announcements, and build study material from any of them."}
               </p>
             </div>
-            {status === 'ready' && <Btn kind="ghost" onClick={disconnect}>{es ? 'Desconectar' : 'Disconnect'}</Btn>}
+            {status === 'ready' && (
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {kid && <Btn kind="primary" icon={ICONS.plus} onClick={() => router.push(`/dashboard/classroom/import?kid=${kid.id}`)}>{es ? 'Importar clases' : 'Import classes'}</Btn>}
+                <Btn kind="ghost" onClick={disconnect}>{es ? 'Desconectar' : 'Disconnect'}</Btn>
+              </div>
+            )}
           </div>
 
           {oauthError && status !== 'ready' && (

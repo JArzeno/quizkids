@@ -383,6 +383,7 @@ export default function SubjectClient() {
                           <div style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</div>
                           <div style={{ fontSize: 11, color: 'var(--ink-3)', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             {r.topic?.source === 'import' && <span>📎 {L('Imported class', 'Clase importada')}</span>}
+                            {r.topic?.source === 'classroom' && <span>🏫 Google Classroom</span>}
                             {r.inGoal && <span>🎯 {L('Goal', 'Meta')}</span>}
                             {r.lastPct == null
                               ? <span>{L('Not quizzed yet', 'Sin quiz todavía')}</span>

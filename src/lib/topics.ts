@@ -8,7 +8,7 @@ export function topicFromRow(r: Record<string, unknown>): KidTopic {
     subject: r.subject as string,
     title: r.title as string,
     notes: (r.notes as string) || undefined,
-    source: r.source === 'import' ? 'import' : 'manual',
+    source: r.source === 'import' || r.source === 'classroom' ? r.source : 'manual',
     createdAt: (r.created_at as string) || undefined,
   };
 }

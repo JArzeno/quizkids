@@ -300,6 +300,9 @@ export default function DashboardClient() {
               <p className="qk-sub">{t('dashGreet')}</p>
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {kids.length > 0 && (
+                <Link href="/dashboard/classroom/import" className="qk-btn qk-btn-ghost">{ICONS.book}<span>{lang === 'es' ? 'Importar de Google Classroom' : 'Import from Google Classroom'}</span></Link>
+              )}
               <Link href="/dashboard/add-kid" className="qk-btn qk-btn-ghost">{ICONS.plus}<span>{t('addKid')}</span></Link>
             </div>
           </div>
