@@ -6,7 +6,7 @@ import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { subjectInfo } from '@/lib/subjects';
-import { goalCandidates, goalProgress, requestGoalDraft, saveGoal } from '@/lib/goals';
+import { MASTERY, goalCandidates, goalProgress, requestGoalDraft, saveGoal } from '@/lib/goals';
 import { loadKidTopics } from '@/lib/topics';
 import type { GoalDraft, Kid, KidGoal, KidTopic } from '@/types';
 
@@ -16,6 +16,32 @@ interface QuizLike { subject: string | null; topic: string | null; correct: numb
 interface Form { subject: string; goalId: string | null; title: string; topics: string[]; weeks: number }
 
 const MAX_GOAL_TOPICS = 8;
+
+const smallBtn: React.CSSProperties = { fontSize: 12, padding: '6px 10px' };
+
+function Tag({ text, tone }: { text: string; tone: 'primary' | 'honey' }) {
+  return (
+    <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', padding: '3px 9px', borderRadius: 999,
+      background: tone === 'primary' ? 'var(--primary-l)' : 'var(--surface)', color: tone === 'primary' ? 'var(--primary-d)' : '#7C5410' }}>
+      {text}
+    </span>
+  );
+}
+
+/** One row of the goal's checklist: a numbered dot (a check once done), the label, and a short status */
+function Step({ mark, done, current, label, status, statusTone }: { mark: React.ReactNode; done: boolean; current: boolean; label: string; status?: string; statusTone?: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
+      <span style={{
+        width: 22, height: 22, borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700,
+        background: done ? 'var(--primary)' : 'transparent', color: done ? '#fff' : current ? 'var(--primary-d)' : 'var(--ink-3)',
+        border: done ? '1.5px solid var(--primary)' : `1.5px solid ${current ? 'var(--primary)' : 'var(--line)'}`,
+      }}>{done ? '✓' : mark}</span>
+      <span style={{ flex: 1, minWidth: 0, fontWeight: current ? 700 : 500, color: done || current ? 'var(--ink)' : 'var(--ink-2)' }}>{label}</span>
+      {status && <span style={{ fontSize: 11, fontWeight: 700, color: statusTone || 'var(--ink-3)', textAlign: 'right' }}>{status}</span>}
+    </div>
+  );
+}
 
 /**
  * `only` limits the section to one subject (used on the subject page). Goals are built from the topics and classes the
@@ -143,7 +169,7 @@ export default function GoalsSection({ kid, quizzes, only, topics: topicsProp }:
     <div className="qk-card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div>
         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17 }}>{only ? t('goalTitleLabel') : t('goalsTitle')}</div>
-        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>{t('goalsSub')}</div>
+        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2, maxWidth: 720 }}>{t('goalsSub').replace('{pct}', String(MASTERY))}</div>
       </div>
       {error && <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600, fontSize: 13 }}>{error}</div>}
       {notice && <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--primary-l)', color: 'var(--primary-d)', fontWeight: 600, fontSize: 13 }}>{notice}</div>}
@@ -205,43 +231,72 @@ export default function GoalsSection({ kid, quizzes, only, topics: topicsProp }:
                 </div>
               ) : (
                 <>
-                  {active && prog && (
-                    <div style={{ display: 'grid', gap: 8 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>{active.title}</div>
-                      {active.description && <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>{active.description}</div>}
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--ink-3)', marginBottom: 5 }}>
-                          <span>{prog.mastered.length}/{active.topics.length} {t('goalTopicsDone')}{active.targetDate ? ` · ${t('goalDue')} ${new Date(active.targetDate + 'T00:00').toLocaleDateString(lang === 'es' ? 'es-DO' : 'en-US', { month: 'short', day: 'numeric' })}` : ''}</span>
-                          <span>{prog.pct}%</span>
+                  {active && prog && (() => {
+                    const nextIdx = active.topics.findIndex((tp) => !prog.mastered.includes(tp));
+                    const test = prog.testPassed ? { status: t('goalTestPassed'), tone: 'var(--primary-d)' }
+                      : prog.testAttempted ? { status: t('goalReviewing'), tone: '#7C5410' }
+                      : prog.pct === 100 ? { status: t('goalTestReady'), tone: 'var(--primary-d)' }
+                      : { status: t('goalTestLocked'), tone: 'var(--ink-3)' };
+                    return (
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                          <Tag text={t('goalCurrent')} tone="primary" />
+                          {active.targetDate && (
+                            <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+                              {t('goalDue')} {new Date(active.targetDate + 'T00:00').toLocaleDateString(lang === 'es' ? 'es-DO' : 'en-US', { month: 'short', day: 'numeric' })}
+                            </span>
+                          )}
                         </div>
-                        <div className="qk-progress"><span style={{ width: prog.pct + '%' }} /></div>
+                        <div>
+                          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16 }}>{active.title}</div>
+                          {active.description && <div style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 2 }}>{active.description}</div>}
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--ink-2)', marginBottom: 5 }}>
+                            <span><strong>{prog.mastered.length}</strong> {t('goalOf')} {active.topics.length} {t('goalTopicsDone')}</span>
+                            <strong>{prog.pct}%</strong>
+                          </div>
+                          <div className="qk-progress"><span style={{ width: prog.pct + '%' }} /></div>
+                        </div>
+                        <div style={{ display: 'grid', gap: 8, padding: '12px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--line)' }}>
+                          {active.topics.map((tp, idx) => {
+                            const done = prog.mastered.includes(tp);
+                            return (
+                              <Step key={tp} mark={idx + 1} done={done} current={idx === nextIdx} label={tp}
+                                status={done ? t('goalStepMastered') : idx === nextIdx ? t('goalStepNext') : undefined}
+                                statusTone={done ? 'var(--primary-d)' : '#7C5410'} />
+                            );
+                          })}
+                          <div style={{ borderTop: '1px dashed var(--line)', paddingTop: 8 }}>
+                            <Step mark="🏁" done={prog.testPassed} current={nextIdx === -1 && !prog.testPassed} label={t('planFinalTest')} status={test.status} statusTone={test.tone} />
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <button className="qk-btn qk-btn-ghost" style={smallBtn} onClick={() => complete(active)} disabled={working || (prog.testAttempted && !prog.testPassed)}>{ICONS.check}<span>{t('goalComplete')}</span></button>
+                          <button className="qk-btn qk-btn-ghost" style={smallBtn} onClick={() => openForm(ks.subject, active)}>{t('goalEdit')}</button>
+                          <button className="qk-btn qk-btn-ghost" style={smallBtn} onClick={() => remove(active)}>{ICONS.trash}<span>{t('goalDelete')}</span></button>
+                        </div>
                       </div>
-                      {prog.testAttempted && !prog.testPassed && <div style={{ fontSize: 12, fontWeight: 700, color: '#7C5410' }}>{t('goalReviewing')}</div>}
-                      {prog.pct === 100 && !prog.testAttempted && <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary-d)' }}>{t('goalReady')}</div>}
-                      <div style={{ display: 'grid', gap: 3, fontSize: 12 }}>
-                        {active.topics.map((tp) => (
-                          <div key={tp} style={{ color: prog.mastered.includes(tp) ? 'var(--primary-d)' : 'var(--ink-2)' }}>{prog.mastered.includes(tp) ? '✓' : '○'} {tp}</div>
-                        ))}
-                      </div>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button className="qk-btn qk-btn-ghost" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => complete(active)} disabled={working || (prog.testAttempted && !prog.testPassed)}>{ICONS.check}<span>{t('goalComplete')}</span></button>
-                        <button className="qk-btn qk-btn-ghost" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => openForm(ks.subject, active)}>{t('goalEdit')}</button>
-                        <button className="qk-btn qk-btn-ghost" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => remove(active)}>{ICONS.trash}<span>{t('goalDelete')}</span></button>
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {proposed && (
-                    <div style={{ display: 'grid', gap: 8, padding: 12, borderRadius: 12, background: 'var(--honey-l)' }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: '#7C5410' }}>{t('goalProposed')}</div>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>{proposed.title}</div>
+                    <div style={{ display: 'grid', gap: 8, padding: 12, borderRadius: 12, background: 'var(--honey-l)', marginTop: active ? 4 : 0 }}>
+                      <div><Tag text={active ? t('goalUpNext') : t('goalProposed')} tone="honey" /></div>
+                      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15 }}>{proposed.title}</div>
                       {proposed.description && <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>{proposed.description}</div>}
-                      <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>{proposed.topics.join(' · ')}{proposed.weeks ? ` · ${proposed.weeks} ${t('goalWeeksLabel').toLowerCase()}` : ''}</div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {proposed.topics.map((tp, idx) => (
+                          <span key={tp} style={{ fontSize: 12, padding: '3px 9px', borderRadius: 999, background: 'var(--surface)', color: 'var(--ink-2)' }}>{idx + 1}. {tp}</span>
+                        ))}
+                        {proposed.weeks ? <span style={{ fontSize: 12, padding: '3px 0', color: 'var(--ink-3)' }}>· {proposed.weeks} {t('goalWeeksLabel').toLowerCase()}</span> : null}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#7C5410' }}>{active ? t('goalUpNextHint') : t('goalApproveHint')}</div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         {!active && <Btn kind="primary" onClick={() => approve(proposed)} disabled={working}>{t('goalApprove')}</Btn>}
-                        <button className="qk-btn qk-btn-ghost" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => openForm(ks.subject, proposed)}>{t('goalEdit')}</button>
-                        <button className="qk-btn qk-btn-ghost" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => propose(ks.subject)} disabled={working}>{working ? t('goalWorking') : t('goalRegenerate')}</button>
-                        <button className="qk-btn qk-btn-ghost" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => remove(proposed)}>{t('goalDiscard')}</button>
+                        <button className="qk-btn qk-btn-ghost" style={smallBtn} onClick={() => openForm(ks.subject, proposed)}>{t('goalEdit')}</button>
+                        <button className="qk-btn qk-btn-ghost" style={smallBtn} onClick={() => propose(ks.subject)} disabled={working}>{working ? t('goalWorking') : t('goalRegenerate')}</button>
+                        <button className="qk-btn qk-btn-ghost" style={smallBtn} onClick={() => remove(proposed)}>{t('goalDiscard')}</button>
                       </div>
                     </div>
                   )}
@@ -255,9 +310,9 @@ export default function GoalsSection({ kid, quizzes, only, topics: topicsProp }:
                       </div>
                     </>
                   )}
-                  {active && !proposed && (
-                    <button className="qk-btn qk-btn-ghost" style={{ fontSize: 12, padding: '6px 10px', alignSelf: 'flex-start' }} onClick={() => propose(ks.subject)} disabled={working || !topicsReady || goalCandidates(goals, ks.subject, topics).length === 0}>
-                      {working ? t('goalWorking') : t('goalGenerate')}
+                  {active && !proposed && goalCandidates(goals, ks.subject, topics).length > 0 && (
+                    <button className="qk-btn qk-btn-ghost" style={{ ...smallBtn, alignSelf: 'flex-start', borderStyle: 'dashed' }} onClick={() => propose(ks.subject)} disabled={working || !topicsReady}>
+                      {ICONS.plus}<span>{working ? t('goalWorking') : t('goalPlanNext')}</span>
                     </button>
                   )}
                 </>

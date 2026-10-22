@@ -3,6 +3,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
+import { LoadingBar } from '@/components/ui/LoadingBar';
 import { Avatar } from '@/components/ui/Avatar';
 import { Stars, StatCard } from '@/components/ui/Stars';
 import { CustomSubjectAdder } from '@/components/ui/CustomSubjectAdder';
@@ -15,6 +16,7 @@ import { subjectOptions, subjectInfo, kidSubjectInfo, subjectLabelFields, levelL
 import { goalFromRow, goalProgress } from '@/lib/goals';
 import GoalsSection from './GoalsSection';
 import PlanSection from './PlanSection';
+import { LIST_PREVIEW, ViewAllToggle, pendingFirst, quizzesByTopic } from './lists';
 import type { Kid, KidSubject } from '@/types';
 
 function gradeLabel(grade: string, lang: string) {
@@ -281,6 +283,10 @@ export default function KidDetailClient() {
   const needsPractice = topicStats.filter((s) => s.accuracy < 75).slice(-5).reverse();
 
   const pendingAssignments = assignments.filter((a) => a.status !== 'completed');
+  const sortedAssignments = pendingFirst(assignments);
+  const recentTopics = React.useMemo(() => quizzesByTopic(quizzes), [quizzes]);
+  const [showAllQuizzes, setShowAllQuizzes] = React.useState(false);
+  const [showAllWork, setShowAllWork] = React.useState(false);
 
   const goalMin = kid?.goal_min || 30;
   const weeklyGoal = goalMin * 7;
@@ -364,11 +370,7 @@ export default function KidDetailClient() {
             )}
           </div>
 
-          {loading && (
-            <div style={{ marginTop: 20 }}>
-              <div className="qk-progress"><span style={{ width: '60%', animation: 'qk-pulse 1.2s ease infinite' }} /></div>
-            </div>
-          )}
+          <LoadingBar top active={loading} expectedMs={1500} />
 
           <div style={{ marginTop: 24 }}>
             <Section
@@ -527,12 +529,12 @@ export default function KidDetailClient() {
             </Section>
 
             {/* recent quizzes */}
-            <Section title={t('recentQuizzes')}>
-              {quizzes.length === 0 ? (
+            <Section title={t('recentQuizzes')} action={<ViewAllToggle open={showAllQuizzes} total={recentTopics.length} onToggle={() => setShowAllQuizzes((v) => !v)} t={t} />}>
+              {recentTopics.length === 0 ? (
                 <EmptyNote text={t('nothingHereYet')} />
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {quizzes.slice(0, 8).map((q, i) => {
+                  {(showAllQuizzes ? recentTopics : recentTopics.slice(0, LIST_PREVIEW)).map(({ latest: q, attempts, bestPct }, i) => {
                     const pct = (q.total || 0) > 0 ? Math.round(((q.correct || 0) / (q.total || 1)) * 100) : 0;
                     return (
                       <div key={`${q.created_at}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', background: 'var(--surface-2)', borderRadius: 12 }}>
@@ -543,6 +545,7 @@ export default function KidDetailClient() {
                           <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.topic || '—'}</div>
                           <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
                             {relativeDate(q.created_at, lang)} · {q.correct || 0}/{q.total || 0} · {pct}%
+                            {attempts > 1 ? ` · ${attempts} ${t('attemptsLabel')}${bestPct > pct ? ` · ${t('bestScore')} ${bestPct}%` : ''}` : ''}
                           </div>
                         </div>
                         {gamification !== 'minimal' && <Stars count={q.stars || 0} of={5} size={13} />}
@@ -554,12 +557,12 @@ export default function KidDetailClient() {
             </Section>
 
             {/* assigned work */}
-            <Section title={t('assignedWork')}>
+            <Section title={t('assignedWork')} action={<ViewAllToggle open={showAllWork} total={sortedAssignments.length} onToggle={() => setShowAllWork((v) => !v)} t={t} />}>
               {assignments.length === 0 ? (
                 <EmptyNote text={t('nothingHereYet')} />
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {assignments.slice(0, 8).map((a) => {
+                  {(showAllWork ? sortedAssignments : sortedAssignments.slice(0, LIST_PREVIEW)).map((a) => {
                     const done = a.status === 'completed';
                     return (
                       <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', background: 'var(--surface-2)', borderRadius: 12 }}>

@@ -3,6 +3,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
+import { LoadingBar } from '@/components/ui/LoadingBar';
 import { Btn } from '@/components/ui/Btn';
 import { Stars, StatCard } from '@/components/ui/Stars';
 import { AppShell } from '@/components/layout/AppShell';
@@ -14,6 +15,7 @@ import { goalFromRow } from '@/lib/goals';
 import { addTopic, loadTopics, removeTopic, subjectTopics, type TopicRow } from '@/lib/topics';
 import { MAX_TEST_TOPICS, createTest, daysUntil, defaultTestTopics, loadTests, removeTest, testStudyParams, topicsInTests } from '@/lib/tests';
 import GoalsSection from '../../GoalsSection';
+import { LIST_PREVIEW, ViewAllToggle, pendingFirst, quizzesByTopic } from '../../lists';
 import type { Kid, KidSubject, KidTest, KidTopic } from '@/types';
 
 interface QuizRow { subject: string | null; topic: string | null; total: number | null; correct: number | null; stars: number | null; created_at: string }
@@ -68,6 +70,10 @@ export default function SubjectClient() {
   const [adding, setAdding] = React.useState(false);
   const [editingFocus, setEditingFocus] = React.useState(false);
   const [focusDraft, setFocusDraft] = React.useState('');
+  const [showAllQuizzes, setShowAllQuizzes] = React.useState(false);
+  const [showAllWork, setShowAllWork] = React.useState(false);
+  const recentTopics = React.useMemo(() => quizzesByTopic(quizzes), [quizzes]);
+  const sortedAssignments = pendingFirst(assignments);
 
   React.useEffect(() => {
     if (!kidId || !subject) { setLoading(false); return; }
@@ -343,11 +349,7 @@ export default function SubjectClient() {
             <StatCard tone="honey" icon={ICONS.clock} value={lastAt ? relativeDate(lastAt, lang) : '—'} label={L('last studied', 'último estudio')} />
           </div>
 
-          {loading && (
-            <div style={{ marginTop: 20 }}>
-              <div className="qk-progress"><span style={{ width: '60%', animation: 'qk-pulse 1.2s ease infinite' }} /></div>
-            </div>
-          )}
+          <LoadingBar top active={loading} expectedMs={1500} />
 
           {error && <div style={{ marginTop: 20, padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600, fontSize: 13 }}>{error}</div>}
 
@@ -446,7 +448,7 @@ export default function SubjectClient() {
                     </Btn>
                     <button className="qk-btn qk-btn-ghost" onClick={() => setTestForm(null)} disabled={creatingTest}>{t('cancel')}</button>
                   </div>
-                  {creatingTest && <div className="qk-progress"><span style={{ width: '60%', animation: 'qk-pulse 1.2s ease infinite' }} /></div>}
+                  {creatingTest && <LoadingBar expectedMs={15000} />}
                 </div>
               )}
 
@@ -498,18 +500,21 @@ export default function SubjectClient() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: 16, marginTop: 24, alignItems: 'start' }}>
             {/* recent quizzes */}
-            <Section title={t('recentQuizzes')}>
-              {quizzes.length === 0 ? (
+            <Section title={t('recentQuizzes')} action={<ViewAllToggle open={showAllQuizzes} total={recentTopics.length} onToggle={() => setShowAllQuizzes((v) => !v)} t={t} />}>
+              {recentTopics.length === 0 ? (
                 <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{t('nothingHereYet')}</div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {quizzes.slice(0, 10).map((q, i) => {
+                  {(showAllQuizzes ? recentTopics : recentTopics.slice(0, LIST_PREVIEW)).map(({ latest: q, attempts, bestPct }, i) => {
                     const pct = (q.total || 0) > 0 ? Math.round(((q.correct || 0) / (q.total || 1)) * 100) : 0;
                     return (
                       <div key={`${q.created_at}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', background: 'var(--surface-2)', borderRadius: 12 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.topic || '—'}</div>
-                          <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{relativeDate(q.created_at, lang)} · {q.correct || 0}/{q.total || 0} · {pct}%</div>
+                          <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                            {relativeDate(q.created_at, lang)} · {q.correct || 0}/{q.total || 0} · {pct}%
+                            {attempts > 1 ? ` · ${attempts} ${t('attemptsLabel')}${bestPct > pct ? ` · ${t('bestScore')} ${bestPct}%` : ''}` : ''}
+                          </div>
                         </div>
                         {gamification !== 'minimal' && <Stars count={q.stars || 0} of={5} size={13} />}
                       </div>
@@ -520,12 +525,12 @@ export default function SubjectClient() {
             </Section>
 
             {/* assigned work */}
-            <Section title={t('assignedWork')}>
+            <Section title={t('assignedWork')} action={<ViewAllToggle open={showAllWork} total={sortedAssignments.length} onToggle={() => setShowAllWork((v) => !v)} t={t} />}>
               {assignments.length === 0 ? (
                 <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{t('nothingHereYet')}</div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {assignments.slice(0, 10).map((a) => {
+                  {(showAllWork ? sortedAssignments : sortedAssignments.slice(0, LIST_PREVIEW)).map((a) => {
                     const done = a.status === 'completed';
                     return (
                       <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', background: 'var(--surface-2)', borderRadius: 12 }}>

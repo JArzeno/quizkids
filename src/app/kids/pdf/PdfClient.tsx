@@ -2,6 +2,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
+import { LoadingBar } from '@/components/ui/LoadingBar';
 import { Btn, Chip } from '@/components/ui/Btn';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
@@ -198,7 +199,7 @@ export default function PdfClient() {
 
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, paddingTop: 80 }}>
-              <div className="qk-progress" style={{ width: 'min(280px, 100%)' }}><span style={{ width: '60%', animation: 'qk-pulse 1.2s ease infinite' }} /></div>
+              <LoadingBar expectedMs={15000} style={{ width: 'min(280px, 100%)' }} />
               <div style={{ fontSize: 16, color: 'var(--ink-3)', fontFamily: 'var(--font-display)' }}>{t('generating')}</div>
             </div>
           ) : data && (
