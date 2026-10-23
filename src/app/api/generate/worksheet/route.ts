@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { generateWorksheet, parseContext } from '@/lib/openai';
+import { contentLang } from '@/lib/languages';
 import { WORKSHEET_VERSION } from '@/lib/worksheet';
 import { createClient } from '@/lib/supabase/server';
 
@@ -9,7 +10,7 @@ export async function POST(req: NextRequest) {
     const { topic, grade, source, lang, subject, variant, context } = await req.json();
     if (!topic || !grade) return NextResponse.json({ error: 'Missing topic or grade' }, { status: 400 });
 
-    const lng = lang || 'en';
+    const lng = contentLang(lang);
     const ctx = parseContext(context);
     // A variant is a personalised request (review / retake): never served from, or mistaken for, the shared cache
     const isVariant = typeof variant === 'string' && variant.length > 0;

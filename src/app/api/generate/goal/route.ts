@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateGoal } from '@/lib/openai';
+import { contentLang } from '@/lib/languages';
 
 export const maxDuration = 60;
 
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
       strong: strList(b.strong, 8),
       weak: strList(b.weak, 8),
       done: strList(b.done, 10),
-      lang: b.lang === 'es' || b.lang === 'fr' ? b.lang : 'en',
+      lang: contentLang(b.lang),
     });
 
     // Keep only topics that are really in the list (written back exactly as the parent added them)

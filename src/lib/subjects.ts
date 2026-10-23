@@ -1,4 +1,5 @@
 import type { KidSubject } from '@/types';
+import { isContentLang } from '@/lib/languages';
 
 export const BUILTIN_SUBJECTS = [
   { id: 'math', en: 'Math', es: 'Matemáticas', icon: '➗' },
@@ -54,7 +55,8 @@ export function levelLabel(level: number, lang: string): string {
 export function fromRow(r: Record<string, unknown>): KidSubject {
   return {
     subject: r.subject as string,
-    lang: ((r.lang as string) || 'en') as 'en' | 'es' | 'fr',
+    // Null means the subject follows the account language
+    lang: isContentLang(r.lang) ? r.lang : undefined,
     focus: (r.focus as string) || undefined,
     level: r.level == null ? undefined : (r.level as number),
     strongTopics: (r.strong_topics as string[]) || [],

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client';
-import type { Kid, KidSubject, KidTest, KidTopic, Lang, StudyParams } from '@/types';
+import type { Kid, KidSubject, KidTest, KidTopic, StudyParams } from '@/types';
+import type { ContentLang } from '@/lib/languages';
 
 /** Most topics one test can cover (keeps the quiz and guide a sensible size) */
 export const MAX_TEST_TOPICS = 8;
@@ -78,7 +79,7 @@ export async function createTest(
   kid: Pick<Kid, 'id' | 'grade'>,
   subject: string,
   input: TestInput,
-  opts: { lang: Lang | 'fr'; difficulty: StudyParams['difficulty']; existing: KidTest[]; isDemo: boolean },
+  opts: { lang: ContentLang; difficulty: StudyParams['difficulty']; existing: KidTest[]; isDemo: boolean },
 ): Promise<KidTest> {
   const titles = input.topics.map((t) => t.title).slice(0, MAX_TEST_TOPICS);
   if (titles.length === 0) throw new Error('No topics');
@@ -128,7 +129,8 @@ export function testStudyParams(base: StudyParams, kid: Pick<Kid, 'grade'>, test
     contentId: kind === 'guide' ? test.guideContentId : test.quizContentId,
     pairedContentId: kind === 'guide' ? test.quizContentId : undefined,
     assignmentId: undefined, planItemId: undefined,
-    contentLang: ks?.lang ?? test.lang,
+    // Same language as the subject's other content: the account language unless the parent set one for the subject
+    contentLang: ks?.lang,
     source: testSource(topics.filter((t) => covered.has(norm(t.title)))),
     returnTo,
   };

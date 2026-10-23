@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateGuideMore, parseContext } from '@/lib/openai';
+import { contentLang } from '@/lib/languages';
 
 /** Extra sections for a guide the kid is reading. Not cached: it depends on what the guide already covers. */
 export async function POST(req: NextRequest) {
@@ -10,7 +11,7 @@ export async function POST(req: NextRequest) {
     const have: string[] = Array.isArray(covered)
       ? covered.filter((c): c is string => typeof c === 'string' && c.trim().length > 0).map((c) => c.trim().slice(0, 120)).slice(0, 24)
       : [];
-    const data = await generateGuideMore(topic, grade, lang || 'en', {
+    const data = await generateGuideMore(topic, grade, contentLang(lang), {
       focus: typeof focus === 'string' && focus.trim() ? focus.trim().slice(0, 120) : undefined,
       covered: have,
       source: typeof source === 'string' && source.trim() ? source.trim() : undefined,

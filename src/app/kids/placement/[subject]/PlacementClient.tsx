@@ -76,7 +76,7 @@ export default function PlacementClient() {
         const { error: dbErr } = await createClient().from('kid_subjects').upsert({
           kid_id: kid.id,
           subject,
-          lang: subjectLang,
+          lang: kidSubject?.lang ?? null,
           focus: focus ?? null,
           ...labels,
           level: result.level,
@@ -93,7 +93,7 @@ export default function PlacementClient() {
     }
 
     if (saved) {
-      const entry = { subject, lang: subjectLang, focus, name: kidSubject?.name, icon: kidSubject?.icon, ...labels, level: result.level, strongTopics: result.strongTopics, weakTopics: result.weakTopics, placementAccuracy: result.accuracy, placedAt };
+      const entry = { subject, lang: kidSubject?.lang, focus, name: kidSubject?.name, icon: kidSubject?.icon, ...labels, level: result.level, strongTopics: result.strongTopics, weakTopics: result.weakTopics, placementAccuracy: result.accuracy, placedAt };
       const others = (kid.subjects || []).filter((s) => s.subject !== subject);
       const nextSubjects = [...others, entry];
       updateKid(kid.id, { subjects: nextSubjects });

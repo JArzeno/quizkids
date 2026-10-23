@@ -1,3 +1,5 @@
+import type { ContentLang } from '@/lib/languages';
+
 export interface Kid {
   id: string;
   parent_id: string;
@@ -158,8 +160,8 @@ export interface StudyParams {
   assignmentId?: string;
   /** Set when the item comes from the daily plan, so finishing it can tick it off */
   planItemId?: string;
-  /** Language of the content when it differs from the account language (per-subject language) */
-  contentLang?: Lang | 'fr';
+  /** Language of the content when the parent set the subject to a language other than the account's */
+  contentLang?: ContentLang;
   /** Study notes extracted from an imported class (PDF / photos); grounds generation in that material */
   source?: string;
   /** Kid screen to go back to after studying (e.g. a subject page); defaults to the kid home */
@@ -193,8 +195,8 @@ export interface CustomSubject {
 /** A subject a kid studies, with the result of its placement quiz once taken */
 export interface KidSubject {
   subject: string;
-  /** Language the subject is studied in */
-  lang?: 'en' | 'es' | 'fr';
+  /** Language the parent set this subject to be studied in; unset = the account language */
+  lang?: ContentLang;
   focus?: string;
   /** Estimated grade level for this subject (0 = K); undefined until placement is taken */
   level?: number;
@@ -261,7 +263,7 @@ export interface KidTest {
   testDate?: string;
   guideContentId?: string;
   quizContentId?: string;
-  lang?: Lang | 'fr';
+  lang?: ContentLang;
   createdAt?: string;
 }
 
