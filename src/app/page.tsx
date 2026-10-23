@@ -1,17 +1,12 @@
 import type { Metadata } from 'next';
-import LandingClient from './LandingClient';
+import { HomePage } from '@/components/marketing/pages/HomePage';
+import { HOME } from '@/content/home';
+import { pageMetadata } from '@/lib/site';
 
-export const metadata: Metadata = {
-  title: 'QuizKids — A cozy place for kids to love learning',
-  description: 'AI-generated quizzes, study guides, and printable worksheets for kids K-12. Bilingual English & Spanish. No ads, no chat — just learning.',
-  alternates: { canonical: '/' },
-  openGraph: {
-    title: 'QuizKids — A cozy place for kids to love learning',
-    description: 'AI-generated quizzes, study guides, and printable worksheets for kids K-12.',
-    url: '/',
-  },
-};
+const L = 'en';
 
-export default function HomePage() {
-  return <LandingClient />;
+export const metadata: Metadata = pageMetadata(L, '/', HOME[L].metaTitle, HOME[L].metaDescription, { absoluteTitle: true });
+
+export default function Page() {
+  return <HomePage locale={L} />;
 }
