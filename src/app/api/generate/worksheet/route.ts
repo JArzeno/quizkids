@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
   try {
-    const { topic, grade, source, lang, subject, variant, context } = await req.json();
+    const { topic, grade, source, lang, subject, variant, context , cacheOnly } = await req.json();
     if (!topic || !grade) return NextResponse.json({ error: 'Missing topic or grade' }, { status: 400 });
 
     const lng = contentLang(lang);
@@ -37,6 +37,8 @@ export async function POST(req: NextRequest) {
       if (cached?.content) {
         return NextResponse.json({ ...(cached.content as object), contentId: cached.id, cached: true });
       }
+      // Only asking whether it already exists (the screen says "Loading" for saved content, "Creating" for new)
+      if (cacheOnly) return NextResponse.json({ cached: false });
 
       // Generate new
       const data = await generateWorksheet(topic, grade, lng, src, ctx);
@@ -51,6 +53,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ...data, contentId: saved?.id ?? null, cached: false });
     } catch (dbErr) {
       console.warn('Supabase cache miss/error, generating fresh:', dbErr);
+      if (cacheOnly) return NextResponse.json({ cached: false });
       const data = await generateWorksheet(topic, grade, lng, src, ctx);
       return NextResponse.json({ ...data, contentId: null, cached: false });
     }

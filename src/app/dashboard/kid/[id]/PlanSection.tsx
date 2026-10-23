@@ -56,6 +56,14 @@ export default function PlanSection({ kid, quizzes, sessions }: { kid: Kid; quiz
   const todayPending = dayItems(todayKey).filter((i) => i.goalId && i.status === 'pending');
   const pausedSubjects = new Set(subjects.filter((s) => s.paused).map((s) => s.subject));
 
+  // On narrow screens the week scrolls sideways: start it at today instead of Monday
+  const weekRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const box = weekRef.current;
+    const day = box?.querySelector<HTMLElement>('[data-today]');
+    if (box && day && box.scrollWidth > box.clientWidth) box.scrollLeft = day.offsetLeft - box.offsetLeft;
+  }, [items.length]);
+
   const typeLabel = (i: PlanItem) =>
     (i.review ? L('Review · ', 'Repaso · ') : '') + (i.type === 'guide' ? L('Guide', 'Guía') : i.type === 'pdf' ? L('Worksheet', 'Hoja') : i.type === 'test' ? L('Final test', 'Prueba final') : 'Quiz');
 
@@ -123,7 +131,6 @@ export default function PlanSection({ kid, quizzes, sessions }: { kid: Kid; quiz
     next: items.filter((i) => i.goalId === g.id && i.status === 'pending' && i.planDate !== todayKey).sort((a, b) => a.position - b.position).slice(0, 3),
   })).filter((x) => x.next.length > 0);
 
-  const chip: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', borderRadius: 999, fontSize: 12, fontWeight: 600 };
   const smallBtn: React.CSSProperties = { fontSize: 12, padding: '6px 10px' };
 
   return (
@@ -164,26 +171,44 @@ export default function PlanSection({ kid, quizzes, sessions }: { kid: Kid; quiz
         </div>
       )}
 
-      <div style={{ display: 'grid', gap: 8 }}>
+      {/* Mon–Fri side by side like a calendar; scrolls sideways on narrow screens */}
+      <div className="qk-week" ref={weekRef}>
         {week.map((d) => {
           const key = dateKey(d);
           const list = dayItems(key);
           const isToday = key === todayKey;
           const future = d.getTime() > today.getTime() && !isToday;
+          const done = list.filter((i) => i.status === 'completed').length;
           return (
-            <div key={key} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '10px 12px', borderRadius: 12, background: isToday ? 'var(--primary-l)' : 'var(--surface-2)' }}>
-              <div style={{ width: 62, flexShrink: 0, fontSize: 12, fontWeight: 700, color: isToday ? 'var(--primary-d)' : 'var(--ink-3)' }}>
-                {d.toLocaleDateString(lang === 'es' ? 'es-DO' : 'en-US', { weekday: 'short' })}
-                <div style={{ fontWeight: 400 }}>{d.toLocaleDateString(lang === 'es' ? 'es-DO' : 'en-US', { month: 'short', day: 'numeric' })}</div>
+            <div key={key} className="qk-week-day" data-today={isToday || undefined} style={{ background: isToday ? 'var(--primary-l)' : 'var(--surface-2)', borderColor: isToday ? 'var(--primary)' : 'transparent' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: isToday ? 'var(--primary-d)' : 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                  {d.toLocaleDateString(lang === 'es' ? 'es-DO' : 'en-US', { weekday: 'short' })}
+                </div>
+                {isToday && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: 'var(--primary)', padding: '2px 7px', borderRadius: 999 }}>{L('Today', 'Hoy')}</span>}
               </div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
-                {list.length === 0 && <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{future ? L('Handed out when the day starts', 'Se asigna cuando empieza el día') : L('No plan', 'Sin plan')}</span>}
-                {list.map((i) => (
-                  <span key={i.id} style={{ ...chip, background: i.status === 'completed' ? 'var(--primary-l)' : 'var(--surface)', color: i.status === 'completed' ? 'var(--primary-d)' : 'var(--ink-2)', border: '1px solid var(--line)' }}>
-                    {i.status === 'completed' ? '✓' : '○'} {label(i.subject).icon} {i.topic} · {typeLabel(i)}{!i.goalId ? ' ✋' : ''}
-                  </span>
-                ))}
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6, marginTop: -4 }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: isToday ? 'var(--primary-d)' : 'var(--ink)' }}>{d.getDate()}</span>
+                {list.length > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)' }}>{done}/{list.length}</span>}
               </div>
+              {list.length === 0 && (
+                <div style={{ flex: 1, minHeight: 64, display: 'grid', placeItems: 'center', textAlign: 'center', padding: 8, borderRadius: 10, border: '1.5px dashed var(--line)', fontSize: 11.5, color: 'var(--ink-3)' }}>
+                  {future ? L('Handed out when the day starts', 'Se asigna cuando empieza el día') : L('No plan', 'Sin plan')}
+                </div>
+              )}
+              {list.map((i) => {
+                const finished = i.status === 'completed';
+                return (
+                  <div key={i.id} style={{ padding: '8px 10px', borderRadius: 10, background: 'var(--surface)', border: '1px solid ' + (finished ? 'var(--primary)' : 'var(--line)'), opacity: finished ? 0.75 : 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: finished ? 'var(--primary-d)' : 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.03em' }}>
+                      <span>{label(i.subject).icon}</span>
+                      <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{typeLabel(i)}{!i.goalId ? ' ✋' : ''}</span>
+                      {finished && <span role="img" aria-label={L('Done', 'Listo')} style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 10, flexShrink: 0 }}>✓</span>}
+                    </div>
+                    <div style={{ marginTop: 3, fontSize: 13, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', textDecoration: finished ? 'line-through' : 'none', overflowWrap: 'anywhere' }}>{i.topic}</div>
+                  </div>
+                );
+              })}
             </div>
           );
         })}

@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/client';
 import { studyTimeSaved } from '@/lib/studyTimer';
 import { subjectOptions, subjectInfo, kidSubjectInfo, subjectLabelFields, levelLabel, fromRow } from '@/lib/subjects';
 import { goalFromRow, goalProgress } from '@/lib/goals';
+import { kidTarget, originOf, playProfileSwitch } from '@/lib/profileSwitch';
 import GoalsSection from './GoalsSection';
 import PlanSection from './PlanSection';
 import { LIST_PREVIEW, ViewAllToggle, pendingFirst, quizzesByTopic } from './lists';
@@ -311,11 +312,13 @@ export default function KidDetailClient() {
     setAddingSubject(false);
   };
 
-  const openKidHome = () => {
+  const openKidHome = (e?: React.MouseEvent<HTMLElement>) => {
     if (!kid) return;
-    setActiveKidId(kid.id);
-    setMode('kid');
-    router.push('/kids/home');
+    playProfileSwitch(kidTarget(kid, lang), () => {
+      setActiveKidId(kid.id);
+      setMode('kid');
+      router.push('/kids/home');
+    }, { origin: originOf(e) });
   };
 
   if (!kid) {
