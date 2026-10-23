@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { normalizeWorksheet } from '@/lib/worksheet';
 import { languagePromptName } from '@/lib/languages';
+import { gradeToNumber } from '@/lib/subjects';
 
 function getClient() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'placeholder' });
@@ -521,4 +522,79 @@ Include 0–8 vocabulary terms (only if relevant). If the files contain no reada
     vocabulary: Array.isArray(parsed.vocabulary) ? parsed.vocabulary.filter((v: { term?: string }) => v?.term) : [],
     notes: String(parsed.notes || ''),
   };
+}
+
+/** Age band of a header illustration: the picture style changes as kids grow, and each band is cached separately */
+export type ImageBand = 'young' | 'middle' | 'older';
+
+export function imageBand(grade: string): ImageBand {
+  const n = gradeToNumber(grade);
+  return n <= 2 ? 'young' : n <= 5 ? 'middle' : 'older';
+}
+
+const IMAGE_STYLE: Record<ImageBand, string> = {
+  young: 'Bright, cheerful cartoon illustration like a picture book for 5–8 year olds: simple rounded shapes, soft thick outlines, warm saturated colors, cute friendly characters or animal mascots with happy faces, a plain uncluttered background.',
+  middle: 'Colorful, detailed storybook-style educational illustration for 8–11 year olds: semi-realistic proportions, clear readable shapes, rich but soft colors, a curious and inviting mood.',
+  older: 'Realistic, high-quality educational illustration like a modern textbook or museum exhibit for middle and high school students: accurate details, natural colors and lighting, a clean calm composition.',
+};
+
+const IMAGE_SAFETY = 'The image is for children and must be gentle and safe: no violence, weapons, blood, injuries, illness, death, fear, horror or scary creatures; no nudity or revealing clothing; no real or famous people; no logos or brands. Absolutely no text, letters, numbers, labels or captions anywhere in the image.';
+
+/**
+ * Draws the header illustration of a study guide in the style of the kid's age band.
+ * Three safety gates: the topic goes through OpenAI moderation, a planner turns it into a gentle concrete scene (or refuses),
+ * and the image model's own moderation stays at its strictest. Returns null when the topic can't be shown safely to kids.
+ */
+export async function generateTopicImage(subject: string, topics: string[], grade: string): Promise<Buffer | null> {
+  const openai = getClient();
+  const topicText = topics.map((t) => `"${t}"`).join('; ');
+
+  const mod = await openai.moderations.create({ model: 'omni-moderation-latest', input: `${subject}: ${topicText}` });
+  if (mod.results.some((r) => r.flagged)) return null;
+
+  const plan = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: `You plan the header illustration of a children's study guide.
+Subject: ${subject}
+Topic${topics.length > 1 ? 's' : ''}: ${topicText}
+Student: ${gradeContext(grade)}
+
+Describe ONE simple scene, in English, in 1–2 sentences, that shows what ${topics.length > 1 ? 'these topics are' : 'this topic is'} about so the student recognizes it at a glance.
+Rules:
+- Use concrete things: objects, animals, plants, places, landscapes, tools or a simple diagram. Show math ideas with everyday objects (e.g. pizza slices for fractions, groups of apples for multiplication), never written numbers or symbols
+- Completely gentle and safe for children: no violence, weapons, blood, injuries, illness, death, sad or scary moments, no nudity
+- For hard history or science topics (wars, disasters, diseases, the human body) show a calm, neutral side: a map, buildings, everyday objects of the time, a landscape, or a simple friendly diagram
+- No real or famous people, and no text, letters or numbers in the scene
+- If the topic cannot be shown in a way that is safe for children, set "ok" to false
+
+Return ONLY valid JSON: { "ok": true, "scene": "..." }` }],
+    response_format: { type: 'json_object' },
+    temperature: 0.5,
+    max_tokens: 200,
+  });
+  const content = plan.choices[0].message.content;
+  if (!content) throw new Error('No content from OpenAI');
+  const parsed = JSON.parse(content);
+  const scene = str(parsed.scene);
+  if (parsed.ok === false || !scene) return null;
+
+  try {
+    const image = await openai.images.generate({
+      model: 'gpt-image-1',
+      prompt: `${scene}\n\nStyle: ${IMAGE_STYLE[imageBand(grade)]}\n\n${IMAGE_SAFETY}`,
+      size: '1536x1024',
+      quality: 'medium',
+      output_format: 'webp',
+      output_compression: 80,
+      moderation: 'auto',
+      n: 1,
+    });
+    const b64 = image.data?.[0]?.b64_json;
+    if (!b64) throw new Error('No image from OpenAI');
+    return Buffer.from(b64, 'base64');
+  } catch (err) {
+    // The image model refused the prompt on safety grounds: treat it like an unsafe topic
+    if (err instanceof OpenAI.APIError && err.code === 'moderation_blocked') return null;
+    throw err;
+  }
 }
