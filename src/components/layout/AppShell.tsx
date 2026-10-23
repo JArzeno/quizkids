@@ -13,7 +13,7 @@ import { signOut } from '@/lib/auth';
 import { loadCustomSubjects } from '@/lib/customSubjects';
 
 export function AppShell({ children, showNav = true }: { children: React.ReactNode; showNav?: boolean }) {
-  const { lang, setLang, mode, kids, activeKidId, setMode, setActiveKidId, palette, font } = useStore();
+  const { lang, mode, kids, activeKidId, setMode, setActiveKidId, palette, font } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const activeKid = kids.find((k) => k.id === activeKidId) || kids[0];
@@ -122,12 +122,7 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
                   onClick: () => switchMode(mode === 'kid' ? 'parent' : 'kid'),
                 } : undefined}
               />
-            ) : (
-              <div className="qk-lang" role="tablist" aria-label="language">
-                <button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>EN</button>
-                <button className={lang === 'es' ? 'on' : ''} onClick={() => setLang('es')}>ES</button>
-              </div>
-            )}
+            ) : null}
           </div>
         </header>
       )}

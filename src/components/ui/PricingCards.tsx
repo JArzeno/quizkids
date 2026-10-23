@@ -2,13 +2,14 @@
 import React from 'react';
 import { Ico } from './Icons';
 import { useT } from '@/lib/i18n';
+import { PLAN_PRICES } from '@/lib/pricing';
 import type { Lang } from '@/types';
 
 const QK_PLAN = {
   nameKey: 'planFamily',
   pitchKey: 'planFamilyPitch',
-  price: { monthly: 10, yearly: 96 },
-  perKid: { monthly: 5, yearly: 48 },
+  price: { monthly: PLAN_PRICES.monthly.base, yearly: PLAN_PRICES.yearly.base },
+  perKid: { monthly: PLAN_PRICES.monthly.perKid, yearly: PLAN_PRICES.yearly.perKid },
   features: ['planFamilyFeat1', 'planFamilyFeat2', 'planFamilyFeat3', 'planFamilyFeat4'],
 };
 
