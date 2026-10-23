@@ -156,6 +156,8 @@ export default function KidDetailClient() {
   const [quizzes, setQuizzes] = React.useState<QuizRow[]>([]);
   const [sessions, setSessions] = React.useState<SessionRow[]>([]);
   const [assignments, setAssignments] = React.useState<AssignmentRow[]>([]);
+  // Subjects of the kid's classes (one entry per class); null until loaded
+  const [topicSubjects, setTopicSubjects] = React.useState<string[] | null>(null);
   const [loading, setLoading] = React.useState(!isDemo);
 
   React.useEffect(() => {
@@ -182,6 +184,7 @@ export default function KidDetailClient() {
       setQuizzes(demoQuizzes);
       setSessions([]);
       setAssignments([]);
+      setTopicSubjects((kid?.topics || []).map((x) => x.subject));
       setLoading(false);
       return;
     }
@@ -191,7 +194,7 @@ export default function KidDetailClient() {
       try {
         await studyTimeSaved();
         const supabase = createClient();
-        const [quizRes, sessionRes, assignRes, subjRes, goalRes] = await Promise.all([
+        const [quizRes, sessionRes, assignRes, subjRes, goalRes, topicRes] = await Promise.all([
           supabase.from('quiz_results')
             .select('subject, topic, grade, difficulty, total, correct, stars, created_at')
             .eq('kid_id', kidId).order('created_at', { ascending: false }).limit(300),
@@ -203,6 +206,7 @@ export default function KidDetailClient() {
             .eq('kid_id', kidId).order('assigned_at', { ascending: false }).limit(40),
           supabase.from('kid_subjects').select('*').eq('kid_id', kidId).order('created_at'),
           supabase.from('kid_goals').select('*').eq('kid_id', kidId).order('created_at'),
+          supabase.from('kid_topics').select('subject').eq('kid_id', kidId),
         ]);
         if (cancelled) return;
         if (subjRes.data) updateKid(kidId, { subjects: subjRes.data.map(fromRow) });
@@ -210,6 +214,7 @@ export default function KidDetailClient() {
         setQuizzes((quizRes.data as QuizRow[]) || []);
         setSessions((sessionRes.data as SessionRow[]) || []);
         setAssignments((assignRes.data as AssignmentRow[]) || []);
+        setTopicSubjects(topicRes.data ? topicRes.data.map((r) => r.subject as string) : null);
       } catch (e) {
         console.warn('Could not load kid progress:', e);
       }
@@ -296,6 +301,8 @@ export default function KidDetailClient() {
   const subjectChoices = subjectOptions(lang, customSubjects);
   const [addingSubject, setAddingSubject] = React.useState(false);
   const [subjectError, setSubjectError] = React.useState(false);
+  // Subjects still without a class: the class setup isn't finished
+  const setupLeft = topicSubjects ? kidSubjects.filter((s) => !s.paused && !topicSubjects.includes(s.subject)) : [];
 
   const addSubject = async (id: string) => {
     if (!kid) return;
@@ -371,6 +378,34 @@ export default function KidDetailClient() {
           </div>
 
           <LoadingBar top active={loading} expectedMs={1500} />
+
+          {setupLeft.length > 0 && (() => {
+            const es = lang === 'es';
+            const fresh = topicSubjects?.length === 0;
+            const names = setupLeft.map((s) => subjectInfo(s.subject, lang, customSubjects, s).label).join(', ');
+            return (
+              <div className="qk-card qk-slide-up" style={{ marginTop: 24, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', background: 'var(--honey-l)' }}>
+                <div style={{ fontSize: 28 }}>🎒</div>
+                <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16 }}>
+                    {fresh
+                      ? (es ? `Prepara las clases de ${kid.name}` : `Set up ${kid.name}'s classes`)
+                      : setupLeft.length === 1
+                        ? (es ? `${names} aún no tiene clases` : `${names} has no classes yet`)
+                        : (es ? `${setupLeft.length} materias aún no tienen clases` : `${setupLeft.length} subjects have no classes yet`)}
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 2 }}>
+                    {fresh
+                      ? (es ? `Agrega sus clases y unas fotos de la escuela para que todo siga lo que ${kid.name} está aprendiendo.` : `Add the classes and a few photos from school so everything follows what ${kid.name} is learning.`)
+                      : setupLeft.length === 1
+                        ? (es ? 'Agrega sus clases para que las guías y quizzes las sigan.' : 'Add its classes so guides and quizzes follow them.')
+                        : names}
+                  </div>
+                </div>
+                <Link href={`/dashboard/kid/${kid.id}/setup`} className="qk-btn qk-btn-primary">{fresh ? (es ? 'Empezar' : 'Start setup') : (es ? 'Continuar' : 'Continue setup')}</Link>
+              </div>
+            );
+          })()}
 
           <div style={{ marginTop: 24 }}>
             <Section
