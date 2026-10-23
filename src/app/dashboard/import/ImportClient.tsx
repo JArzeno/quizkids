@@ -9,48 +9,8 @@ import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { kidSubjectInfo, subjectOptions } from '@/lib/subjects';
 import { addTopic, lessonNotes } from '@/lib/topics';
+import { MAX_CLASS_FILES as MAX_FILES, analyzeClassFiles, readClassFiles, type PickedFile } from '@/lib/classFiles';
 import type { ImportedLesson } from '@/types';
-
-const MAX_FILES = 6;
-const MAX_PDF_BYTES = 15 * 1024 * 1024;
-const MAX_IMAGE_SIDE = 1600;
-
-interface PickedFile {
-  id: string;
-  name: string;
-  kind: 'image' | 'pdf';
-  dataUrl: string;
-}
-
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result as string);
-    r.onerror = () => reject(r.error);
-    r.readAsDataURL(file);
-  });
-}
-
-/** Downscale photos (phone pictures are huge) so uploads stay fast and under limits */
-async function compressImage(file: File): Promise<string> {
-  const src = await readAsDataUrl(file);
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const el = new Image();
-    el.onload = () => resolve(el);
-    el.onerror = reject;
-    el.src = src;
-  });
-  const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(img.width, img.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(img.width * scale);
-  canvas.height = Math.round(img.height * scale);
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return src;
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/jpeg', 0.85);
-}
 
 export default function ImportClient() {
   const { lang, kids, activeKidId, setActiveKidId, studyParams, setStudyParams, difficulty, importedLesson, setImportedLesson, customSubjects, isDemo, updateKid } = useStore();
@@ -75,24 +35,8 @@ export default function ImportClient() {
 
   const addFiles = async (list: FileList | File[]) => {
     setError(null);
-    const incoming = Array.from(list);
-    const room = MAX_FILES - files.length;
-    if (incoming.length > room) setError(es ? `Máximo ${MAX_FILES} archivos.` : `Up to ${MAX_FILES} files.`);
-    const next: PickedFile[] = [];
-    for (const f of incoming.slice(0, Math.max(0, room))) {
-      try {
-        if (f.type === 'application/pdf') {
-          if (f.size > MAX_PDF_BYTES) { setError(es ? 'El PDF es muy grande (máx. 15 MB).' : 'PDF is too large (max 15 MB).'); continue; }
-          next.push({ id: crypto.randomUUID(), name: f.name, kind: 'pdf', dataUrl: await readAsDataUrl(f) });
-        } else if (f.type.startsWith('image/')) {
-          next.push({ id: crypto.randomUUID(), name: f.name, kind: 'image', dataUrl: await compressImage(f) });
-        } else {
-          setError(es ? 'Solo se aceptan PDF o imágenes.' : 'Only PDF or image files are supported.');
-        }
-      } catch {
-        setError(es ? `No se pudo leer ${f.name}.` : `Could not read ${f.name}.`);
-      }
-    }
+    const { files: next, error: readError } = await readClassFiles(list, MAX_FILES - files.length, lang);
+    setError(readError);
     setFiles((prev) => [...prev, ...next]);
   };
 
@@ -108,20 +52,10 @@ export default function ImportClient() {
     }, 400);
 
     try {
-      const res = await fetch('/api/import/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ files: files.map(({ name, dataUrl }) => ({ name, dataUrl })), grade, lang, hint: hint.trim() || undefined }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        if (res.status === 422) throw new Error(es ? 'No encontramos contenido de clase legible. Prueba con una foto más clara.' : "We couldn't find readable class content. Try a clearer photo.");
-        if (res.status === 413) throw new Error(es ? 'Los archivos son muy grandes.' : 'Files are too large.');
-        throw new Error(es ? 'No se pudo analizar. Intenta de nuevo.' : 'Analysis failed. Please try again.');
-      }
+      const data = await analyzeClassFiles(files, { grade, lang, hint });
       setProgress(100);
-      setLesson(data as ImportedLesson);
-      setImportedLesson(data as ImportedLesson);
+      setLesson(data);
+      setImportedLesson(data);
     } catch (e) {
       setError((e as Error).message);
     } finally {

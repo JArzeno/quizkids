@@ -46,6 +46,7 @@ export default function AddKidClient() {
     const code = (draft.name.toUpperCase().replace(/[^A-Z]/g, '') + '12345').slice(0, 6);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
+    let newId: string | null = null;
 
     if (user) {
       const { data, error } = await supabase
@@ -68,13 +69,16 @@ export default function AddKidClient() {
         }
         addKid({ id: data.id, parent_id: user.id, name: data.name, grade: data.grade, avatar: data.avatar, color: data.color, code: data.code, streak: 0, stars: 0, minutes_total: 0, weekly: 0, goal_min: 30, recent: [], signature: draft.signature, subjects: kidSubjects });
         setActiveKidId(data.id);
+        newId = data.id;
       }
     } else {
       const id = (draft.name.trim().toLowerCase() || 'kid') + '-' + Math.random().toString(36).slice(2, 5);
       addKid({ id, parent_id: 'demo', name: draft.name.trim() || 'New kid', grade: draft.grade || 'K', avatar: draft.avatar || 'sprout', color: draft.color, code, streak: 0, stars: 0, minutes_total: 0, weekly: 0, goal_min: 30, recent: [], signature: draft.signature, subjects: kidSubjects });
       setActiveKidId(id);
+      newId = id;
     }
-    router.push('/dashboard');
+    // A new kid goes through the class setup (classes and photos for each subject) before their page
+    router.push(newId ? `/dashboard/kid/${newId}/setup` : '/dashboard');
   };
 
   return (
