@@ -208,8 +208,9 @@ export default function KidHomeClient() {
     }
   }, [autoStartSession]);
 
-  // All recent: prefer DB data, fallback to local Zustand
-  const allRecent: RecentItem[] = dbRecent ?? kid?.recent ?? [];
+  // All recent: prefer DB data, fallback to local Zustand. Only quizzes are worth picking back up: a worksheet is printed
+  // once and a guide is read once (both stay on the subject page with the rest of the assigned work).
+  const allRecent: RecentItem[] = (dbRecent ?? kid?.recent ?? []).filter((r) => r.kind === 'quiz');
 
   // Filter by subject
   const subjects = Array.from(new Set(allRecent.map((r) => r.subject).filter(Boolean))) as string[];

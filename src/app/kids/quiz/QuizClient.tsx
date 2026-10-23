@@ -2,6 +2,7 @@
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Ico, ICONS } from '@/components/ui/Icons';
+import { LoadingBar } from '@/components/ui/LoadingBar';
 import { Avatar } from '@/components/ui/Avatar';
 import { Btn } from '@/components/ui/Btn';
 import { AppShell } from '@/components/layout/AppShell';
@@ -175,7 +176,7 @@ export default function QuizClient() {
   if (loading) return (
     <AppShell>
       <div className="qk-screen" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
-        <div className="qk-progress" style={{ width: 'min(280px, 100%)' }}><span style={{ width: '60%', animation: 'qk-pulse 1.2s ease infinite' }} /></div>
+        <LoadingBar expectedMs={12000} style={{ width: 'min(280px, 100%)' }} />
         <div style={{ fontSize: 16, color: 'var(--ink-3)', fontFamily: 'var(--font-display)' }}>{t('generating')}</div>
       </div>
     </AppShell>

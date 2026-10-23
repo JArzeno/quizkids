@@ -2,6 +2,7 @@
 import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
+import { LoadingBar } from '@/components/ui/LoadingBar';
 import { Avatar } from '@/components/ui/Avatar';
 import { Btn } from '@/components/ui/Btn';
 import { AppShell } from '@/components/layout/AppShell';
@@ -148,7 +149,7 @@ export default function PlacementClient() {
               {error && <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 14, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600 }}>{error}</div>}
               {phase === 'loading' ? (
                 <div style={{ marginTop: 24 }}>
-                  <div className="qk-progress" style={{ maxWidth: 280, margin: '0 auto' }}><span style={{ width: '60%', animation: 'qk-pulse 1.2s ease infinite' }} /></div>
+                  <LoadingBar expectedMs={12000} style={{ maxWidth: 280, margin: '0 auto' }} />
                   <div style={{ fontSize: 14, color: 'var(--ink-3)', marginTop: 10 }}>{t('placeBuilding')}</div>
                 </div>
               ) : (
@@ -186,7 +187,7 @@ export default function PlacementClient() {
 
           {phase === 'saving' && (
             <div className="qk-card" style={{ padding: 32, textAlign: 'center' }}>
-              <div className="qk-progress" style={{ maxWidth: 280, margin: '0 auto' }}><span style={{ width: '80%', animation: 'qk-pulse 1.2s ease infinite' }} /></div>
+              <LoadingBar expectedMs={6000} style={{ maxWidth: 280, margin: '0 auto' }} />
             </div>
           )}
 
