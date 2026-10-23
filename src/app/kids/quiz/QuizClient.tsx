@@ -3,7 +3,6 @@ import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Ico, ICONS } from '@/components/ui/Icons';
 import { LoadingBar } from '@/components/ui/LoadingBar';
-import { Avatar } from '@/components/ui/Avatar';
 import { Btn } from '@/components/ui/Btn';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
@@ -186,44 +185,31 @@ export default function QuizClient() {
 
   return (
     <AppShell>
-      <div className="qk-screen qk-page-enter" style={{ padding: 0, minHeight: 'calc(100dvh - 65px)', display: 'flex', flexDirection: 'column' }}>
-        {/* kid bar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '14px clamp(16px, 4vw, 22px) 0', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
-          <button onClick={() => router.push(studyParams.returnTo || '/kids/home')} className="qk-btn qk-btn-ghost" style={{ padding: '8px 12px' }}>{ICONS.back} <span>{t('back')}</span></button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(8px, 2vw, 14px)' }}>
+      <div className="qk-screen qk-page-enter" style={{ padding: '14px clamp(16px, 4vw, 22px) 48px' }}>
+        {/* one centered column: top row, progress, card and actions share the same edges */}
+        <div style={{ maxWidth: 600, margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <button onClick={() => router.push(studyParams.returnTo || '/kids/home')} className="qk-btn qk-btn-ghost" style={{ padding: '8px 12px' }}>{ICONS.back} <span>{t('back')}</span></button>
             {gamification !== 'minimal' && (
-              <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: 'var(--honey-l)', color: '#7C5410', fontWeight: 700 }}>{ICONS.star} {stars}</div>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: 'var(--coral-l)', color: '#7C2A19', fontWeight: 700 }}>{ICONS.flame} {streak}</div>
-              </>
-            )}
-            {kid && (
-              <div className="qk-hide-sm" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)', whiteSpace: 'nowrap' }}>
-                <Avatar id={kid.avatar} size={32} />
-                <div>
-                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{kid.name}</span>
-                  <span style={{ fontSize: 11, color: 'var(--ink-3)', marginLeft: 6 }}>
-                    {lang === 'es' ? 'Grado ' : 'Gr.'}{studyParams.grade}
-                  </span>
-                </div>
               </div>
             )}
           </div>
-        </div>
 
-        <div style={{ maxWidth: 720, margin: '24px auto 0', padding: '0 clamp(16px, 4vw, 22px)', width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 12 }}>
-            <div style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 700, whiteSpace: 'nowrap' }}>{t('card')} {i + 1} / {cards.length}</div>
-            <div style={{ fontSize: 13, color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{studyParams.topic}</div>
+          <div style={{ marginTop: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 12 }}>
+              <div style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 700, whiteSpace: 'nowrap' }}>{t('card')} {i + 1} / {cards.length}</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{studyParams.topic}</div>
+            </div>
+            <div className="qk-progress"><span style={{ width: `${((i + 1) / cards.length) * 100}%` }} /></div>
           </div>
-          <div className="qk-progress"><span style={{ width: `${((i + 1) / cards.length) * 100}%` }} /></div>
-        </div>
 
-        <div style={{ flex: 1, display: 'grid', placeItems: 'center', padding: '24px clamp(16px, 4vw, 22px)' }}>
-          <div style={{ width: '100%', maxWidth: 560, perspective: 1200 }}>
-            <div className="qk-flip" onClick={() => setFlipped((f) => !f)} style={{ position: 'relative', transformStyle: 'preserve-3d', transition: 'transform .55s cubic-bezier(.2,.7,.2,1)', transform: flipped ? 'rotateY(180deg)' : 'rotateY(0)', cursor: 'pointer', aspectRatio: '4/5', maxHeight: 520 }}>
+          <div style={{ marginTop: 20, perspective: 1200 }}>
+            <div className="qk-flip" onClick={() => setFlipped((f) => !f)} style={{ transformStyle: 'preserve-3d', transition: 'transform .55s cubic-bezier(.2,.7,.2,1)', transform: flipped ? 'rotateY(180deg)' : 'rotateY(0)', cursor: 'pointer' }}>
               {/* front */}
-              <div className="qk-card" style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderColor: feedback === 'correct' ? 'var(--primary)' : feedback === 'wrong' ? 'var(--coral)' : 'var(--line)', boxShadow: feedback ? `0 0 0 6px ${feedback === 'correct' ? 'var(--primary-l)' : 'var(--coral-l)'}, var(--shadow)` : 'var(--shadow)', transition: 'box-shadow .25s ease', opacity: flipped ? 0 : 1 }}>
+              <div className="qk-card" style={{ backfaceVisibility: 'hidden', padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderColor: feedback === 'correct' ? 'var(--primary)' : feedback === 'wrong' ? 'var(--coral)' : 'var(--line)', boxShadow: feedback ? `0 0 0 6px ${feedback === 'correct' ? 'var(--primary-l)' : 'var(--coral-l)'}, var(--shadow)` : 'var(--shadow)', transition: 'box-shadow .25s ease', opacity: flipped ? 0 : 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span className="qk-eyebrow">{lang === 'es' ? 'Pregunta' : 'Question'} {i + 1}</span>
                   <span style={{ fontSize: 11, color: 'var(--ink-3)', fontFamily: 'ui-monospace, monospace' }}>{t('tapToFlip')} ↻</span>
@@ -247,26 +233,27 @@ export default function QuizClient() {
                 </div>
               </div>
               {/* back — hint */}
-              <div className="qk-card" style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 14, background: 'var(--primary-l)', borderColor: 'var(--primary)', textAlign: 'center', opacity: flipped ? 1 : 0 }}>
+              <div className="qk-card" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 14, background: 'var(--primary-l)', borderColor: 'var(--primary)', textAlign: 'center', opacity: flipped ? 1 : 0 }}>
                 <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--primary-d)', letterSpacing: '.06em', textTransform: 'uppercase', fontSize: 13 }}>{lang === 'es' ? 'Pista' : 'Hint'}</div>
                 <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 24, lineHeight: 1.25 }}>{cur.hint}</div>
                 <div style={{ fontSize: 11, color: 'var(--ink-3)', fontFamily: 'ui-monospace, monospace' }}>{t('tapToFlip')} ↺</div>
               </div>
             </div>
+          </div>
 
-            {feedback && (
-              <div className="qk-bounce-in" style={{ marginTop: 14, padding: '12px 16px', borderRadius: 14, background: feedback === 'correct' ? 'var(--primary-l)' : 'var(--coral-l)', color: feedback === 'correct' ? 'var(--primary-d)' : '#7C2A19', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          {/* feedback takes the skip button's place, so the row keeps its height */}
+          <div style={{ marginTop: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            {feedback ? (
+              <div className="qk-bounce-in" style={{ padding: '10px 16px', borderRadius: 14, background: feedback === 'correct' ? 'var(--primary-l)' : 'var(--coral-l)', color: feedback === 'correct' ? 'var(--primary-d)' : '#7C2A19', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span>{feedback === 'correct' ? '✨ ' + t('correct') : '💭 ' + t('wrong')}</span>
                 {feedback === 'correct' && gamification !== 'minimal' && <span>+1 ⭐</span>}
               </div>
+            ) : (
+              <button className="qk-btn qk-btn-ghost" onClick={() => { setRevealed({ ...revealed, [i]: true }); setFeedback('wrong'); setStreak(0); }}>{t('skipCard')}</button>
             )}
-
-            <div style={{ marginTop: 18, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-              <button className="qk-btn qk-btn-ghost" onClick={() => { setRevealed({ ...revealed, [i]: true }); setFeedback('wrong'); setStreak(0); }} style={{ visibility: revealed[i] ? 'hidden' : 'visible' }}>{t('skipCard')}</button>
-              {!revealed[i]
-                ? <Btn kind="primary" disabled={userPick == null} onClick={check} icon={ICONS.check} style={{ opacity: userPick == null ? .5 : 1 }}>{t('checkAnswer')}</Btn>
-                : <Btn kind="primary" iconRight={ICONS.next} onClick={next}>{i + 1 >= cards.length ? (lang === 'es' ? 'Ver resultados' : 'See results') : t('nextCard')}</Btn>}
-            </div>
+            {!revealed[i]
+              ? <Btn kind="primary" disabled={userPick == null} onClick={check} icon={ICONS.check} style={{ opacity: userPick == null ? .5 : 1 }}>{t('checkAnswer')}</Btn>
+              : <Btn kind="primary" iconRight={ICONS.next} onClick={next}>{i + 1 >= cards.length ? (lang === 'es' ? 'Ver resultados' : 'See results') : t('nextCard')}</Btn>}
           </div>
         </div>
       </div>
