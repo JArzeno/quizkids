@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { SITE_URL } from '@/lib/site';
+import { ProfileSwitchOverlay } from '@/components/layout/ProfileSwitchOverlay';
 
 // Social images and the apple touch icon come from opengraph-image.tsx and apple-icon.tsx next to this file
 export const metadata: Metadata = {
@@ -48,7 +49,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     // Spanish marketing pages switch lang to "es" before hydration (see components/marketing/MarketingShell)
     <html lang="en" suppressHydrationWarning>
-      <body>{children}</body>
+      <body>
+        {children}
+        <ProfileSwitchOverlay />
+      </body>
     </html>
   );
 }

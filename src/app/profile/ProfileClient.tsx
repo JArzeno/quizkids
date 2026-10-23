@@ -6,6 +6,8 @@ import { Avatar } from '@/components/ui/Avatar';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { signOut } from '@/lib/auth';
+import { firstNameOf } from '@/lib/account';
+import { kidTarget, originOf, playProfileSwitch } from '@/lib/profileSwitch';
 
 export default function ProfileClient() {
   const { lang, kids, account, setMode, setActiveKidId } = useStore();
@@ -13,29 +15,32 @@ export default function ProfileClient() {
   const router = useRouter();
 
   const pickParent = () => router.push('/profile/pin');
-  const pickKid = (id: string) => { setActiveKidId(id); setMode('kid'); router.push('/kids/home'); };
+  const firstName = firstNameOf(account) || 'Ana';
+  const pickKid = (k: (typeof kids)[number], e: React.MouseEvent<HTMLElement>) => {
+    playProfileSwitch(kidTarget(k, lang), () => { setActiveKidId(k.id); setMode('kid'); router.push('/kids/home'); }, { origin: originOf(e) });
+  };
   const handleSignOut = async () => { await signOut(); router.push('/'); };
 
   return (
     <div className="qk-screen qk-page-enter" style={{ padding: '40px clamp(20px, 5vw, 56px) 56px', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <div style={{ maxWidth: 1080, margin: '0 auto', width: '100%', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <span className="qk-eyebrow">QuizKids · {account?.name || 'Ana Martinez'}</span>
+          <span className="qk-eyebrow">QuizKids · {firstName}</span>
           <h1 className="qk-h1" style={{ marginTop: 12, fontSize: 'clamp(28px, 4vw, 44px)' }}>{t('whoTitle')}</h1>
           <p className="qk-sub" style={{ margin: '10px auto 0' }}>{t('whoSub')}</p>
         </div>
 
         <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 24, maxWidth: 840, margin: '0 auto', width: '100%' }}>
           {/* parent tile */}
-          <ProfileTile label={t('parentProfile')} sub={account?.name || 'Ana'} onClick={pickParent} badge={ICONS.spark}>
+          <ProfileTile label={t('parentProfile')} sub={firstName} onClick={pickParent} badge={ICONS.spark}>
             <div style={{ width: '100%', aspectRatio: '1', borderRadius: 24, background: 'linear-gradient(135deg, var(--ink) 0%, #2a3d2e 100%)', color: '#fff', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(36px, 5vw, 56px)', boxShadow: 'var(--shadow-lg)', position: 'relative', overflow: 'hidden' }}>
               <div aria-hidden style={{ position: 'absolute', inset: 0, opacity: .16, backgroundImage: 'radial-gradient(rgba(255,255,255,.7) 1.5px, transparent 1.5px)', backgroundSize: '18px 18px' }} />
-              <span style={{ position: 'relative' }}>{(account?.name || 'A').trim().charAt(0).toUpperCase()}</span>
+              <span style={{ position: 'relative' }}>{firstName.charAt(0).toUpperCase()}</span>
             </div>
           </ProfileTile>
 
           {kids.map((k) => (
-            <ProfileTile key={k.id} label={k.name} sub={(lang === 'es' ? 'Grado ' : 'Grade ') + k.grade} onClick={() => pickKid(k.id)}>
+            <ProfileTile key={k.id} label={k.name} sub={(lang === 'es' ? 'Grado ' : 'Grade ') + k.grade} onClick={(e) => pickKid(k, e)}>
               <div style={{ width: '100%', aspectRatio: '1', borderRadius: 24, background: 'var(--surface)', border: '3px solid ' + (k.color || 'var(--primary)'), display: 'grid', placeItems: 'center', boxShadow: 'var(--shadow-lg)', overflow: 'hidden' }}>
                 <div style={{ transform: 'scale(1.05)' }}><Avatar id={k.avatar} size={120} /></div>
               </div>
@@ -61,7 +66,7 @@ export default function ProfileClient() {
   );
 }
 
-function ProfileTile({ label, sub, badge, onClick, children }: { label: string; sub?: string; badge?: React.ReactNode; onClick?: () => void; children?: React.ReactNode }) {
+function ProfileTile({ label, sub, badge, onClick, children }: { label: string; sub?: string; badge?: React.ReactNode; onClick?: (e: React.MouseEvent<HTMLElement>) => void; children?: React.ReactNode }) {
   return (
     <button onClick={onClick} style={{ appearance: 'none', border: 0, background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, transition: 'transform .2s cubic-bezier(.2,.7,.2,1)', position: 'relative' }} className="qk-profile-tile">
       <div style={{ width: '100%', position: 'relative' }}>

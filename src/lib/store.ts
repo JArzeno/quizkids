@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { createClient } from '@/lib/supabase/client';
 import { DEMO_COOKIE } from '@/lib/demo';
-import type { Kid, ParentPrefs, QuizResult, StudyParams, Lang, ImportedLesson, StudySession, CustomSubject } from '@/types';
+import type { Account, Kid, ParentPrefs, QuizResult, StudyParams, Lang, ImportedLesson, StudySession, CustomSubject } from '@/types';
 
 interface AppState {
   // lang
@@ -16,8 +16,8 @@ interface AppState {
   setIsDemo: (v: boolean) => void;
 
   // profile
-  account: { name: string; email: string } | null;
-  setAccount: (a: { name: string; email: string } | null) => void;
+  account: Account | null;
+  setAccount: (a: Account | null) => void;
 
   parentPrefs: ParentPrefs;
   setParentPrefs: (p: ParentPrefs) => void;

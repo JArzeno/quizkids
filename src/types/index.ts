@@ -77,6 +77,14 @@ export interface Profile {
   plan_cycle: 'monthly' | 'yearly';
 }
 
+/** Signed-in parent. `name` is the full name; first and family name are kept apart since sign up asks for them separately (older accounts only have `name`) */
+export interface Account {
+  name: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+}
+
 export interface ParentPrefs {
   role?: string;
   kidsCount?: number;

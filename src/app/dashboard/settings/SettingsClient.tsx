@@ -10,6 +10,19 @@ import { useStore } from '@/lib/store';
 import { signOut } from '@/lib/auth';
 import { useT } from '@/lib/i18n';
 import { addCustomSubject, removeCustomSubject } from '@/lib/customSubjects';
+import { firstNameOf, fullName, nameMetadata } from '@/lib/account';
+import { createClient } from '@/lib/supabase/client';
+import type { Account } from '@/types';
+
+const SECTIONS = ['sec-account', 'sec-billing', 'sec-kids', 'sec-subjects', 'sec-security', 'sec-prefs', 'sec-danger'];
+
+function nameForm(account: Account | null) {
+  return {
+    first: account?.firstName ?? firstNameOf(account),
+    last: account?.lastName ?? (account?.name || '').trim().split(/\s+/).slice(1).join(' '),
+    email: account?.email || '',
+  };
+}
 
 const BUILTIN_SUBJECTS = [
   { id: 'sci', icon: '🔬' },
@@ -21,7 +34,7 @@ const BUILTIN_SUBJECTS = [
 
 export default function SettingsClient() {
   const store = useStore();
-  const { lang, setLang, account, setAccount, kids, setKids, updateKid, removeKid, parentPrefs, setParentPrefs, parentPin, setParentPin, customSubjects, plan, setPlan, palette, setPalette, gamification, setGamification, difficulty, setDifficulty } = store;
+  const { lang, setLang, account, setAccount, isDemo, kids, setKids, updateKid, removeKid, parentPrefs, setParentPrefs, parentPin, setParentPin, customSubjects, plan, setPlan, palette, setPalette, gamification, setGamification, difficulty, setDifficulty } = store;
   const t = useT(lang);
   const router = useRouter();
   const [editingKidId, setEditingKidId] = React.useState<string | null>(null);
@@ -30,21 +43,53 @@ export default function SettingsClient() {
 
   const fireToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2200); };
 
+  // Account fields are edited here and only applied (and saved on the account) with "Save changes"
+  const [acct, setAcct] = React.useState(() => nameForm(account));
+  const [savingAcct, setSavingAcct] = React.useState(false);
+  React.useEffect(() => { setAcct(nameForm(account)); }, [account?.name, account?.firstName, account?.lastName, account?.email]);
+  const saveAccount = async () => {
+    if (!account || !acct.first.trim()) return;
+    setSavingAcct(true);
+    if (!isDemo) {
+      const { error } = await createClient().auth.updateUser({ data: nameMetadata(acct.first, acct.last) });
+      if (error) { setSavingAcct(false); fireToast(t('accountSaveError')); return; }
+    }
+    setAccount({ ...account, name: fullName(acct.first, acct.last), firstName: acct.first.trim(), lastName: acct.last.trim(), email: acct.email.trim() || account.email });
+    setSavingAcct(false);
+    fireToast(t('saved'));
+  };
+
+  // Highlight the section being read in the side nav
+  const [activeSec, setActiveSec] = React.useState(SECTIONS[0]);
+  React.useEffect(() => {
+    const onScroll = () => {
+      let current = SECTIONS[0];
+      for (const id of SECTIONS) {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top <= 140) current = id;
+      }
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) current = SECTIONS[SECTIONS.length - 1];
+      setActiveSec(current);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   const PALETTES = [['#3F7A4F', 'forest'], ['#5A9F58', 'meadow'], ['#2F7C8A', 'ocean'], ['#9F5099', 'berry']];
 
   return (
     <AppShell>
       <div className="qk-screen qk-page-enter" style={{ padding: '28px clamp(20px, 5vw, 56px) 64px' }}>
         <div style={{ maxWidth: 1080, margin: '0 auto' }}>
-          <div>
-            <button onClick={() => router.push('/dashboard')} className="qk-btn qk-btn-ghost" style={{ padding: '6px 12px', fontSize: 13, marginBottom: 14 }}>{ICONS.back} <span>{t('back')}</span></button>
-            <h1 className="qk-h1">{t('settings')}</h1>
-            <p className="qk-sub">{t('settingsHi')}{account?.name?.split(' ')[0] || 'Ana'}.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <button onClick={() => router.push('/dashboard')} className="qk-btn qk-btn-ghost" aria-label={t('back')} style={{ padding: '6px 10px', fontSize: 13 }}>{ICONS.back}</button>
+            <h1 className="qk-h1" style={{ margin: 0 }}>{t('settings')}</h1>
           </div>
 
-          <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '220px 1fr', gap: 28 }} className="qk-settings-grid">
+          <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: '200px minmax(0, 1fr)', gap: 28 }} className="qk-settings-grid">
             {/* sidebar */}
-            <aside style={{ position: 'sticky', top: 0, alignSelf: 'flex-start', minWidth: 0 }}>
+            <aside style={{ position: 'sticky', top: 84, alignSelf: 'flex-start', minWidth: 0 }}>
               <div className="qk-settings-nav" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {[
                   { id: 'sec-account', label: t('settingsAccount') },
@@ -54,37 +99,43 @@ export default function SettingsClient() {
                   { id: 'sec-security', label: t('settingsSecurity') },
                   { id: 'sec-prefs', label: t('settingsPrefs') },
                   { id: 'sec-danger', label: t('settingsDanger'), coral: true },
-                ].map((s) => (
-                  <button key={s.id} onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                    style={{ appearance: 'none', border: 0, background: 'transparent', textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 600, color: s.coral ? 'var(--coral)' : 'var(--ink-2)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    {s.label}
-                  </button>
-                ))}
+                ].map((s) => {
+                  const on = activeSec === s.id;
+                  return (
+                    <button key={s.id} className={on ? 'on' : ''} aria-current={on ? 'true' : undefined} onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      style={{ appearance: 'none', border: 0, background: on ? 'var(--surface)' : 'transparent', boxShadow: on ? 'var(--shadow-sm)' : 'none', textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: on ? 700 : 600, color: s.coral ? 'var(--coral)' : on ? 'var(--ink)' : 'var(--ink-2)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, transition: 'background .15s ease, color .15s ease' }}>
+                      {s.label}
+                    </button>
+                  );
+                })}
               </div>
             </aside>
 
             {/* content */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               {/* ACCOUNT */}
-              <section id="sec-account" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 24 }}>
+              <section id="sec-account" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 84 }}>
                 <h2 className="qk-h2" style={{ marginBottom: 18 }}>{t('settingsAccount')}</h2>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                  <Row label={t('fieldFullName')}><input className="qk-input" value={account?.name || ''} onChange={(e) => setAccount({ ...account!, name: e.target.value })} /></Row>
-                  <Row label={t('fieldEmail')}><input className="qk-input" value={account?.email || ''} onChange={(e) => setAccount({ ...account!, email: e.target.value })} /></Row>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div className="qk-stack-sm" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <Row label={t('fieldFirstName')}><input className="qk-input" autoComplete="given-name" placeholder={t('fieldFirstNamePh')} value={acct.first} onChange={(e) => setAcct({ ...acct, first: e.target.value })} /></Row>
+                    <Row label={t('fieldLastName')}><input className="qk-input" autoComplete="family-name" placeholder={t('fieldLastNamePh')} value={acct.last} onChange={(e) => setAcct({ ...acct, last: e.target.value })} /></Row>
+                  </div>
+                  <Row label={t('fieldEmail')}><input className="qk-input" type="email" autoComplete="email" value={acct.email} onChange={(e) => setAcct({ ...acct, email: e.target.value })} /></Row>
                 </div>
-                <div style={{ marginTop: 6, display: 'flex', justifyContent: 'flex-end' }}>
-                  <Btn kind="primary" icon={ICONS.check} onClick={() => fireToast(t('saved'))}>{t('saveChanges')}</Btn>
+                <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                  <Btn kind="primary" icon={ICONS.check} disabled={savingAcct || !acct.first.trim()} onClick={saveAccount}>{t('saveChanges')}</Btn>
                 </div>
               </section>
 
               {/* BILLING */}
-              <section id="sec-billing" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 24 }}>
+              <section id="sec-billing" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 84 }}>
                 <h2 className="qk-h2" style={{ marginBottom: 18 }}>{t('settingsBilling')}</h2>
                 <PricingCards lang={lang} cycle={plan.cycle} setCycle={(c) => { setPlan({ ...plan, cycle: c as 'monthly' | 'yearly' }); fireToast(t('saved')); }} kidsCount={kids.length || 1} current showCta={false} compact />
               </section>
 
               {/* KIDS */}
-              <section id="sec-kids" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 24 }}>
+              <section id="sec-kids" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 84 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 18 }}>
                   <h2 className="qk-h2">{t('settingsKids')}</h2>
                   <Btn kind="ghost" icon={ICONS.plus} onClick={() => router.push('/dashboard/add-kid')}>{t('addAnotherKid')}</Btn>
@@ -124,7 +175,7 @@ export default function SettingsClient() {
               </section>
 
               {/* SUBJECTS */}
-              <section id="sec-subjects" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 24 }}>
+              <section id="sec-subjects" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 84 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 18 }}>
                   <h2 className="qk-h2">{t('settingsSubjects')}</h2>
                   <Btn kind="ghost" icon={ICONS.plus} onClick={() => setShowAddSubject((v) => !v)}>{t('addCustomSubject')}</Btn>
@@ -164,7 +215,7 @@ export default function SettingsClient() {
               </section>
 
               {/* SECURITY */}
-              <section id="sec-security" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 24 }}>
+              <section id="sec-security" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 84 }}>
                 <h2 className="qk-h2" style={{ marginBottom: 18 }}>{t('settingsSecurity')}</h2>
                 <Row label={t('changePin')}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
@@ -175,7 +226,7 @@ export default function SettingsClient() {
               </section>
 
               {/* PREFERENCES */}
-              <section id="sec-prefs" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 24 }}>
+              <section id="sec-prefs" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 84 }}>
                 <h2 className="qk-h2" style={{ marginBottom: 18 }}>{t('settingsPrefs')}</h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                   <Row label={t('appLanguage')}>
@@ -201,7 +252,7 @@ export default function SettingsClient() {
               </section>
 
               {/* DANGER */}
-              <section id="sec-danger" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 24, borderColor: 'var(--coral)' }}>
+              <section id="sec-danger" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 84, borderColor: 'var(--coral)' }}>
                 <h2 className="qk-h2" style={{ color: 'var(--coral)', marginBottom: 18 }}>{t('settingsDanger')}</h2>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <button onClick={async () => { await signOut(); router.push('/auth'); }} className="qk-btn qk-btn-ghost" style={{ borderColor: 'var(--coral)', color: 'var(--coral)' }}>{t('signOut')}</button>
@@ -217,7 +268,7 @@ export default function SettingsClient() {
             <span style={{ color: 'var(--honey)', display: 'inline-flex' }}>{ICONS.check}</span>{toast}
           </div>
         )}
-        <style>{`@media (max-width: 800px) { .qk-settings-grid { grid-template-columns: minmax(0, 1fr) !important; } .qk-settings-grid aside { position: static !important; } .qk-settings-nav { flex-direction: row !important; overflow-x: auto; scrollbar-width: none; } .qk-settings-nav::-webkit-scrollbar { display: none; } .qk-settings-nav button { flex: none; white-space: nowrap; border: 1px solid var(--line) !important; background: var(--surface) !important; border-radius: 999px !important; padding: 8px 14px !important; } }`}</style>
+        <style>{`@media (max-width: 800px) { .qk-settings-grid { grid-template-columns: minmax(0, 1fr) !important; } .qk-settings-grid aside { position: static !important; } .qk-settings-nav { flex-direction: row !important; overflow-x: auto; scrollbar-width: none; } .qk-settings-nav::-webkit-scrollbar { display: none; } .qk-settings-nav button { flex: none; white-space: nowrap; border: 1px solid var(--line) !important; background: var(--surface) !important; box-shadow: none !important; border-radius: 999px !important; padding: 8px 14px !important; } .qk-settings-nav button.on { border-color: var(--ink) !important; } }`}</style>
       </div>
     </AppShell>
   );

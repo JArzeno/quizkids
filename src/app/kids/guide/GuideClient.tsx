@@ -12,6 +12,7 @@ import { completePlanItem } from '@/lib/plan';
 import { subjectPromptName } from '@/lib/subjects';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
+import { fetchContent } from '@/lib/fetchContent';
 import type { Guide, GuideSection } from '@/types';
 
 const FALLBACK_EN: Guide = {
@@ -51,6 +52,8 @@ export default function GuideClient() {
 
   const [guide, setGuide] = React.useState<Guide | null>(null);
   const [loading, setLoading] = React.useState(true);
+  // 'creating' only while a new guide is being written; saved guides just load
+  const [loadPhase, setLoadPhase] = React.useState<'loading' | 'creating'>('loading');
   const [active, setActive] = React.useState(0);
   // Sections the kid asked for with "keep learning", appended after the guide
   const [extra, setExtra] = React.useState<GuideSection[]>([]);
@@ -75,6 +78,7 @@ export default function GuideClient() {
   React.useEffect(() => {
     const fetchGuide = async () => {
       setLoading(true);
+      setLoadPhase('loading');
       try {
         // If we have a cached contentId, load from Supabase directly
         if (studyParams.contentId && !isDemo) {
@@ -96,21 +100,16 @@ export default function GuideClient() {
           }
         }
 
-        // Call API (which also checks cache server-side)
-        const res = await fetch('/api/generate/guide', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            topic: studyParams.topic,
-            grade: studyParams.grade,
-            lang: contentLang,
-            subject: studyParams.subject,
-            source: studyParams.source,
-            ...(studyParams.topics ? { topics: studyParams.topics } : {}),
-          }),
-        });
-        if (res.ok) setGuide(await res.json());
-        else setGuide(FALLBACK);
+        // Saved guide for this topic if there is one, otherwise a new one (several topics are always new)
+        const data = await fetchContent<Guide>('/api/generate/guide', {
+          topic: studyParams.topic,
+          grade: studyParams.grade,
+          lang: contentLang,
+          subject: studyParams.subject,
+          source: studyParams.source,
+          ...(studyParams.topics ? { topics: studyParams.topics } : {}),
+        }, () => setLoadPhase('creating'), !!studyParams.topics);
+        setGuide(data ?? FALLBACK);
       } catch {
         setGuide(FALLBACK);
       }
@@ -123,7 +122,7 @@ export default function GuideClient() {
     <AppShell>
       <div className="qk-screen" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
         <LoadingBar expectedMs={15000} style={{ width: 'min(280px, 100%)' }} />
-        <div style={{ fontSize: 16, color: 'var(--ink-3)', fontFamily: 'var(--font-display)' }}>{t('generating')}</div>
+        <div style={{ fontSize: 16, color: 'var(--ink-3)', fontFamily: 'var(--font-display)', textAlign: 'center' }}>{t(loadPhase === 'creating' ? 'creatingGuide' : 'loadingGuide')}</div>
       </div>
     </AppShell>
   );

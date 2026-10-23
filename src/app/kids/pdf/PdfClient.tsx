@@ -11,6 +11,7 @@ import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import type { Worksheet, WorksheetSection, WorksheetSectionType } from '@/types';
 import { shuffledOrder, toWorksheet } from '@/lib/worksheet';
+import { fetchContent } from '@/lib/fetchContent';
 
 const FALLBACK_EN: Worksheet = {
   sections: [
@@ -99,12 +100,15 @@ export default function PdfClient() {
 
   const [data, setData] = React.useState<Worksheet | null>(null);
   const [loading, setLoading] = React.useState(true);
+  // 'creating' only while a new worksheet is being written; saved worksheets just load
+  const [loadPhase, setLoadPhase] = React.useState<'loading' | 'creating'>('loading');
   const [hidden, setHidden] = React.useState<Set<WorksheetSectionType>>(new Set());
   const [showKey, setShowKey] = React.useState(false);
 
   React.useEffect(() => {
     const fetchWorksheet = async () => {
       setLoading(true);
+      setLoadPhase('loading');
       setHidden(new Set());
       try {
         // Try loading from cached contentId first
@@ -128,19 +132,15 @@ export default function PdfClient() {
           }
         }
 
-        // Call API (also checks cache server-side)
-        const res = await fetch('/api/generate/worksheet', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            topic: studyParams.topic,
-            grade: studyParams.grade,
-            lang: contentLang,
-            subject: studyParams.subject,
-            source: studyParams.source,
-          }),
-        });
-        setData((res.ok ? toWorksheet(await res.json()) : null) ?? FALLBACK);
+        // Saved worksheet for this topic if there is one, otherwise a new one
+        const ws = await fetchContent<unknown>('/api/generate/worksheet', {
+          topic: studyParams.topic,
+          grade: studyParams.grade,
+          lang: contentLang,
+          subject: studyParams.subject,
+          source: studyParams.source,
+        }, () => setLoadPhase('creating'));
+        setData((ws ? toWorksheet(ws) : null) ?? FALLBACK);
       } catch {
         setData(FALLBACK);
       }
@@ -200,7 +200,7 @@ export default function PdfClient() {
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, paddingTop: 80 }}>
               <LoadingBar expectedMs={15000} style={{ width: 'min(280px, 100%)' }} />
-              <div style={{ fontSize: 16, color: 'var(--ink-3)', fontFamily: 'var(--font-display)' }}>{t('generating')}</div>
+              <div style={{ fontSize: 16, color: 'var(--ink-3)', fontFamily: 'var(--font-display)', textAlign: 'center' }}>{t(loadPhase === 'creating' ? 'creatingPdf' : 'loadingPdf')}</div>
             </div>
           ) : data && (
             <>

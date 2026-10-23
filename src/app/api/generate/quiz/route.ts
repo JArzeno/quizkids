@@ -7,7 +7,7 @@ import { parseTopics } from '@/lib/topicsParam';
 
 export async function POST(req: NextRequest) {
   try {
-    const { topic, grade, source, difficulty, lang, subject, variant, context, exclude, topics } = await req.json();
+    const { topic, grade, source, difficulty, lang, subject, variant, context, exclude, topics , cacheOnly } = await req.json();
     if (!topic || !grade) return NextResponse.json({ error: 'Missing topic or grade' }, { status: 400 });
 
     const diff = difficulty || 'medium';
@@ -43,6 +43,8 @@ export async function POST(req: NextRequest) {
       if (cached?.content) {
         return NextResponse.json({ ...(cached.content as object), contentId: cached.id, cached: true });
       }
+      // Only asking whether it already exists (the screen says "Loading" for saved content, "Creating" for new)
+      if (cacheOnly) return NextResponse.json({ cached: false });
 
       // Generate new
       const data = await generateQuiz(topic, grade, diff, lng, src, ctx, asked, multi);
@@ -58,6 +60,7 @@ export async function POST(req: NextRequest) {
     } catch (dbErr) {
       // DB unavailable — generate without caching
       console.warn('Supabase cache miss/error, generating fresh:', dbErr);
+      if (cacheOnly) return NextResponse.json({ cached: false });
       const data = await generateQuiz(topic, grade, diff, lng, src, ctx, asked, multi);
       return NextResponse.json({ ...data, contentId: null, cached: false });
     }

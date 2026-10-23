@@ -8,6 +8,7 @@ import { Btn } from '@/components/ui/Btn';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
+import { accountFromUser, fullName, nameMetadata } from '@/lib/account';
 
 export default function AuthClient() {
   const { lang, setAccount, setIsDemo, setKids } = useStore();
@@ -17,7 +18,7 @@ export default function AuthClient() {
   const [tab, setTab] = React.useState<'signin' | 'signup'>(
     searchParams.get('tab') === 'signin' ? 'signin' : 'signup'
   );
-  const [form, setForm] = React.useState({ name: '', email: '', password: '', remember: true, terms: false });
+  const [form, setForm] = React.useState({ firstName: '', lastName: '', email: '', password: '', remember: true, terms: false });
   const [showPw, setShowPw] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -37,7 +38,7 @@ export default function AuthClient() {
 
   const canSubmit = tab === 'signin'
     ? form.email.includes('@') && form.password.length > 0
-    : form.name.trim().length > 0 && form.email.includes('@') && form.password.length >= 8 && form.terms;
+    : form.firstName.trim().length > 0 && form.lastName.trim().length > 0 && form.email.includes('@') && form.password.length >= 8 && form.terms;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,11 +53,11 @@ export default function AuthClient() {
       const { error: err } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
-        options: { data: { name: form.name, lang } },
+        options: { data: { ...nameMetadata(form.firstName, form.lastName), lang } },
       });
       setLoading(false);
       if (err) { setError(err.message); return; }
-      setAccount({ name: form.name, email: form.email });
+      setAccount({ name: fullName(form.firstName, form.lastName), firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email });
       router.push('/auth/onboarding');
     } else {
       const { data, error: err } = await supabase.auth.signInWithPassword({
@@ -65,10 +66,9 @@ export default function AuthClient() {
       });
       setLoading(false);
       if (err) { setError(err.message); return; }
-      const name = data.user?.user_metadata?.name || data.user?.email || '';
       const savedLang = data.user?.user_metadata?.lang;
       if (savedLang === 'en' || savedLang === 'es') useStore.setState((s) => ({ lang: savedLang, studyParams: { ...s.studyParams, lang: savedLang } }));
-      setAccount({ name, email: form.email });
+      setAccount({ ...accountFromUser(data.user), email: form.email });
       const { data: kidsData } = await supabase
         .from('kids')
         .select('*')
@@ -168,9 +168,15 @@ export default function AuthClient() {
 
           <form onSubmit={submit} style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
             {tab === 'signup' && (
-              <div className="qk-field">
-                <label className="qk-label">{t('fieldName')}</label>
-                <input className="qk-input" placeholder={t('fieldNamePh')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <div className="qk-stack-xs" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="qk-field">
+                  <label className="qk-label" htmlFor="su-first">{t('fieldFirstName')}</label>
+                  <input id="su-first" className="qk-input" autoComplete="given-name" placeholder={t('fieldFirstNamePh')} value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+                </div>
+                <div className="qk-field">
+                  <label className="qk-label" htmlFor="su-last">{t('fieldLastName')}</label>
+                  <input id="su-last" className="qk-input" autoComplete="family-name" placeholder={t('fieldLastNamePh')} value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+                </div>
               </div>
             )}
             <div className="qk-field">
