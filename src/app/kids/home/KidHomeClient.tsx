@@ -12,6 +12,7 @@ import { subjectInfo, kidSubjectInfo, levelLabel } from '@/lib/subjects';
 import { goalProgress } from '@/lib/goals';
 import { syncTodayPlan, prepareItem, itemMaterial, dateKey, isWeekday } from '@/lib/plan';
 import type { ResultRow } from '@/lib/adapt';
+import type { ContentLang } from '@/lib/languages';
 import type { KidGoal, KidTopic, PlanItem, RecentItem } from '@/types';
 
 function todayKey(): string {
@@ -49,7 +50,7 @@ export default function KidHomeClient() {
   const [planItems, setPlanItems] = React.useState<PlanItem[]>([]);
   const [planState, setPlanState] = React.useState<'loading' | 'ready' | 'error'>('loading');
   const [results, setResults] = React.useState<ResultRow[]>([]);
-  const subjectLangs = React.useRef<Record<string, 'en' | 'es' | 'fr'>>({});
+  const subjectLangs = React.useRef<Record<string, ContentLang | undefined>>({});
   // Topics (with their class notes) and goals behind the plan, so each item is built from the parent's school topics
   const planBase = React.useRef<{ topics: KidTopic[]; goals: KidGoal[] }>({ topics: [], goals: [] });
 
@@ -63,7 +64,7 @@ export default function KidHomeClient() {
         const key = dateKey(now);
         const plan = await syncTodayPlan(kid, isDemo, now);
         if (cancelled) return;
-        subjectLangs.current = Object.fromEntries(plan.subjects.map((s) => [s.subject, s.lang || 'en']));
+        subjectLangs.current = Object.fromEntries(plan.subjects.map((s) => [s.subject, s.lang]));
         planBase.current = { topics: plan.topics, goals: plan.goals };
         if (isDemo) updateKid(kid.id, { planItems: plan.items });
         else updateKid(kid.id, { subjects: plan.subjects, goals: plan.goals });

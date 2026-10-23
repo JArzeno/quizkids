@@ -12,6 +12,7 @@ import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { subjectInfo, subjectLabelFields, levelLabel, fromRow } from '@/lib/subjects';
 import { goalFromRow } from '@/lib/goals';
+import { CONTENT_LANGUAGES, CONTENT_LANG_CODES, isContentLang } from '@/lib/languages';
 import { addTopic, loadTopics, removeTopic, subjectTopics, type TopicRow } from '@/lib/topics';
 import { MAX_TEST_TOPICS, createTest, daysUntil, defaultTestTopics, loadTests, removeTest, testStudyParams, topicsInTests } from '@/lib/tests';
 import GoalsSection from '../../GoalsSection';
@@ -582,8 +583,9 @@ export default function SubjectClient() {
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                     <label style={{ fontSize: 13, color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 8 }}>
                       {t('subjectLang')}
-                      <select value={ks.lang || 'en'} onChange={(e) => { const l = e.target.value as 'en' | 'es' | 'fr'; void patchSubject({ lang: l }, { lang: l }); }} style={{ fontSize: 13, padding: '4px 8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--ink)' }}>
-                        <option value="en">English</option><option value="es">Español</option><option value="fr">Français</option>
+                      <select value={ks.lang ?? ''} onChange={(e) => { const l = isContentLang(e.target.value) ? e.target.value : undefined; void patchSubject({ lang: l ?? null }, { lang: l }); }} style={{ fontSize: 13, padding: '4px 8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--ink)' }}>
+                        <option value="">{t('subjectLangAuto')}</option>
+                        {CONTENT_LANG_CODES.map((c) => <option key={c} value={c}>{CONTENT_LANGUAGES[c].label}</option>)}
                       </select>
                     </label>
                     <button className="qk-btn qk-btn-ghost" style={smallBtn} onClick={() => patchSubject({ paused: !ks.paused }, { paused: !ks.paused })} title={L('Paused subjects are left out of the daily plan', 'Las materias en pausa no entran al plan diario')}>

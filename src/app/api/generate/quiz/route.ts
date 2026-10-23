@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { generateQuiz, parseContext } from '@/lib/openai';
+import { contentLang } from '@/lib/languages';
 import { createClient } from '@/lib/supabase/server';
 import { parseTopics } from '@/lib/topicsParam';
 
@@ -10,7 +11,7 @@ export async function POST(req: NextRequest) {
     if (!topic || !grade) return NextResponse.json({ error: 'Missing topic or grade' }, { status: 400 });
 
     const diff = difficulty || 'medium';
-    const lng = lang || 'en';
+    const lng = contentLang(lang);
     const ctx = parseContext(context);
     // Questions already answered on this topic ("more questions" round): the new set must not repeat them
     const asked: string[] = Array.isArray(exclude)

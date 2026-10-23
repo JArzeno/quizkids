@@ -10,6 +10,7 @@ import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { subjectOptions, subjectLabelFields } from '@/lib/subjects';
+import { CONTENT_LANGUAGES, CONTENT_LANG_CODES, isContentLang, type ContentLang } from '@/lib/languages';
 import type { KidSubject } from '@/types';
 
 const STEPS = 5;
@@ -23,14 +24,15 @@ export default function AddKidClient() {
   const [draft, setDraft] = React.useState({ name: '', grade: '', avatar: '', color: '#3F7A4F', signature: '' });
   // subject id -> optional focus note; presence of the key means the subject is selected
   const [subjects, setSubjects] = React.useState<Record<string, string>>({});
-  const [subjectLangs, setSubjectLangs] = React.useState<Record<string, 'en' | 'es' | 'fr'>>({});
+  // Only the subjects the parent set to another language; the rest follow the account language
+  const [subjectLangs, setSubjectLangs] = React.useState<Record<string, ContentLang | undefined>>({});
   const subjectList = subjectOptions(lang, customSubjects);
   const toggleSubject = (id: string) => setSubjects((cur) => {
     const next = { ...cur };
     if (id in next) delete next[id]; else next[id] = '';
     return next;
   });
-  const kidSubjects: KidSubject[] = Object.entries(subjects).map(([subject, focus]) => ({ subject, lang: subjectLangs[subject] || (subject === 'fr' ? 'fr' : lang), focus: focus.trim() || undefined, ...subjectLabelFields(subject, customSubjects) }));
+  const kidSubjects: KidSubject[] = Object.entries(subjects).map(([subject, focus]) => ({ subject, lang: subjectLangs[subject], focus: focus.trim() || undefined, ...subjectLabelFields(subject, customSubjects) }));
 
   const canNext = [
     () => draft.name.trim().length > 0,
@@ -61,7 +63,7 @@ export default function AddKidClient() {
         .single();
       if (!error && data) {
         if (kidSubjects.length > 0) {
-          const { error: subjErr } = await supabase.from('kid_subjects').insert(kidSubjects.map((ks) => ({ kid_id: data.id, subject: ks.subject, lang: ks.lang ?? 'en', focus: ks.focus ?? null, name: ks.name ?? null, icon: ks.icon ?? null })));
+          const { error: subjErr } = await supabase.from('kid_subjects').insert(kidSubjects.map((ks) => ({ kid_id: data.id, subject: ks.subject, lang: ks.lang ?? null, focus: ks.focus ?? null, name: ks.name ?? null, icon: ks.icon ?? null })));
           if (subjErr) console.warn('Could not save subjects:', subjErr);
         }
         addKid({ id: data.id, parent_id: user.id, name: data.name, grade: data.grade, avatar: data.avatar, color: data.color, code: data.code, streak: 0, stars: 0, minutes_total: 0, weekly: 0, goal_min: 30, recent: [], signature: draft.signature, subjects: kidSubjects });
@@ -142,8 +144,9 @@ export default function AddKidClient() {
                         <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <span style={{ fontSize: 20, width: 28, textAlign: 'center' }}>{s.icon}</span>
                           <input className="qk-input" placeholder={`${s.label} · ${t('focusPh')}`} value={subjects[id]} maxLength={120} onChange={(e) => setSubjects({ ...subjects, [id]: e.target.value })} style={{ fontSize: 14, minWidth: 0 }} />
-                          <select className="qk-input" aria-label={t('subjectLang')} value={subjectLangs[id] || (id === 'fr' ? 'fr' : lang)} onChange={(e) => setSubjectLangs({ ...subjectLangs, [id]: e.target.value as 'en' | 'es' | 'fr' })} style={{ width: 'auto', fontSize: 14 }}>
-                            <option value="en">English</option><option value="es">Español</option><option value="fr">Français</option>
+                          <select className="qk-input" aria-label={t('subjectLang')} value={subjectLangs[id] ?? ''} onChange={(e) => setSubjectLangs({ ...subjectLangs, [id]: isContentLang(e.target.value) ? e.target.value : undefined })} style={{ width: 'auto', fontSize: 14 }}>
+                            <option value="">{t('subjectLangAuto')}</option>
+                            {CONTENT_LANG_CODES.map((c) => <option key={c} value={c}>{CONTENT_LANGUAGES[c].label}</option>)}
                           </select>
                         </div>
                       );

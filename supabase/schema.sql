@@ -116,7 +116,7 @@ create table if not exists public.kid_subjects (
   id uuid primary key default gen_random_uuid(),
   kid_id uuid not null references public.kids(id) on delete cascade,
   subject text not null,                 -- 'sci' | 'math' | 'lang' | 'soc' | 'art' | 'fr' | 'cus-…'
-  lang text default 'en',                -- language this subject is studied in: 'en' | 'es' | 'fr'
+  lang text,                             -- language the parent set for this subject: 'en' | 'es' | 'fr'; null = the account language
   focus text,                            -- optional parent note, e.g. "fractions and decimals"
   level integer,                         -- estimated grade level for this subject (0 = K), null until placed
   strong_topics jsonb default '[]',

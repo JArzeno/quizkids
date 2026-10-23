@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { normalizeWorksheet } from '@/lib/worksheet';
+import { languagePromptName } from '@/lib/languages';
 
 function getClient() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'placeholder' });
@@ -22,7 +23,7 @@ function gradeContext(grade: string): string {
 
 /** Strict output-language rule, so everything the kid sees matches the account language */
 function languageRule(lang: string): string {
-  const label = lang === 'es' ? 'Spanish' : lang === 'fr' ? 'French' : 'English';
+  const label = languagePromptName(lang);
   return `Language: ${label}. Write EVERY piece of text (questions, answer choices, hints, titles, explanations, facts, activities) in ${label}, even if the topic name or the class material is written in another language — translate the topic as needed. Only exception: if the subject itself is a foreign language (e.g. a French class), keep the target-language words and examples being taught as they are.`;
 }
 
@@ -470,7 +471,7 @@ export interface LessonAnalysis {
 /** Reads photos / PDFs of a class and extracts the topic and teachable content */
 export async function analyzeMaterial(files: ImportFile[], grade: string, lang: string, hint?: string): Promise<LessonAnalysis> {
   const openai = getClient();
-  const langLabel = lang === 'es' ? 'Spanish' : 'English';
+  const langLabel = languagePromptName(lang);
   const gradeDesc = gradeContext(grade);
 
   const prompt = `The attached files are from a student's class (photos of notes, a worksheet, a textbook page, or a handout). The student is at: ${gradeDesc}

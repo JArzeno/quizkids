@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generatePlacement } from '@/lib/openai';
+import { contentLang } from '@/lib/languages';
 
 export const maxDuration = 60;
 
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
       String(subject).slice(0, 80),
       typeof focus === 'string' && focus.trim() ? focus.trim().slice(0, 200) : undefined,
       String(grade),
-      lang === 'es' || lang === 'fr' ? lang : 'en',
+      contentLang(lang),
     );
 
     // Keep only well-formed questions; unknown bands fall back to "at grade"

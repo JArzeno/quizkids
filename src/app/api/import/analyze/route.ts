@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { analyzeMaterial, type ImportFile } from '@/lib/openai';
+import { contentLang } from '@/lib/languages';
 
 export const maxDuration = 60;
 
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Files are too large' }, { status: 413 });
     }
 
-    const analysis = await analyzeMaterial(clean, grade || '3', lang || 'en', typeof hint === 'string' ? hint.slice(0, 200) : undefined);
+    const analysis = await analyzeMaterial(clean, grade || '3', contentLang(lang), typeof hint === 'string' ? hint.slice(0, 200) : undefined);
     if (!analysis.title || !analysis.notes) {
       return NextResponse.json({ error: 'unreadable', summary: analysis.summary }, { status: 422 });
     }
