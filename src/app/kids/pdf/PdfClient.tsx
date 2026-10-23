@@ -171,7 +171,7 @@ export default function PdfClient() {
   return (
     <AppShell>
       <div className="qk-screen qk-page-enter">
-        <div style={{ maxWidth: 900, margin: '0 auto' }}>
+        <div style={{ maxWidth: 780, margin: '0 auto' }}>
           <div className="qk-no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
             <button className="qk-btn qk-btn-ghost" onClick={() => router.back()}>{ICONS.back} <span>{t('back')}</span></button>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

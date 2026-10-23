@@ -363,6 +363,10 @@ input, textarea, select { font-family: inherit; color: inherit; }
 .qk-flip-face { position: absolute; inset: 0; backface-visibility: hidden; }
 .qk-flip-back { transform: rotateY(180deg); }
 
+/* quiz card: both faces share one grid cell, so the card is as wide as its column and as tall as its taller face */
+.qk-flip { display: grid; }
+.qk-flip > .qk-card { grid-area: 1 / 1; min-height: 440px; gap: 20px; }
+
 /* number ticker — transitions.dev number animation */
 @keyframes qk-num-tick {
   from { transform: translateY(8px); opacity: 0; }
@@ -443,9 +447,8 @@ input, textarea, select { font-family: inherit; color: inherit; }
   .qk-kid-hero-avatar { display: none; }
   .qk-kid-hero-action { align-items: stretch !important; }
 
-  /* quiz flip card grows with its content instead of a fixed ratio */
-  .qk-flip { aspect-ratio: auto !important; max-height: none !important; display: grid; }
-  .qk-flip > .qk-card { position: relative !important; inset: auto !important; grid-area: 1 / 1; gap: 18px; }
+  /* quiz flip card grows with its content on phones */
+  .qk-flip > .qk-card { min-height: 0; gap: 18px; }
 
   /* printable worksheet */
   .qk-paper { padding: 28px 20px !important; }

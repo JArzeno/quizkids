@@ -3,7 +3,6 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
 import { LoadingBar } from '@/components/ui/LoadingBar';
-import { Avatar } from '@/components/ui/Avatar';
 import { Btn, Chip } from '@/components/ui/Btn';
 import { ImgPlaceholder } from '@/components/ui/Stars';
 import { AppShell } from '@/components/layout/AppShell';
@@ -39,13 +38,12 @@ const FALLBACK_ES: Guide = {
 const MAX_EXTRA = 6;
 
 export default function GuideClient() {
-  const { lang, kids, activeKidId, studyParams, setStudyParams, gamification, setMode, isDemo } = useStore();
+  const { lang, studyParams, setStudyParams, gamification, setMode, isDemo } = useStore();
   const contentLang = studyParams.contentLang ?? lang;
   const [marked, setMarked] = React.useState(false);
   const t = useT(lang);
   const FALLBACK = lang === 'es' ? FALLBACK_ES : FALLBACK_EN;
   const router = useRouter();
-  const kid = kids.find((k) => k.id === activeKidId) || kids[0];
 
   React.useEffect(() => { setMode('kid'); }, []);
 
@@ -199,20 +197,8 @@ export default function GuideClient() {
   return (
     <AppShell>
       <div className="qk-screen qk-page-enter" style={{ padding: 0, minHeight: 'calc(100dvh - 65px)' }}>
-        {/* kid bar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '14px clamp(16px, 4vw, 22px) 0', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
+        <div style={{ padding: '14px clamp(16px, 4vw, 22px) 0', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
           <button onClick={() => router.push(studyParams.returnTo || '/kids/home')} className="qk-btn qk-btn-ghost" style={{ padding: '8px 12px' }}>{ICONS.back} <span>{t('back')}</span></button>
-          {kid && (
-            <div className="qk-hide-xs" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)', whiteSpace: 'nowrap' }}>
-              <Avatar id={kid.avatar} size={32} />
-              <div>
-                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{kid.name}</span>
-                <span style={{ fontSize: 11, color: 'var(--ink-3)', marginLeft: 6 }}>
-                  {lang === 'es' ? 'Grado ' : 'Gr.'}{studyParams.grade}
-                </span>
-              </div>
-            </div>
-          )}
         </div>
 
         <div style={{ maxWidth: 1100, margin: '24px auto 0', padding: '0 clamp(16px, 4vw, 22px) 64px' }}>

@@ -86,16 +86,8 @@ export default function ResultsClient() {
   return (
     <AppShell>
       <div className="qk-screen qk-page-enter" style={{ padding: 0, minHeight: 'calc(100dvh - 65px)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '14px clamp(16px, 4vw, 22px) 0', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
-          <button onClick={() => router.push(backTo)} className="qk-btn qk-btn-ghost">{ICONS.back} <span>{backLabel}</span></button>
-          {kid && (
-            <div className="qk-hide-xs" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)', whiteSpace: 'nowrap' }}>
-              <Avatar id={kid.avatar} size={32} /><span style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{kid.name}</span>
-            </div>
-          )}
-        </div>
-
-        <div style={{ maxWidth: 820, margin: '24px auto 0', padding: '0 clamp(16px, 4vw, 22px) 64px' }}>
+        <div style={{ maxWidth: 820, margin: '0 auto', padding: '14px clamp(16px, 4vw, 22px) 64px' }}>
+          <button onClick={() => router.push(backTo)} className="qk-btn qk-btn-ghost" style={{ marginBottom: 20 }}>{ICONS.back} <span>{backLabel}</span></button>
           <div className="qk-card qk-slide-up" style={{ padding: 'clamp(20px, 5vw, 32px)', position: 'relative', overflow: 'hidden' }}>
             {/* confetti dots */}
             <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: .5 }}>
