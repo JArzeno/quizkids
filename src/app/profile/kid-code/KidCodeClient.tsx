@@ -5,6 +5,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Ico } from '@/components/ui/Icons';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
+import { kidTarget, playProfileSwitch } from '@/lib/profileSwitch';
 
 export default function KidCodeClient() {
   const { lang, kids, setActiveKidId, setMode } = useStore();
@@ -25,7 +26,10 @@ export default function KidCodeClient() {
 
   React.useEffect(() => {
     if (code.every((c) => c !== '')) {
-      if (matchKid) { setError(false); setTimeout(() => { setActiveKidId(matchKid.id); setMode('kid'); router.push('/kids/home'); }, 200); }
+      if (matchKid) {
+        setError(false);
+        playProfileSwitch(kidTarget(matchKid, lang), () => { setActiveKidId(matchKid.id); setMode('kid'); router.push('/kids/home'); });
+      }
       else setError(true);
     } else setError(false);
   }, [fullCode]);

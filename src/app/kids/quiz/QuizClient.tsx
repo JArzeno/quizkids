@@ -9,6 +9,7 @@ import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { completePlanItem } from '@/lib/plan';
+import { fetchContent } from '@/lib/fetchContent';
 import type { QuizQuestion } from '@/types';
 
 const FALLBACK_QUIZ_EN: QuizQuestion[] = [
@@ -47,6 +48,8 @@ export default function QuizClient() {
 
   const [cards, setCards] = React.useState<QuizQuestion[]>([]);
   const [loading, setLoading] = React.useState(true);
+  // 'creating' only while a new quiz is being written; saved quizzes just load
+  const [loadPhase, setLoadPhase] = React.useState<'loading' | 'creating'>('loading');
   const [i, setI] = React.useState(0);
   const [picks, setPicks] = React.useState<Record<number, number>>({});
   const [flipped, setFlipped] = React.useState(false);
@@ -60,6 +63,7 @@ export default function QuizClient() {
   React.useEffect(() => {
     const fetchQuiz = async () => {
       setLoading(true);
+      setLoadPhase('loading');
       startedAt.current = Date.now();
       contentIdRef.current = undefined;
       const limit = difficulty === 'easy' ? 6 : 8;
@@ -91,29 +95,20 @@ export default function QuizClient() {
           }
         }
 
-        // Generate fresh (API also checks cache server-side)
+        // Saved quiz for this topic if there is one, otherwise a new one (more questions / several topics are always new)
         const asked = useStore.getState().quizAsked;
-        const res = await fetch('/api/generate/quiz', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            topic: studyParams.topic,
-            grade: studyParams.grade,
-            difficulty,
-            lang: contentLang,
-            subject: studyParams.subject,
-            source: studyParams.source,
-            ...(studyParams.topics ? { topics: studyParams.topics } : {}),
-            ...(more ? { variant: 'more', exclude: asked?.topic === studyParams.topic ? asked.questions : [] } : {}),
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.questions) contentIdRef.current = data.contentId ?? undefined;
-          show(data.questions || FALLBACK_QUIZ);
-        } else {
-          show(FALLBACK_QUIZ);
-        }
+        const data = await fetchContent<{ questions?: QuizQuestion[]; contentId?: string | null }>('/api/generate/quiz', {
+          topic: studyParams.topic,
+          grade: studyParams.grade,
+          difficulty,
+          lang: contentLang,
+          subject: studyParams.subject,
+          source: studyParams.source,
+          ...(studyParams.topics ? { topics: studyParams.topics } : {}),
+          ...(more ? { variant: 'more', exclude: asked?.topic === studyParams.topic ? asked.questions : [] } : {}),
+        }, () => setLoadPhase('creating'), more || !!studyParams.topics);
+        if (data?.questions) contentIdRef.current = data.contentId ?? undefined;
+        show(data?.questions || FALLBACK_QUIZ);
       } catch {
         show(FALLBACK_QUIZ);
       }
@@ -176,7 +171,7 @@ export default function QuizClient() {
     <AppShell>
       <div className="qk-screen" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
         <LoadingBar expectedMs={12000} style={{ width: 'min(280px, 100%)' }} />
-        <div style={{ fontSize: 16, color: 'var(--ink-3)', fontFamily: 'var(--font-display)' }}>{t('generating')}</div>
+        <div style={{ fontSize: 16, color: 'var(--ink-3)', fontFamily: 'var(--font-display)', textAlign: 'center' }}>{t(loadPhase === 'creating' ? 'creatingQuiz' : 'loadingQuiz')}</div>
       </div>
     </AppShell>
   );

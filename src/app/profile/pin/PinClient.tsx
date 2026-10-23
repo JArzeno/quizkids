@@ -4,9 +4,11 @@ import { useRouter } from 'next/navigation';
 import { Ico } from '@/components/ui/Icons';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
+import { firstNameOf } from '@/lib/account';
+import { parentTarget, playProfileSwitch } from '@/lib/profileSwitch';
 
 export default function PinClient() {
-  const { lang, parentPin, setMode } = useStore();
+  const { lang, parentPin, setMode, account } = useStore();
   const t = useT(lang);
   const router = useRouter();
   const [pin, setPin] = React.useState('');
@@ -15,8 +17,10 @@ export default function PinClient() {
 
   const tryConfirm = (full: string) => {
     if (full === parentPin) {
-      setMode('parent');
-      router.push('/dashboard');
+      playProfileSwitch(parentTarget(firstNameOf(account), lang), () => {
+        setMode('parent');
+        router.push('/dashboard');
+      });
     } else {
       setError(true);
       setShake(true);

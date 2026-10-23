@@ -11,6 +11,8 @@ import { createClient } from '@/lib/supabase/client';
 import { useStudyTracker } from '@/lib/studyTimer';
 import { signOut } from '@/lib/auth';
 import { loadCustomSubjects } from '@/lib/customSubjects';
+import { accountFromUser, firstNameOf } from '@/lib/account';
+import { kidTarget, originOf, playProfileSwitch } from '@/lib/profileSwitch';
 
 export function AppShell({ children, showNav = true }: { children: React.ReactNode; showNav?: boolean }) {
   const { lang, mode, kids, activeKidId, setMode, setActiveKidId, palette, font } = useStore();
@@ -28,7 +30,7 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
     router.push('/auth');
   };
 
-  // Pull what's saved on the account (e.g. changed on another device): language and custom subjects
+  // Pull what's saved on the account (e.g. changed on another device): language, names and custom subjects
   React.useEffect(() => {
     if (!account || isDemo) return;
     createClient().auth.getUser().then(({ data }) => {
@@ -36,6 +38,11 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
       const saved = data.user.user_metadata?.lang;
       if ((saved === 'en' || saved === 'es') && saved !== useStore.getState().lang) {
         useStore.setState((s) => ({ lang: saved, studyParams: { ...s.studyParams, lang: saved } }));
+      }
+      const fresh = accountFromUser(data.user);
+      const current = useStore.getState().account;
+      if (current && (fresh.name !== current.name || fresh.firstName !== current.firstName || fresh.lastName !== current.lastName)) {
+        useStore.setState({ account: { ...current, name: fresh.name, firstName: fresh.firstName, lastName: fresh.lastName } });
       }
       return loadCustomSubjects(data.user.id);
     }).catch(() => {});
@@ -60,14 +67,16 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
     el.setAttribute('data-font', font);
   }, [palette, font]);
 
-  const switchMode = (next: 'parent' | 'kid') => {
+  const switchMode = (next: 'parent' | 'kid', e?: React.MouseEvent<HTMLElement>) => {
     if (next === mode) return;
     if (next === 'kid') {
       const target = activeKid || kids[0];
       if (!target) { router.push('/dashboard/add-kid'); return; }
-      setActiveKidId(target.id);
-      setMode('kid');
-      router.push('/kids/home');
+      playProfileSwitch(kidTarget(target, lang), () => {
+        setActiveKidId(target.id);
+        setMode('kid');
+        router.push('/kids/home');
+      }, { origin: originOf(e) });
     } else {
       // Netflix-style: leaving a kid profile back to parent needs the PIN
       router.push('/profile/pin');
@@ -96,11 +105,11 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
             {/* role switcher */}
             {kids.length > 0 && account && !isDemo && (
               <div className="qk-role qk-hide-sm">
-                <button onClick={() => switchMode('parent')} className={mode === 'parent' ? 'on' : ''}>
+                <button onClick={(e) => switchMode('parent', e)} className={mode === 'parent' ? 'on' : ''}>
                   <Ico d={<g><circle cx="12" cy="8" r="4" /><path d="M4 22c0-4 4-6 8-6s8 2 8 6" /></g>} size={13} />
                   <span>{t('parent')}</span>
                 </button>
-                <button onClick={() => switchMode('kid')} className={`qk-role-kid${mode === 'kid' ? ' on' : ''}`}>
+                <button onClick={(e) => switchMode('kid', e)} className={`qk-role-kid${mode === 'kid' ? ' on' : ''}`}>
                   {activeKid ? <Avatar id={activeKid.avatar} size={22} /> : <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--honey-l)', display: 'inline-block' }} />}
                   <span>{t('kid')}</span>
                 </button>
@@ -109,7 +118,7 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
             {account && !isDemo ? (
               <UserMenu
                 lang={lang}
-                name={mode === 'kid' && activeKid ? activeKid.name : account.name}
+                name={mode === 'kid' && activeKid ? activeKid.name : firstNameOf(account)}
                 email={mode === 'kid' ? '' : account.email}
                 kidAvatar={mode === 'kid' && activeKid ? activeKid.avatar : undefined}
                 showSettings={mode === 'parent'}
@@ -119,7 +128,7 @@ export function AppShell({ children, showNav = true }: { children: React.ReactNo
                   icon: mode === 'kid' || !activeKid
                     ? <Ico d={<g><circle cx="12" cy="8" r="4" /><path d="M4 22c0-4 4-6 8-6s8 2 8 6" /></g>} size={16} />
                     : <Avatar id={activeKid.avatar} size={18} />,
-                  onClick: () => switchMode(mode === 'kid' ? 'parent' : 'kid'),
+                  onClick: (e) => switchMode(mode === 'kid' ? 'parent' : 'kid', e),
                 } : undefined}
               />
             ) : null}
@@ -140,7 +149,7 @@ function initials(name: string) {
 function UserMenu({ lang, name, email, kidAvatar, showSettings, onLogout, switchItem }: {
   lang: 'en' | 'es'; name: string; email: string; kidAvatar?: string; showSettings: boolean; onLogout: () => void;
   /** Parent/kid switch, shown in the menu on phones where the header switcher is hidden */
-  switchItem?: { label: string; icon: React.ReactNode; onClick: () => void };
+  switchItem?: { label: string; icon: React.ReactNode; onClick: (e: React.MouseEvent<HTMLElement>) => void };
 }) {
   const t = useT(lang);
   const [open, setOpen] = React.useState(false);
@@ -179,7 +188,7 @@ function UserMenu({ lang, name, email, kidAvatar, showSettings, onLogout, switch
             </div>
           </div>
           {switchItem && (
-            <button className="qk-user-item qk-show-sm" role="menuitem" onClick={() => { setOpen(false); switchItem.onClick(); }}>
+            <button className="qk-user-item qk-show-sm" role="menuitem" onClick={(e) => { setOpen(false); switchItem.onClick(e); }}>
               {switchItem.icon}
               <span>{switchItem.label}</span>
             </button>
