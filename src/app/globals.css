@@ -417,12 +417,46 @@ input, textarea, select { font-family: inherit; color: inherit; }
 /* ---------- stat card ---------- */
 .qk-stat-label { overflow-wrap: anywhere; }
 
+/* ---------- study guide header picture ---------- */
+.qk-guide-hero { display: flex; align-items: center; gap: clamp(18px, 4vw, 32px); }
+.qk-guide-hero > :first-child { flex: 1 1 0; min-width: 0; }
+.qk-guide-hero > .qk-topic-img { flex: 0 0 min(380px, 40%); }
+.qk-topic-img {
+  position: relative; aspect-ratio: 3 / 2; border-radius: 22px; overflow: hidden;
+  background: var(--surface-2); border: 1.5px solid var(--line); box-shadow: var(--shadow);
+}
+.qk-topic-img img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  opacity: 0; transition: opacity .6s ease;
+  animation: qk-img-drift 18s ease-in-out infinite alternate;
+}
+.qk-topic-img img.on { opacity: 1; }
+/* the youngest kids get a picture that gently floats */
+.qk-topic-img[data-band="young"] { animation: qk-img-float 5s ease-in-out infinite; }
+.qk-topic-img-loading {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  background: linear-gradient(110deg, var(--surface-2) 30%, var(--primary-l) 50%, var(--surface-2) 70%) 0 0 / 250% 100%;
+  animation: qk-img-shimmer 1.6s linear infinite;
+  color: var(--ink-3); font-family: var(--font-display); font-size: 15px;
+}
+.qk-topic-img-brush { font-size: 30px; animation: qk-pulse 1.6s ease-in-out infinite; }
+@keyframes qk-img-drift { from { transform: scale(1); } to { transform: scale(1.06) translate(-1%, -1%); } }
+@keyframes qk-img-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes qk-img-shimmer { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .qk-topic-img, .qk-topic-img img, .qk-topic-img-loading, .qk-topic-img-brush { animation: none !important; }
+}
+
 /* ---------- responsive ---------- */
 @media (max-width: 880px) {
   .qk-hide-md { display: none !important; }
   .qk-stack-md { grid-template-columns: 1fr !important; }
   .qk-stack-md > aside { position: static !important; }
   .qk-guide-fact { margin-top: 0 !important; }
+  /* header picture above the title */
+  .qk-guide-hero { flex-direction: column-reverse; align-items: stretch; }
+  .qk-guide-hero > * { flex: none !important; }
+  .qk-guide-hero > .qk-topic-img { width: 100%; max-width: 520px; }
 }
 @media (max-width: 720px) {
   .qk-screen { padding: 20px 16px 56px; }
