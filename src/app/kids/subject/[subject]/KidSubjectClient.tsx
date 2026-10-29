@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
 import { Btn } from '@/components/ui/Btn';
 import { AppShell } from '@/components/layout/AppShell';
+import ModePicker from '@/components/games/ModePicker';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
@@ -197,6 +198,14 @@ export default function KidSubjectClient() {
               </div>
               <div className="qk-progress"><span style={{ width: prog.pct + '%' }} /></div>
               <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{prog.mastered.length}/{goal.topics.length} {t('goalTopicsDone')}</div>
+            </section>
+          )}
+
+          {/* how to learn: each way opens its own game over the subject's topics */}
+          {rows.length > 0 && (
+            <section style={{ marginTop: 28 }}>
+              <h2 className="qk-h2" style={{ margin: '0 0 14px' }}>{L('How do you want to learn?', '¿Cómo quieres aprender?')}</h2>
+              <ModePicker lang={lang} onPick={(m) => router.push(`${here}/play?mode=${m}`)} />
             </section>
           )}
 
