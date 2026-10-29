@@ -170,6 +170,10 @@ export interface StudyParams {
   topics?: string[];
   /** Content id of the quiz that goes with the guide being read (test prep), so "take a quiz" opens it */
   pairedContentId?: string;
+  /** School test being studied for; practice test results are saved on it. Only trusted when its title matches `topic`. */
+  testId?: string;
+  /** What the subject remembers from earlier tests, sent along when generating a practice test */
+  memory?: string[];
 }
 
 export interface ImportedLesson {
@@ -252,7 +256,7 @@ export interface KidTopic {
   createdAt?: string;
 }
 
-/** A school test: a quiz and a study guide covering the topics the parent picked */
+/** A school test: a study kit (guide, flashcards, practice test, printable worksheet) covering the topics picked for it */
 export interface KidTest {
   id: string;
   subject: string;
@@ -263,8 +267,60 @@ export interface KidTest {
   testDate?: string;
   guideContentId?: string;
   quizContentId?: string;
+  worksheetContentId?: string;
+  practiceContentId?: string;
   lang?: ContentLang;
   createdAt?: string;
+  /** How the practice tests went; part of what the subject remembers for later */
+  practice?: PracticeStats;
+  /** The grade the kid got at school, as written ("92", "B+", "8/10") */
+  resultGrade?: string;
+  /** The same grade as 0-100, when it can be read as one */
+  resultPct?: number;
+  /** What was hard, or what the teacher said */
+  resultNote?: string;
+  resultAt?: string;
+}
+
+export interface PracticeStats {
+  attempts: number;
+  /** Scores 0-100 */
+  last: number;
+  best: number;
+  at: string;
+  /** Score 0-100 per topic on the latest attempt */
+  byTopic: Record<string, number>;
+  /** Topics under the pass mark on the latest attempt */
+  weak: string[];
+  /** Short notes on what was missed on the latest attempt */
+  missed: string[];
+}
+
+/** One question of a practice test. `topic` says which of the test's topics it checks. */
+export type PracticeItem =
+  | { type: 'mc'; topic?: string; q: string; choices: string[]; a: number }
+  /** fix: the corrected statement, for false items */
+  | { type: 'tf'; topic?: string; s: string; a: boolean; fix?: string }
+  /** One "___" blank in the sentence */
+  | { type: 'fill'; topic?: string; s: string; a: string }
+  /** Written answer graded by the AI. a = model answer, points = the key ideas a full answer has */
+  | { type: 'short'; topic?: string; q: string; a: string; points: string[] };
+
+export type PracticeItemType = PracticeItem['type'];
+
+export interface PracticeTest {
+  items: PracticeItem[];
+  /** Format version */
+  v?: number;
+}
+
+/** How one written answer was graded */
+export interface GradedAnswer {
+  verdict: 'correct' | 'partial' | 'wrong';
+  /** Feedback for the kid: what was good and what was missing */
+  feedback: string;
+  /** Key ideas the answer left out */
+  missing?: string[];
 }
 
 export type PlanItemType = 'guide' | 'quiz' | 'pdf' | 'test';

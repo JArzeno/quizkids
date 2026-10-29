@@ -14,7 +14,8 @@ import { subjectInfo, subjectLabelFields, levelLabel, fromRow } from '@/lib/subj
 import { goalFromRow } from '@/lib/goals';
 import { CONTENT_LANGUAGES, CONTENT_LANG_CODES, isContentLang } from '@/lib/languages';
 import { addTopic, loadTopics, removeTopic, subjectTopics, type TopicRow } from '@/lib/topics';
-import { MAX_TEST_TOPICS, createTest, daysUntil, defaultTestTopics, loadTests, removeTest, testStudyParams, topicsInTests } from '@/lib/tests';
+import { KIT_PARTS, createTest, daysUntil, examMemory, loadTests, removeTest, type KitPart } from '@/lib/tests';
+import ExamSetup, { type ExamSetupValue, type PartState } from '@/components/exam/ExamSetup';
 import GoalsSection from '../../GoalsSection';
 import { LIST_PREVIEW, ViewAllToggle, pendingFirst, quizzesByTopic } from '../../lists';
 import type { Kid, KidSubject, KidTest, KidTopic } from '@/types';
@@ -63,8 +64,8 @@ export default function SubjectClient() {
   const [assignments, setAssignments] = React.useState<AssignmentRow[]>([]);
   const [topics, setTopics] = React.useState<KidTopic[]>([]);
   const [tests, setTests] = React.useState<KidTest[]>([]);
-  const [testForm, setTestForm] = React.useState<{ title: string; picked: string[]; date: string } | null>(null);
-  const [creatingTest, setCreatingTest] = React.useState(false);
+  const [testForm, setTestForm] = React.useState(false);
+  const [kitParts, setKitParts] = React.useState<Record<KitPart, PartState> | null>(null);
   const [loading, setLoading] = React.useState(!isDemo);
   const [error, setError] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState('');
@@ -133,7 +134,6 @@ export default function SubjectClient() {
   const lastAt = [quizzes[0]?.created_at, assignments[0]?.assigned_at].filter(Boolean).sort().pop();
   // Every topic of the subject as a KidTopic (topics that only come from a goal have no notes)
   const rowTopics: KidTopic[] = rows.map((r) => r.topic ?? { id: 'goal-' + r.title, subject, title: r.title, source: 'manual' as const });
-  const usedInTests = topicsInTests(tests);
   const norm = (x: string) => x.trim().toLowerCase();
 
   // Demo mode keeps topics on the kid; the store is the source of truth there
@@ -171,35 +171,37 @@ export default function SubjectClient() {
     setStudyParams({
       subject, topic: row.title, grade: kid.grade, difficulty, lang,
       contentLang: ks?.lang, source: row.topic?.notes,
-      contentId: undefined, assignmentId: undefined, planItemId: undefined, returnTo: undefined, topics: undefined, pairedContentId: undefined,
+      contentId: undefined, assignmentId: undefined, planItemId: undefined, returnTo: undefined, topics: undefined, pairedContentId: undefined, testId: undefined, memory: undefined,
     });
     router.push('/dashboard/generate');
   };
 
   // ---- test prep ------------------------------------------------------------
-  const openTestForm = () => setTestForm({ title: '', picked: defaultTestTopics(rowTopics, tests), date: '' });
-
   const saveDemoTests = (next: KidTest[]) => {
     if (!kid) return;
     const others = (useStore.getState().kids.find((k) => k.id === kid.id)?.tests || []).filter((x) => x.subject !== subject);
     updateKid(kid.id, { tests: [...others, ...[...next].reverse()] });
   };
 
-  const submitTest = async () => {
-    if (!kid || !testForm || testForm.picked.length === 0) return;
-    setCreatingTest(true); setError(null);
+  const submitTest = async (v: ExamSetupValue) => {
+    if (!kid || v.picked.length === 0) return;
+    setError(null);
+    setKitParts(Object.fromEntries(KIT_PARTS.map((p) => [p, 'waiting'])) as Record<KitPart, PartState>);
     try {
-      const picked = rowTopics.filter((x) => testForm.picked.some((n) => norm(n) === norm(x.title)));
-      const test = await createTest(kid, subject, { title: testForm.title, topics: picked, testDate: testForm.date || undefined }, { lang: ks?.lang ?? lang, difficulty, existing: tests, isDemo });
+      const picked = rowTopics.filter((x) => v.picked.some((n) => norm(n) === norm(x.title)));
+      const test = await createTest(kid, subject, { title: v.title, topics: picked, testDate: v.date || undefined }, {
+        lang: ks?.lang ?? lang, difficulty, existing: tests, isDemo, memory: examMemory(tests),
+        onPart: (part, ok) => setKitParts((p) => (p ? { ...p, [part]: ok ? 'done' : 'failed' } : p)),
+      });
       const next = [test, ...tests];
       setTests(next);
       if (isDemo) saveDemoTests(next);
-      setTestForm(null);
+      setTestForm(false);
     } catch (e) {
       console.warn('Could not create test:', e);
       setError(L("Couldn't create the test. Please try again.", 'No pudimos crear el examen. Intenta de nuevo.'));
     }
-    setCreatingTest(false);
+    setKitParts(null);
   };
 
   const deleteTest = async (test: KidTest) => {
@@ -211,13 +213,12 @@ export default function SubjectClient() {
     if (isDemo) saveDemoTests(next);
   };
 
-  // Opens the guide or the quiz of a test (in the kid view, like studying from the subject page)
-  const openTest = (test: KidTest, kind: 'guide' | 'quiz') => {
+  // Opens a test's study kit in the kid view
+  const openTest = (test: KidTest) => {
     if (!kid) return;
     setActiveKidId(kid.id);
     setMode('kid');
-    setStudyParams(testStudyParams(useStore.getState().studyParams, kid, test, kind, topics, ks, `/kids/subject/${encodeURIComponent(subject)}`));
-    router.push(kind === 'guide' ? '/kids/guide' : '/kids/quiz');
+    router.push(`/kids/exam/${test.id}`);
   };
 
   const testWhen = (date: string) => {
@@ -410,46 +411,13 @@ export default function SubjectClient() {
           {/* test prep */}
           <div style={{ marginTop: 24 }}>
             <Section
-              title={L('Test prep', 'Preparar un examen')}
-              sub={L(`Pick the topics a school test covers and get one quiz and one study guide for all of them. Topics from earlier tests are marked, so each test can cover new ones.`, `Elige los temas que cubre un examen de la escuela y recibe un quiz y una guía de estudio para todos. Los temas de exámenes anteriores quedan marcados, para que cada examen cubra temas nuevos.`)}
-              action={!testForm && <Btn kind="primary" icon={ICONS.plus} style={smallBtn} onClick={openTestForm} disabled={rows.length === 0}>{L('New test', 'Nuevo examen')}</Btn>}
+              title={L('Tests & exams', 'Exámenes')}
+              sub={L(`Pick the classes a school test covers and get a full study kit: study guide, flashcards, a practice test ${kid.name} fills in on screen (the AI checks written answers) and a printable worksheet. Results and grades are remembered for the next test.`, `Elige las clases que cubre un examen de la escuela y recibe un kit de estudio completo: guía, tarjetas, un examen de práctica que ${kid.name} llena en pantalla (la IA revisa las respuestas escritas) y una hoja para imprimir. Los resultados y notas se recuerdan para el próximo examen.`)}
+              action={!testForm && <Btn kind="primary" icon={ICONS.plus} style={smallBtn} onClick={() => setTestForm(true)} disabled={rows.length === 0}>{L('New test', 'Nuevo examen')}</Btn>}
             >
               {testForm && (
-                <div style={{ display: 'grid', gap: 12, padding: 14, background: 'var(--surface-2)', borderRadius: 14 }}>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    <label style={{ flex: '2 1 220px', fontSize: 12, color: 'var(--ink-3)' }}>{L('Test name (optional)', 'Nombre del examen (opcional)')}
-                      <input className="qk-input" value={testForm.title} maxLength={80} onChange={(e) => setTestForm({ ...testForm, title: e.target.value })} placeholder={L('e.g. Unit 3 test', 'ej. Examen de la unidad 3')} style={{ marginTop: 4, fontSize: 13 }} />
-                    </label>
-                    <label style={{ flex: '1 1 150px', fontSize: 12, color: 'var(--ink-3)' }}>{L('Test date (optional)', 'Fecha del examen (opcional)')}
-                      <input className="qk-input" type="date" value={testForm.date} onChange={(e) => setTestForm({ ...testForm, date: e.target.value })} style={{ marginTop: 4, fontSize: 13 }} />
-                    </label>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 6 }}>
-                      {L('What does the test cover?', '¿Qué cubre el examen?')} · {testForm.picked.length}/{MAX_TEST_TOPICS}
-                    </div>
-                    <div style={{ display: 'grid', gap: 6 }}>
-                      {rowTopics.map((x) => {
-                        const on = testForm.picked.some((n) => norm(n) === norm(x.title));
-                        const before = usedInTests.get(norm(x.title));
-                        return (
-                          <label key={x.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, background: 'var(--surface)', border: '1px solid ' + (on ? 'var(--primary)' : 'var(--line)'), cursor: 'pointer', flexWrap: 'wrap' }}>
-                            <input type="checkbox" checked={on} disabled={!on && testForm.picked.length >= MAX_TEST_TOPICS}
-                              onChange={() => setTestForm({ ...testForm, picked: on ? testForm.picked.filter((n) => norm(n) !== norm(x.title)) : [...testForm.picked, x.title] })} />
-                            <span style={{ flex: '1 1 160px', minWidth: 0, fontSize: 14, fontWeight: 600, overflowWrap: 'anywhere' }}>{x.title}</span>
-                            {before && <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: 'var(--honey-l)', color: '#7C5410' }}>{L('In earlier test: ', 'En examen anterior: ')}{before.title}</span>}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <Btn kind="primary" icon={ICONS.spark} onClick={submitTest} disabled={creatingTest || testForm.picked.length === 0}>
-                      {creatingTest ? L('Creating the quiz and guide…', 'Creando el quiz y la guía…') : L('Create quiz and study guide', 'Crear quiz y guía de estudio')}
-                    </Btn>
-                    <button className="qk-btn qk-btn-ghost" onClick={() => setTestForm(null)} disabled={creatingTest}>{t('cancel')}</button>
-                  </div>
-                  {creatingTest && <LoadingBar expectedMs={15000} />}
+                <div style={{ padding: 14, background: 'var(--surface-2)', borderRadius: 14 }}>
+                  <ExamSetup lang={lang} topics={rowTopics} tests={tests} busy={!!kitParts} parts={kitParts} onSubmit={submitTest} onCancel={() => setTestForm(false)} />
                 </div>
               )}
 
@@ -457,31 +425,39 @@ export default function SubjectClient() {
                 <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>
                   {rows.length === 0
                     ? L('Add the topics or classes first, then create a test from them.', 'Agrega primero los temas o clases y luego crea un examen con ellos.')
-                    : L(`No tests yet. Create one when ${kid.name} has a test at school.`, `Aún no hay exámenes. Crea uno cuando ${kid.name} tenga un examen en la escuela.`)}
+                    : L(`No tests yet. Create one when ${kid.name} has a test at school, or let ${kid.name} use Test mode.`, `Aún no hay exámenes. Crea uno cuando ${kid.name} tenga un examen en la escuela, o deja que ${kid.name} use el Modo examen.`)}
                 </div>
               )}
 
               {tests.length > 0 && (
                 <div style={{ display: 'grid', gap: 8 }}>
                   {tests.map((test) => {
-                    const last = quizzes.find((q) => q.topic && norm(q.topic) === norm(test.title) && (q.total || 0) > 0);
-                    const pct = last ? Math.round(((last.correct || 0) / (last.total || 1)) * 100) : null;
+                    const best = test.practice?.best ?? null;
                     const upcoming = test.testDate ? daysUntil(test.testDate) >= 0 : false;
+                    const tone = (pct: number) => (pct >= 70 ? { bg: 'var(--primary-l)', fg: 'var(--primary-d)' } : { bg: 'var(--coral-l)', fg: 'var(--coral)' });
                     return (
                       <div key={test.id} style={{ padding: '12px 14px', background: 'var(--surface-2)', borderRadius: 12, display: 'grid', gap: 8 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           <div style={{ flex: '1 1 180px', minWidth: 0, fontSize: 14, fontWeight: 700, overflowWrap: 'anywhere' }}>{test.title}</div>
                           {test.testDate && <span style={{ padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: upcoming ? 'var(--honey-l)' : 'var(--surface)', color: upcoming ? '#7C5410' : 'var(--ink-3)' }}>📅 {testWhen(test.testDate)}</span>}
-                          <span style={{ padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: pct == null ? 'var(--surface)' : pct >= 70 ? 'var(--primary-l)' : 'var(--coral-l)', color: pct == null ? 'var(--ink-3)' : pct >= 70 ? 'var(--primary-d)' : 'var(--coral)' }}>
-                            {pct == null ? L('Quiz not taken', 'Quiz sin hacer') : `${L('Last quiz', 'Último quiz')}: ${pct}%`}
+                          <span style={{ padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: best == null ? 'var(--surface)' : tone(best).bg, color: best == null ? 'var(--ink-3)' : tone(best).fg }}>
+                            {best == null ? L('Practice test not taken', 'Examen de práctica sin hacer') : `${L('Practice', 'Práctica')}: ${best}%${test.practice!.attempts > 1 ? ` · ${test.practice!.attempts}×` : ''}`}
                           </span>
+                          {test.resultGrade && (
+                            <span title={test.resultNote || undefined} style={{ padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: test.resultPct == null ? 'var(--surface)' : tone(test.resultPct).bg, color: test.resultPct == null ? 'var(--ink)' : tone(test.resultPct).fg }}>
+                              🏫 {L('Grade', 'Nota')}: {test.resultGrade}
+                            </span>
+                          )}
                         </div>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          {test.topics.map((name) => <span key={name} style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, background: 'var(--surface)', border: '1px solid var(--line)', color: 'var(--ink-2)' }}>{name}</span>)}
+                          {test.topics.map((name) => {
+                            const weak = test.practice?.weak.includes(name);
+                            return <span key={name} style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, background: weak ? 'var(--coral-l)' : 'var(--surface)', border: '1px solid ' + (weak ? 'var(--coral)' : 'var(--line)'), color: weak ? 'var(--coral)' : 'var(--ink-2)', fontWeight: weak ? 700 : 400 }}>{weak ? '🎯 ' : ''}{name}</span>;
+                          })}
                         </div>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          <Btn kind="ghost" icon={ICONS.book} style={smallBtn} onClick={() => openTest(test, 'guide')}>{L('Study guide', 'Guía de estudio')}</Btn>
-                          <Btn kind="primary" icon={ICONS.cards} style={smallBtn} onClick={() => openTest(test, 'quiz')}>{L('Practice quiz', 'Quiz de práctica')}</Btn>
+                        {test.resultNote && <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>💬 {test.resultNote}</div>}
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <Btn kind="primary" icon={ICONS.book} style={smallBtn} onClick={() => openTest(test)}>{L('Open study kit', 'Abrir kit de estudio')}</Btn>
                           <button aria-label={t('removeSubject')} title={t('removeSubject')} onClick={() => deleteTest(test)} style={{ appearance: 'none', border: 0, background: 'transparent', color: 'var(--ink-3)', cursor: 'pointer', display: 'grid', placeItems: 'center', padding: 6, marginLeft: 'auto' }}>{ICONS.trash}</button>
                         </div>
                       </div>

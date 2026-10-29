@@ -242,7 +242,15 @@ create table if not exists public.kid_tests (
   guide_content_id uuid references public.generated_content(id) on delete set null,
   quiz_content_id uuid references public.generated_content(id) on delete set null,
   lang text,
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  -- exam mode (see migrations/012_exam_mode.sql)
+  worksheet_content_id uuid references public.generated_content(id) on delete set null,
+  practice_content_id uuid references public.generated_content(id) on delete set null,
+  practice_stats jsonb,
+  result_grade text,
+  result_pct integer,
+  result_note text,
+  result_at timestamptz
 );
 
 create index if not exists kid_tests_kid_subject on public.kid_tests (kid_id, subject, created_at desc);

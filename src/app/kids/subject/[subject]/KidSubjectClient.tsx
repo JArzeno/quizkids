@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 import { subjectInfo, fromRow } from '@/lib/subjects';
 import { goalFromRow, goalProgress } from '@/lib/goals';
 import { loadTopics, subjectTopics, type TopicRow } from '@/lib/topics';
-import { daysUntil, loadTests, testStudyParams } from '@/lib/tests';
+import { daysUntil, examWeakTopics, loadTests } from '@/lib/tests';
 import type { KidTest, KidTopic, RecentItem } from '@/types';
 
 interface QuizRow { subject: string | null; topic: string | null; total: number | null; correct: number | null; stars: number | null; created_at: string; assignment_id?: string | null }
@@ -110,20 +110,18 @@ export default function KidSubjectClient() {
     }));
   const pending = work.filter((w) => w.status !== 'completed');
 
-  const study = (row: TopicRow, kind: 'guide' | 'quiz') => {
+  const study = (row: TopicRow, kind: 'guide' | 'quiz' | 'practice') => {
     setStudyParams({
       ...studyParams,
       subject, topic: row.title, grade: kid.grade,
       contentId: undefined, assignmentId: undefined, planItemId: undefined,
-      contentLang: ks?.lang, source: row.topic?.notes, returnTo: here, topics: undefined, pairedContentId: undefined,
+      contentLang: ks?.lang, source: row.topic?.notes, returnTo: here, topics: undefined, pairedContentId: undefined, testId: undefined, memory: undefined,
     });
-    router.push(kind === 'guide' ? '/kids/guide' : '/kids/quiz');
+    router.push(kind === 'guide' ? '/kids/guide' : kind === 'quiz' ? '/kids/quiz' : '/kids/test');
   };
 
-  const openTest = (test: KidTest, kind: 'guide' | 'quiz') => {
-    setStudyParams(testStudyParams(studyParams, kid, test, kind, topics, ks, here));
-    router.push(kind === 'guide' ? '/kids/guide' : '/kids/quiz');
-  };
+  // Topics a practice test for a school test showed were weak: the subject remembers them
+  const weakInTests = new Set(examWeakTopics(tests).map((x) => x.trim().toLowerCase()));
 
   const testWhen = (date: string) => {
     const d = daysUntil(date);
@@ -138,7 +136,7 @@ export default function KidSubjectClient() {
       ...studyParams,
       subject, topic: r.title, grade: kid.grade,
       contentId: r.contentId, assignmentId: r.assignmentId, planItemId: undefined,
-      contentLang: undefined, source: undefined, returnTo: here, topics: undefined, pairedContentId: undefined,
+      contentLang: undefined, source: undefined, returnTo: here, topics: undefined, pairedContentId: undefined, testId: undefined, memory: undefined,
     });
     router.push(r.kind === 'quiz' ? '/kids/quiz' : r.kind === 'guide' ? '/kids/guide' : '/kids/pdf');
   };
@@ -180,6 +178,11 @@ export default function KidSubjectClient() {
                 )}
               </div>
             </div>
+            {topics.length > 0 && (
+              <Btn kind="primary" icon={<span aria-hidden style={{ fontSize: 18, lineHeight: 1 }}>📝</span>} className="qk-full-sm" style={{ position: 'relative', flexShrink: 0 }} onClick={() => router.push(`${here}/exam`)}>
+                {L('Test mode', 'Modo examen')}
+              </Btn>
+            )}
           </div>
 
           {/* goal */}
@@ -197,32 +200,29 @@ export default function KidSubjectClient() {
             </section>
           )}
 
-          {/* tests to get ready for */}
+          {/* school tests: each opens its study kit */}
           {tests.length > 0 && (
             <section style={{ marginTop: 28 }}>
-              <h2 className="qk-h2" style={{ margin: '0 0 14px' }}>{L('Get ready for a test', 'Prepárate para un examen')}</h2>
+              <h2 className="qk-h2" style={{ margin: '0 0 14px' }}>{L('My tests', 'Mis exámenes')}</h2>
               <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))', gap: 14 }}>
                 {tests.map((test) => {
-                  const last = quizzes.find((q) => q.topic && q.topic.trim().toLowerCase() === test.title.trim().toLowerCase() && (q.total || 0) > 0);
-                  const pct = last ? Math.round(((last.correct || 0) / (last.total || 1)) * 100) : null;
                   const upcoming = test.testDate ? daysUntil(test.testDate) >= 0 : false;
+                  const best = test.practice?.best ?? null;
                   return (
-                    <div key={test.id} className="qk-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10, border: '1px solid ' + (pct != null && pct >= 70 ? 'var(--primary)' : 'var(--line)') }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                        <div style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{test.title}</div>
+                    <button key={test.id} onClick={() => router.push(`/kids/exam/${test.id}`)} className="qk-card" style={{ appearance: 'none', font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer', padding: 16, display: 'flex', flexDirection: 'column', gap: 10, border: '1px solid ' + (upcoming ? 'var(--honey)' : 'var(--line)') }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
+                        <div style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, lineHeight: 1.25, overflowWrap: 'anywhere' }}>📝 {test.title}</div>
                         {test.testDate && upcoming && <span style={{ padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: 'var(--honey-l)', color: '#7C5410', flexShrink: 0 }}>📅 {testWhen(test.testDate)}</span>}
+                        {test.resultGrade && <span style={{ padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: 'var(--primary-l)', color: 'var(--primary-d)', flexShrink: 0 }}>{L('Grade', 'Nota')}: {test.resultGrade}</span>}
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
-                        {test.topics.join(' · ')}
+                      <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{test.topics.join(' · ')}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 'auto', width: '100%' }}>
+                        <span style={{ fontSize: 12, fontWeight: best == null ? 400 : 700, color: best == null ? 'var(--ink-3)' : best >= 70 ? 'var(--primary-d)' : 'var(--coral)' }}>
+                          {best == null ? L('Study kit ready', 'Kit de estudio listo') : `${L('Practice test', 'Examen de práctica')}: ${best}%`}
+                        </span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 700, color: 'var(--primary-d)' }}>{L('Open', 'Abrir')} {ICONS.next}</span>
                       </div>
-                      <div style={{ fontSize: 12, color: pct == null ? 'var(--ink-3)' : pct >= 70 ? 'var(--primary-d)' : 'var(--coral)', fontWeight: pct == null ? 400 : 700 }}>
-                        {pct == null ? L('Read the guide, then try the quiz.', 'Lee la guía y luego prueba el quiz.') : `${L('Last quiz', 'Último quiz')}: ${pct}%`}
-                      </div>
-                      <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
-                        <Btn kind="ghost" icon={ICONS.book} style={{ flex: 1, fontSize: 13, padding: '8px 10px' }} onClick={() => openTest(test, 'guide')}>{L('Study guide', 'Guía')}</Btn>
-                        <Btn kind="primary" icon={ICONS.cards} style={{ flex: 1, fontSize: 13, padding: '8px 10px' }} onClick={() => openTest(test, 'quiz')}>Quiz</Btn>
-                      </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -251,9 +251,11 @@ export default function KidSubjectClient() {
                       {r.lastPct == null ? L('New! Start with the guide.', '¡Nuevo! Empieza con la guía.') : `${L('Last quiz', 'Último quiz')}: ${r.lastPct}%`}
                       {r.topic?.source === 'import' || r.topic?.source === 'classroom' ? ` · 📎 ${L('From your class', 'De tu clase')}` : ''}
                     </div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
-                      <Btn kind="ghost" icon={ICONS.book} style={{ flex: 1, fontSize: 13, padding: '8px 10px' }} onClick={() => study(r, 'guide')}>{L('Learn', 'Aprender')}</Btn>
-                      <Btn kind="primary" icon={ICONS.cards} style={{ flex: 1, fontSize: 13, padding: '8px 10px' }} onClick={() => study(r, 'quiz')}>Quiz</Btn>
+                    {weakInTests.has(r.title.trim().toLowerCase()) && <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--coral)' }}>🎯 {L('Was hard on a practice test: review it', 'Costó en un examen de práctica: repásalo')}</div>}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 'auto' }}>
+                      <Btn kind="ghost" icon={ICONS.book} style={{ fontSize: 13, padding: '8px 10px' }} onClick={() => study(r, 'guide')}>{L('Learn', 'Aprender')}</Btn>
+                      <Btn kind="primary" icon={ICONS.cards} style={{ fontSize: 13, padding: '8px 10px' }} onClick={() => study(r, 'quiz')}>Quiz</Btn>
+                      <Btn kind="soft" icon={ICONS.pencil} style={{ gridColumn: '1 / -1', fontSize: 13, padding: '8px 10px' }} onClick={() => study(r, 'practice')}>{L('Practice test', 'Examen de práctica')}</Btn>
                     </div>
                   </div>
                 ))}
