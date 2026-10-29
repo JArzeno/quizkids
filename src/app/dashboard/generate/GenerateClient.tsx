@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Btn } from '@/components/ui/Btn';
+import { WorksheetModePicker } from '@/components/ui/WorksheetModePicker';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
@@ -180,6 +181,12 @@ export default function GenerateClient() {
             {(['easy', 'medium', 'hard'] as const).map((d) => (
               <button key={d} className={`qk-chip${difficulty === d ? ' on' : ''}`} onClick={() => setDifficulty(d)} disabled={!!genState}>{t(d)}</button>
             ))}
+          </div>
+
+          {/* worksheet format (applies to worksheets) */}
+          <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{lang === 'es' ? 'Hoja de trabajo' : 'Worksheet'}</span>
+            <WorksheetModePicker disabled={!!genState} />
           </div>
 
           {/* Error */}

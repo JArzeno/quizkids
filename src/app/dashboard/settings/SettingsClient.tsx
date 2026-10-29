@@ -5,6 +5,7 @@ import { ICONS, Ico } from '@/components/ui/Icons';
 import { Avatar, AVATARS } from '@/components/ui/Avatar';
 import { Btn } from '@/components/ui/Btn';
 import { PricingCards } from '@/components/ui/PricingCards';
+import { WorksheetModePicker } from '@/components/ui/WorksheetModePicker';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { signOut } from '@/lib/auth';
@@ -239,6 +240,14 @@ export default function SettingsClient() {
                       {lang === 'es'
                         ? 'Se guarda en tu cuenta. Los quizzes, guías de estudio y hojas de trabajo se generan en este idioma.'
                         : 'Saved on your account. Quizzes, study guides, and worksheets are generated in this language.'}
+                    </div>
+                  </Row>
+                  <Row label={lang === 'es' ? 'Hojas de trabajo' : 'Worksheets'}>
+                    <WorksheetModePicker />
+                    <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 6 }}>
+                      {lang === 'es'
+                        ? 'Imprimir las hojas, o dejar que tus hijos las completen en la pantalla (sin impresora). Se revisan solas.'
+                        : 'Print worksheets, or let your kids fill them in on the screen when there is no printer. They are checked automatically.'}
                     </div>
                   </Row>
                   <Row label={lang === 'es' ? 'Tema de color' : 'Color theme'}>

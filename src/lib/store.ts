@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { createClient } from '@/lib/supabase/client';
 import { DEMO_COOKIE } from '@/lib/demo';
-import type { Account, Kid, ParentPrefs, QuizResult, StudyParams, Lang, ImportedLesson, StudySession, CustomSubject } from '@/types';
+import type { Account, Kid, ParentPrefs, QuizResult, StudyParams, Lang, ImportedLesson, StudySession, CustomSubject, WorksheetMode } from '@/types';
 
 interface AppState {
   // lang
@@ -77,6 +77,9 @@ interface AppState {
   setDifficulty: (d: 'easy' | 'medium' | 'hard') => void;
   gamification: 'minimal' | 'light' | 'medium';
   setGamification: (g: 'minimal' | 'light' | 'medium') => void;
+  /** How worksheets open: printed on paper, or filled in on screen when there is no printer */
+  worksheetMode: WorksheetMode;
+  setWorksheetMode: (m: WorksheetMode) => void;
 
   // session auto-start signal
   autoStartSession: boolean;
@@ -184,6 +187,8 @@ export const useStore = create<AppState>()(
       setDifficulty: (difficulty) => set({ difficulty }),
       gamification: 'light',
       setGamification: (gamification) => set({ gamification }),
+      worksheetMode: 'print',
+      setWorksheetMode: (worksheetMode) => set({ worksheetMode }),
 
       autoStartSession: false,
       setAutoStartSession: (autoStartSession) => set({ autoStartSession }),
