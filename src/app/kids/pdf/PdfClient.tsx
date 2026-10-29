@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
 import { LoadingBar } from '@/components/ui/LoadingBar';
 import { Btn, Chip } from '@/components/ui/Btn';
+import { Stars } from '@/components/ui/Stars';
+import { WorksheetModePicker } from '@/components/ui/WorksheetModePicker';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { completePlanItem } from '@/lib/plan';
@@ -12,6 +14,8 @@ import { createClient } from '@/lib/supabase/client';
 import type { Worksheet, WorksheetSection, WorksheetSectionType } from '@/types';
 import { shuffledOrder, toWorksheet } from '@/lib/worksheet';
 import { fetchContent } from '@/lib/fetchContent';
+import { answeredCount, gradeSection, scoreWorksheet, starsFor, type WorksheetAnswers } from '@/lib/worksheetGrade';
+import { InteractiveSection } from './InteractiveSection';
 
 const FALLBACK_EN: Worksheet = {
   sections: [
@@ -86,7 +90,8 @@ const SECTION_COPY: Record<WorksheetSectionType, { en: [string, string]; es: [st
 };
 
 export default function PdfClient() {
-  const { lang, kids, activeKidId, studyParams, setMode, isDemo } = useStore();
+  const { lang, kids, activeKidId, studyParams, setMode, isDemo, worksheetMode } = useStore();
+  const screen = worksheetMode === 'screen';
   const contentLang = studyParams.contentLang ?? lang;
   const [marked, setMarked] = React.useState(false);
   const t = useT(lang);
@@ -154,6 +159,48 @@ export default function PdfClient() {
   const starts = visible.reduce<number[]>((acc, s, i) => [...acc, i === 0 ? 1 : acc[i - 1] + visible[i - 1].items.length], []);
   const total = visible.reduce((n, s) => n + s.items.length, 0);
 
+  // --- fill-in-on-screen mode ---
+  const [answers, setAnswers] = React.useState<WorksheetAnswers>({});
+  const [checked, setChecked] = React.useState(false);
+  const resultRef = React.useRef<HTMLDivElement>(null);
+  // A refresh or a trip back from the plan should not lose what was typed: keep the draft for this worksheet in the tab
+  const draftKey = `qk-ws:${studyParams.contentId ?? ''}:${studyParams.topic}:${studyParams.grade}:${contentLang}`;
+  const saveDraft = (a: WorksheetAnswers, c: boolean) => {
+    try { sessionStorage.setItem(draftKey, JSON.stringify({ a, c })); } catch { /* private mode: the draft just isn't kept */ }
+  };
+
+  React.useEffect(() => {
+    if (!data) return;
+    try {
+      const raw = sessionStorage.getItem(draftKey);
+      if (raw) {
+        const d = JSON.parse(raw) as { a?: WorksheetAnswers; c?: boolean };
+        setAnswers(d.a && typeof d.a === 'object' ? d.a : {});
+        setChecked(!!d.c);
+        return;
+      }
+    } catch { /* unreadable draft: start clean */ }
+    setAnswers({});
+    setChecked(false);
+  }, [data, draftKey]);
+
+  const setAnswer = (key: string, value: string) => {
+    const next = { ...answers, [key]: value };
+    setAnswers(next);
+    saveDraft(next, false);
+  };
+  const checkAnswers = () => {
+    setChecked(true);
+    saveDraft(answers, true);
+    window.setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  };
+  const tryAgain = () => {
+    setAnswers({});
+    setChecked(false);
+    try { sessionStorage.removeItem(draftKey); } catch { /* nothing to clear */ }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const toggle = (type: WorksheetSectionType) => setHidden((h) => {
     const next = new Set(h);
     if (next.has(type)) next.delete(type);
@@ -163,10 +210,21 @@ export default function PdfClient() {
 
   const copy = (type: WorksheetSectionType) => SECTION_COPY[type][es ? 'es' : 'en'];
   const instruction = (s: WorksheetSection) => {
+    if (screen) {
+      if (s.type === 'mc') return es ? 'Elige la respuesta correcta.' : 'Pick the right answer.';
+      if (s.type === 'tf') return gradeNum >= 3 ? (es ? 'Elige Verdadero o Falso. Si es falso, corrígelo.' : 'Pick True or False. If it is false, fix it.') : (es ? 'Elige Verdadero o Falso.' : 'Pick True or False.');
+      if (s.type === 'fill') return s.bank?.length ? (es ? 'Toca una palabra del recuadro o escríbela en el espacio.' : 'Tap a word in the box, or type it in the blank.') : (es ? 'Escribe la palabra que falta.' : 'Type the missing word.');
+      if (s.type === 'match') return es ? 'Elige la letra que corresponde a cada uno.' : 'Pick the letter that goes with each one.';
+      return es ? 'Escribe con tus propias palabras.' : 'Write in your own words.';
+    }
     if (s.type === 'fill' && s.bank?.length) return es ? 'Usa las palabras del recuadro para completar cada oración.' : 'Use the words in the box to complete each sentence.';
     if (s.type === 'tf' && gradeNum >= 3) return es ? 'Encierra Verdadero o Falso. Si es falso, corrígelo en la línea.' : 'Circle True or False. If it is false, fix it on the line.';
     return copy(s.type)[1];
   };
+
+  const verdicts = screen && checked ? visible.map((s) => gradeSection(s, answers)) : null;
+  const score = scoreWorksheet(visible, answers);
+  const progress = answeredCount(visible, answers);
 
   return (
     <AppShell>
@@ -178,8 +236,19 @@ export default function PdfClient() {
               {studyParams.planItemId && (
                 <Btn kind="ghost" icon={ICONS.check} disabled={marked} onClick={() => { setMarked(true); void completePlanItem(studyParams.planItemId!, isDemo); router.push('/kids/home'); }}>{t('planMarkDone')}</Btn>
               )}
-              <Btn kind="primary" icon={ICONS.printer} disabled={loading} onClick={() => window.print()}>{t('print')}</Btn>
+              {screen ? (
+                checked
+                  ? <Btn kind="primary" icon={ICONS.shuffle} disabled={loading} onClick={tryAgain}>{es ? 'Intentar de nuevo' : 'Try again'}</Btn>
+                  : <Btn kind="primary" icon={ICONS.check} disabled={loading} onClick={checkAnswers}>{es ? 'Revisar mis respuestas' : 'Check my answers'}</Btn>
+              ) : (
+                <Btn kind="primary" icon={ICONS.printer} disabled={loading} onClick={() => window.print()}>{t('print')}</Btn>
+              )}
             </div>
+          </div>
+
+          <div className="qk-no-print" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, margin: '0 auto 12px', maxWidth: 780 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-3)' }}>{es ? 'Formato:' : 'Format:'}</span>
+            <WorksheetModePicker disabled={loading} />
           </div>
 
           {!loading && data && (
@@ -190,10 +259,14 @@ export default function PdfClient() {
                   {!hidden.has(s.type) && ICONS.check}{copy(s.type)[0]} <span style={{ opacity: 0.6, fontWeight: 600 }}>{s.items.length}</span>
                 </Chip>
               ))}
-              <span style={{ width: 1, alignSelf: 'stretch', background: 'var(--line)', margin: '0 4px' }} />
-              <Chip on={showKey} onClick={() => setShowKey((v) => !v)}>
-                {showKey && ICONS.check}{es ? 'Hoja de respuestas' : 'Answer key'}
-              </Chip>
+              {!screen && (
+                <>
+                  <span style={{ width: 1, alignSelf: 'stretch', background: 'var(--line)', margin: '0 4px' }} />
+                  <Chip on={showKey} onClick={() => setShowKey((v) => !v)}>
+                    {showKey && ICONS.check}{es ? 'Hoja de respuestas' : 'Answer key'}
+                  </Chip>
+                </>
+              )}
             </div>
           )}
 
@@ -212,10 +285,27 @@ export default function PdfClient() {
                   </div>
                   <div style={{ textAlign: 'right', fontSize: 13, flex: '0 0 auto' }}>
                     <div>{es ? 'Nombre:' : 'Name:'} <span style={{ display: 'inline-block', borderBottom: `1.5px solid ${INK}`, minWidth: 120, marginLeft: 4 }}>{kid?.name || ''}</span></div>
-                    <div style={{ marginTop: 6 }}>{es ? 'Fecha:' : 'Date:'} <span style={{ display: 'inline-block', borderBottom: `1.5px solid ${INK}`, minWidth: 120, marginLeft: 4 }} /></div>
-                    <div style={{ marginTop: 6 }}>{es ? 'Puntos:' : 'Score:'} <span style={{ display: 'inline-block', borderBottom: `1.5px solid ${INK}`, minWidth: 48, marginLeft: 4 }} /> / {total}</div>
+                    <div style={{ marginTop: 6 }}>{es ? 'Fecha:' : 'Date:'} <span style={{ display: 'inline-block', borderBottom: `1.5px solid ${INK}`, minWidth: 120, marginLeft: 4 }}>{screen ? new Date().toLocaleDateString(es ? 'es' : 'en') : ''}</span></div>
+                    <div style={{ marginTop: 6 }}>{es ? 'Puntos:' : 'Score:'} <span style={{ display: 'inline-block', borderBottom: `1.5px solid ${INK}`, minWidth: 48, marginLeft: 4, textAlign: 'center' }}>{screen && checked ? score.correct : ''}</span> / {screen ? score.scored : total}</div>
                   </div>
                 </div>
+
+                {screen && checked && (
+                  <div ref={resultRef} role="status" className="qk-ws-item" style={{ marginTop: 22, padding: '16px 18px', borderRadius: 12, background: 'var(--primary-l)', border: '1.5px solid var(--primary)', scrollMarginTop: 96 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 14px' }}>
+                      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24 }}>{score.correct} / {score.scored}</div>
+                      <Stars count={starsFor(score)} of={5} size={22} />
+                    </div>
+                    <div style={{ marginTop: 4, fontSize: 15 }}>
+                      {score.scored === 0
+                        ? (es ? 'Revisa tus respuestas con la respuesta de ejemplo.' : 'Compare your writing with the sample answers.')
+                        : score.correct === score.scored
+                          ? (es ? '¡Perfecto! Todas correctas.' : 'Perfect! Every answer is right.')
+                          : (es ? 'Las respuestas correctas están marcadas abajo. ¡Inténtalo de nuevo!' : 'The right answers are shown below. Try again to improve your score!')}
+                      {score.blank > 0 && <span style={{ color: MUTED }}> {es ? `${score.blank} sin responder.` : `${score.blank} not answered.`}</span>}
+                    </div>
+                  </div>
+                )}
 
                 {visible.map((s, si) => (
                   <section key={s.type} style={{ marginTop: si === 0 ? 22 : 28 }}>
@@ -224,14 +314,25 @@ export default function PdfClient() {
                       <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 19 }}>{copy(s.type)[0]}</span>
                       <span style={{ fontSize: 14, color: MUTED, flexBasis: '100%' }}>{instruction(s)}</span>
                     </div>
-                    <SectionBody section={s} start={starts[si]} es={es} fixLines={gradeNum >= 3} />
+                    {screen
+                      ? <InteractiveSection section={s} start={starts[si]} es={es} fixLines={gradeNum >= 3} answers={answers} onAnswer={setAnswer} verdicts={verdicts?.[si]} />
+                      : <SectionBody section={s} start={starts[si]} es={es} fixLines={gradeNum >= 3} />}
                   </section>
                 ))}
 
                 {data.bonus && (
                   <div className="qk-ws-item" style={{ marginTop: 28, padding: 14, border: `1.5px dashed ${INK}`, borderRadius: 8, fontSize: 14 }}>
                     <div>⭐ {es ? 'Extra:' : 'Bonus:'} {data.bonus}</div>
-                    <div style={{ height: 130 }} />
+                    {screen
+                      ? <textarea className="qk-ws-area" rows={4} aria-label={data.bonus} placeholder={es ? 'Escribe tu respuesta…' : 'Type your answer…'} value={answers.bonus ?? ''} readOnly={checked} onChange={(e) => setAnswer('bonus', e.target.value)} />
+                      : <div style={{ height: 130 }} />}
+                  </div>
+                )}
+
+                {screen && !checked && (
+                  <div className="qk-no-print" style={{ marginTop: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, paddingTop: 18, borderTop: `2px dashed ${INK}` }}>
+                    <div style={{ fontSize: 14, color: MUTED }}>{es ? `${progress.done} de ${progress.total} respondidas` : `${progress.done} of ${progress.total} answered`}</div>
+                    <Btn kind="primary" icon={ICONS.check} onClick={checkAnswers}>{es ? 'Revisar mis respuestas' : 'Check my answers'}</Btn>
                   </div>
                 )}
 
@@ -240,7 +341,7 @@ export default function PdfClient() {
                 </div>
               </div>
 
-              {showKey && (
+              {showKey && !screen && (
                 <div className="qk-paper qk-page-break" style={{ ...paperStyle, marginTop: 24 }}>
                   <div style={{ borderBottom: `2px dashed ${INK}`, paddingBottom: 12 }}>
                     <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22 }}>{es ? 'Hoja de respuestas' : 'Answer key'}</div>

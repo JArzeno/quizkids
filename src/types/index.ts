@@ -118,6 +118,9 @@ export type WorksheetSection =
 
 export type WorksheetSectionType = WorksheetSection['type'];
 
+/** 'print' = on paper (window.print); 'screen' = filled in on the page and checked there */
+export type WorksheetMode = 'print' | 'screen';
+
 export interface Worksheet {
   sections: WorksheetSection[];
   bonus: string;
