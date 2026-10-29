@@ -242,7 +242,15 @@ create table if not exists public.kid_tests (
   guide_content_id uuid references public.generated_content(id) on delete set null,
   quiz_content_id uuid references public.generated_content(id) on delete set null,
   lang text,
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  -- exam mode (see migrations/012_exam_mode.sql)
+  worksheet_content_id uuid references public.generated_content(id) on delete set null,
+  practice_content_id uuid references public.generated_content(id) on delete set null,
+  practice_stats jsonb,
+  result_grade text,
+  result_pct integer,
+  result_note text,
+  result_at timestamptz
 );
 
 create index if not exists kid_tests_kid_subject on public.kid_tests (kid_id, subject, created_at desc);
@@ -281,3 +289,22 @@ create policy "custom_subjects_delete" on public.custom_subjects
   for delete using (parent_id = auth.uid());
 
 -- Custom subject labels (see migrations/010_kid_subject_labels.sql): kid_subjects.name text, kid_subjects.icon text (custom subjects only; kept after the parent deletes the subject)
+
+-- Study guide header illustrations, shared by every kid (see migrations/012_topic_images.sql)
+create table if not exists public.topic_images (
+  key text primary key,                   -- hash of age band + subject + topic(s)
+  band text not null,                     -- 'young' (K–2) | 'middle' (3–5) | 'older' (6+)
+  subject text not null,
+  topic text not null,                    -- the topic, or the test's topics joined with '; '
+  status text not null default 'pending', -- 'pending' (being drawn) | 'ready' | 'blocked' (not safe to show kids, never retried)
+  path text,                              -- object path in the topic-images bucket once ready
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Server-only cache (service role): no policies
+alter table public.topic_images enable row level security;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('topic-images', 'topic-images', true, 5242880, array['image/webp'])
+on conflict (id) do nothing;

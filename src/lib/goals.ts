@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client';
 import { subjectPromptName } from '@/lib/subjects';
+import { examWeakTopics, loadTests } from '@/lib/tests';
 import type { GoalDraft, Kid, KidGoal, KidTopic } from '@/types';
 
 export const MASTERY = 70;
@@ -51,6 +52,9 @@ export function goalCandidates(goals: KidGoal[], subject: string, topics: KidTop
 /** Asks the AI to build the next goal for a subject out of the given topics (nothing is saved) */
 export async function requestGoalDraft(kid: Kid, subject: string, lang: string, custom: Array<{ id: string; name: string; icon: string }>, available: string[]): Promise<GoalDraft | null> {
   const ks = kid.subjects?.find((s) => s.subject === subject);
+  // Topics that were weak on the subject's school tests count as weak too (demo kids keep their tests locally)
+  const tests = kid.parent_id === 'demo' ? (kid.tests || []).filter((t) => t.subject === subject).reverse() : await loadTests(kid, subject, false).catch(() => []);
+  const weak = Array.from(new Set([...(ks?.weakTopics || []), ...examWeakTopics(tests)])).slice(0, 8);
   try {
     const res = await fetch('/api/generate/goal', {
       method: 'POST',
@@ -62,7 +66,7 @@ export async function requestGoalDraft(kid: Kid, subject: string, lang: string, 
         level: ks?.level,
         focus: ks?.focus,
         strong: ks?.strongTopics,
-        weak: ks?.weakTopics,
+        weak,
         done: (kid.goals || []).filter((g) => g.subject === subject && g.status === 'completed').map((g) => g.title),
         lang: ks?.lang || lang,
       }),

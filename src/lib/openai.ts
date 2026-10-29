@@ -1,6 +1,8 @@
 import OpenAI from 'openai';
 import { normalizeWorksheet } from '@/lib/worksheet';
+import { normalizePractice } from '@/lib/practice';
 import { languagePromptName } from '@/lib/languages';
+import { gradeToNumber } from '@/lib/subjects';
 
 function getClient() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'placeholder' });
@@ -35,6 +37,8 @@ export interface StudentContext {
   /** Score (0-100) on the previous attempt at this topic */
   lastScore?: number;
   review?: boolean;
+  /** What the subject remembers from earlier school tests (scores, grades, what was missed), newest first */
+  memory?: string[];
 }
 
 export function parseContext(v: unknown): StudentContext | undefined {
@@ -47,6 +51,7 @@ export function parseContext(v: unknown): StudentContext | undefined {
     strong: list(c.strong),
     lastScore: typeof c.lastScore === 'number' ? Math.round(Math.min(100, Math.max(0, c.lastScore))) : undefined,
     review: c.review === true,
+    memory: Array.isArray(c.memory) ? c.memory.filter((i): i is string => typeof i === 'string').map((i) => i.slice(0, 400)).slice(0, 5) : undefined,
   };
 }
 
@@ -59,6 +64,10 @@ function studentBlock(ctx?: StudentContext): string {
   if (ctx.strong?.length) lines.push(`- Strong at: ${ctx.strong.join(', ')}.`);
   if (ctx.lastScore != null) lines.push(`- Scored ${ctx.lastScore}% on the last attempt at this topic.`);
   if (ctx.review) lines.push('- This is a REVIEW after a weak result: use simpler wording, smaller steps, and NEW examples and questions that differ from a standard lesson on the topic. Rebuild the basics before anything tricky.');
+  if (ctx.memory?.length) {
+    lines.push('- Earlier school tests in this subject (newest first). Give extra attention to what was hard or missed when it belongs to the topics asked for here, but never add topics because of them:');
+    ctx.memory.forEach((m) => lines.push(`  - ${m}`));
+  }
   return lines.length ? `\nAbout the student:\n${lines.join('\n')}\n` : '';
 }
 
@@ -316,12 +325,13 @@ function worksheetMix(grade: string): string {
 - "open": 2–3 items that ask the student to explain why/how, compare, or apply the idea (lines: 3–5)`;
 }
 
-export async function generateWorksheet(topic: string, grade: string, lang: string, source?: string, ctx?: StudentContext) {
+export async function generateWorksheet(topic: string, grade: string, lang: string, source?: string, ctx?: StudentContext, topics?: string[]) {
   const openai = getClient();
   const gradeDesc = gradeContext(grade);
+  const multi = !!topics && topics.length > 1;
 
-  const prompt = `Create a printable worksheet about "${topic}" for a student at: ${gradeDesc}
-
+  const prompt = `Create a printable worksheet about "${multi ? topics!.join('; ') : topic}" for a student at: ${gradeDesc}
+${topicsBlock(topics, 'worksheet')}
 ${languageRule(lang)}
 
 The worksheet has one section of each type, with this many items:
@@ -339,7 +349,7 @@ Rules:
 - Every item tests a different fact or skill from the topic; do not ask the same thing twice across sections
 - Math topics: use numbers and problems in every section (e.g. fill "7 × 8 = ___", match problems to answers, open = a word problem asking to show the work and explain it)
 - The bonus activity should be hands-on and grade-appropriate (draw, label, build, observe, write a few sentences)
-${studentBlock(ctx)}${sourceBlock(source)}
+${studentBlock(ctx)}${sourceBlock(source, topics)}
 Return ONLY valid JSON:
 {
   "sections": [
@@ -365,6 +375,132 @@ Return ONLY valid JSON:
   const worksheet = normalizeWorksheet(JSON.parse(content));
   if (worksheet.sections.length < 2) throw new Error('Worksheet has too few sections');
   return worksheet;
+}
+
+/** How many questions of each type a practice test has, by grade */
+function practiceMix(grade: string, multi: boolean): string {
+  const g = grade.toUpperCase() === 'K' ? 0 : parseInt(grade) || 3;
+  if (g <= 1) return `- "mc": ${multi ? 4 : 3} items with 3 short choices each
+- "tf": 3 items
+- "short": 2 items the student answers in one short sentence`;
+  if (g <= 4) return `- "mc": ${multi ? 5 : 4} items with 4 choices each
+- "tf": 3 items
+- "fill": 3 items
+- "short": 3 items answered in 1–3 sentences`;
+  return `- "mc": ${multi ? 6 : 5} items with 4 choices each
+- "tf": 4 items
+- "fill": 3 items
+- "short": ${multi ? 5 : 4} items that ask the student to explain why/how, compare, or apply an idea, answered in 2–4 sentences`;
+}
+
+/**
+ * A practice test the kid fills in on screen: multiple choice, true/false, fill-in and written answers that the AI
+ * grades afterwards. Each item says which topic it checks, so results can be broken down per topic.
+ */
+export async function generatePractice(topic: string, grade: string, lang: string, source?: string, ctx?: StudentContext, topics?: string[], exclude?: string[]) {
+  const openai = getClient();
+  const gradeDesc = gradeContext(grade);
+  const multi = !!topics && topics.length > 1;
+  const list = multi ? topics! : [topic];
+
+  const prompt = `Write a practice test that gets a student ready for a school test on ${multi ? `these topics: ${list.map((t) => `"${t}"`).join('; ')}` : `"${topic}"`}. The student is at: ${gradeDesc}
+It should feel like a real school test: check understanding of the most important ideas, the way a teacher would ask about them.
+
+${languageRule(lang)}
+
+Questions, by type:
+${practiceMix(grade, multi)}
+
+Question types:
+- "mc" multiple choice: "q" question, "choices", "a" = 0-based index of the correct choice. Shuffle where the correct answer sits.
+- "tf" true or false: "s" a statement (not a question), "a" true/false, and for false statements "fix" = the corrected true statement. Mix true and false. False statements must be clearly false to someone who studied, not trick wording.
+- "fill" complete the sentence: "s" a sentence with exactly ONE blank written as "___", "a" = the word, number or short phrase (1–3 words) that goes in the blank. Only one answer must fit.
+- "short" written answer: "q" a question the student answers in their own words (e.g. "What is a country?", "Explain why…", "Show how you solve…"), "a" = a complete model answer at the grade level, "points" = the 2–4 key ideas a complete answer must include (short phrases), used to grade the answer.
+
+Rules:
+- Vocabulary and complexity must match the grade level above
+- Every question checks a different fact or skill; never ask the same thing twice
+- Go from easier to harder inside each type
+- Math topics: use numbers and problems in every type (e.g. fill "3/4 + 1/4 = ___", short = a word problem asking to show the work)
+- "topic" on every item: ${multi ? 'the topic it checks, copied EXACTLY from the list above. Spread the questions evenly so every topic is checked by several questions, including at least one "short" question per topic when there are enough.' : `"${topic}"`}
+${topicsBlock(topics, 'practice test')}${studentBlock(ctx)}${excludeBlock(exclude)}${sourceBlock(source, topics)}
+Return ONLY valid JSON:
+{
+  "items": [
+    { "type": "mc", "topic": "Topic", "q": "Question", "choices": ["A", "B", "C", "D"], "a": 0 },
+    { "type": "tf", "topic": "Topic", "s": "Statement", "a": false, "fix": "Corrected statement" },
+    { "type": "fill", "topic": "Topic", "s": "Sentence with a ___ blank.", "a": "word" },
+    { "type": "short", "topic": "Topic", "q": "Question", "a": "Model answer", "points": ["Key idea"] }
+  ]
+}`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+    temperature: exclude?.length ? 0.9 : 0.7,
+    max_tokens: multi ? 5000 : 3500,
+  });
+
+  const content = response.choices[0].message.content;
+  if (!content) throw new Error('No content from OpenAI');
+  const test = normalizePractice(JSON.parse(content), list);
+  if (test.items.length < 5) throw new Error('Practice test has too few questions');
+  return test;
+}
+
+export interface AnswerToGrade {
+  kind: 'short' | 'fill';
+  /** The question, or the sentence with its blank */
+  q: string;
+  /** Model answer, or the word that goes in the blank */
+  expected: string;
+  points?: string[];
+  answer: string;
+}
+
+/** Grades written answers like a kind teacher: correct, partial (right idea, missing details) or wrong, with feedback */
+export async function gradeAnswers(items: AnswerToGrade[], grade: string, lang: string, subject?: string) {
+  const openai = getClient();
+  const gradeDesc = gradeContext(grade);
+
+  const prompt = `You are a kind, encouraging teacher checking a student's answers on a practice test${subject ? ` in ${subject}` : ''}. The student is at: ${gradeDesc}
+
+For each answer decide the "verdict":
+- "correct": it gets the idea right and is complete enough for the grade. Other words, short answers and spelling mistakes are fine when the meaning is right.
+- "partial": on the right track but missing an important key idea, or too vague (e.g. "What is a country?" → "a piece of land" is partial: right start, but it leaves out that it has its own government, borders and people).
+- "wrong": incorrect, off topic, or empty.
+For "fill" items the answer must mean the same as the expected word: accept spelling mistakes a child would make, plurals and true synonyms; a different idea is wrong. Numbers must be equal in value.
+
+"feedback": 1–2 short sentences talking to the student ("you"). Start with what is right, then say exactly what is missing or wrong. For correct answers give short praise, and one detail that would make it even better if there is one. Do not copy the whole model answer (it is shown separately).
+"missing": the key ideas left out, as 0–3 short phrases (2–8 words); [] when correct.
+
+${languageRule(lang)}
+
+Answers to check:
+${JSON.stringify(items.map((it, i) => ({ i, kind: it.kind, question: it.q, expected: it.expected, key_ideas: it.points?.length ? it.points : undefined, student_answer: it.answer })))}
+
+Return ONLY valid JSON with one result per answer, in the same order:
+{ "results": [ { "i": 0, "verdict": "partial", "feedback": "…", "missing": ["…"] } ] }`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+    temperature: 0.2,
+    max_tokens: Math.min(4000, 300 + items.length * 180),
+  });
+
+  const content = response.choices[0].message.content;
+  if (!content) throw new Error('No content from OpenAI');
+  const parsed = JSON.parse(content) as { results?: Array<{ i?: unknown; verdict?: unknown; feedback?: unknown; missing?: unknown }> };
+  const out = Array.isArray(parsed.results) ? parsed.results : [];
+  return items.map((_, i) => {
+    const r = out.find((x) => x?.i === i) ?? out[i];
+    const verdict = r?.verdict === 'correct' || r?.verdict === 'partial' || r?.verdict === 'wrong' ? r.verdict : null;
+    if (!verdict) return null;
+    return { verdict, feedback: str(r?.feedback), missing: strList(r?.missing, 3) };
+  });
 }
 
 /** Placement quiz: 9 questions spread across grades below / at / above the kid's grade, each tagged with a skill */
@@ -521,4 +657,79 @@ Include 0–8 vocabulary terms (only if relevant). If the files contain no reada
     vocabulary: Array.isArray(parsed.vocabulary) ? parsed.vocabulary.filter((v: { term?: string }) => v?.term) : [],
     notes: String(parsed.notes || ''),
   };
+}
+
+/** Age band of a header illustration: the picture style changes as kids grow, and each band is cached separately */
+export type ImageBand = 'young' | 'middle' | 'older';
+
+export function imageBand(grade: string): ImageBand {
+  const n = gradeToNumber(grade);
+  return n <= 2 ? 'young' : n <= 5 ? 'middle' : 'older';
+}
+
+const IMAGE_STYLE: Record<ImageBand, string> = {
+  young: 'Bright, cheerful cartoon illustration like a picture book for 5–8 year olds: simple rounded shapes, soft thick outlines, warm saturated colors, cute friendly characters or animal mascots with happy faces, a plain uncluttered background.',
+  middle: 'Colorful, detailed storybook-style educational illustration for 8–11 year olds: semi-realistic proportions, clear readable shapes, rich but soft colors, a curious and inviting mood.',
+  older: 'Realistic, high-quality educational illustration like a modern textbook or museum exhibit for middle and high school students: accurate details, natural colors and lighting, a clean calm composition.',
+};
+
+const IMAGE_SAFETY = 'The image is for children and must be gentle and safe: no violence, weapons, blood, injuries, illness, death, fear, horror or scary creatures; no nudity or revealing clothing; no real or famous people; no logos or brands. Absolutely no text, letters, numbers, labels or captions anywhere in the image.';
+
+/**
+ * Draws the header illustration of a study guide in the style of the kid's age band.
+ * Three safety gates: the topic goes through OpenAI moderation, a planner turns it into a gentle concrete scene (or refuses),
+ * and the image model's own moderation stays at its strictest. Returns null when the topic can't be shown safely to kids.
+ */
+export async function generateTopicImage(subject: string, topics: string[], grade: string): Promise<Buffer | null> {
+  const openai = getClient();
+  const topicText = topics.map((t) => `"${t}"`).join('; ');
+
+  const mod = await openai.moderations.create({ model: 'omni-moderation-latest', input: `${subject}: ${topicText}` });
+  if (mod.results.some((r) => r.flagged)) return null;
+
+  const plan = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: `You plan the header illustration of a children's study guide.
+Subject: ${subject}
+Topic${topics.length > 1 ? 's' : ''}: ${topicText}
+Student: ${gradeContext(grade)}
+
+Describe ONE simple scene, in English, in 1–2 sentences, that shows what ${topics.length > 1 ? 'these topics are' : 'this topic is'} about so the student recognizes it at a glance.
+Rules:
+- Use concrete things: objects, animals, plants, places, landscapes, tools or a simple diagram. Show math ideas with everyday objects (e.g. pizza slices for fractions, groups of apples for multiplication), never written numbers or symbols
+- Completely gentle and safe for children: no violence, weapons, blood, injuries, illness, death, sad or scary moments, no nudity
+- For hard history or science topics (wars, disasters, diseases, the human body) show a calm, neutral side: a map, buildings, everyday objects of the time, a landscape, or a simple friendly diagram
+- No real or famous people, and no text, letters or numbers in the scene
+- If the topic cannot be shown in a way that is safe for children, set "ok" to false
+
+Return ONLY valid JSON: { "ok": true, "scene": "..." }` }],
+    response_format: { type: 'json_object' },
+    temperature: 0.5,
+    max_tokens: 200,
+  });
+  const content = plan.choices[0].message.content;
+  if (!content) throw new Error('No content from OpenAI');
+  const parsed = JSON.parse(content);
+  const scene = str(parsed.scene);
+  if (parsed.ok === false || !scene) return null;
+
+  try {
+    const image = await openai.images.generate({
+      model: 'gpt-image-1',
+      prompt: `${scene}\n\nStyle: ${IMAGE_STYLE[imageBand(grade)]}\n\n${IMAGE_SAFETY}`,
+      size: '1536x1024',
+      quality: 'medium',
+      output_format: 'webp',
+      output_compression: 80,
+      moderation: 'auto',
+      n: 1,
+    });
+    const b64 = image.data?.[0]?.b64_json;
+    if (!b64) throw new Error('No image from OpenAI');
+    return Buffer.from(b64, 'base64');
+  } catch (err) {
+    // The image model refused the prompt on safety grounds: treat it like an unsafe topic
+    if (err instanceof OpenAI.APIError && err.code === 'moderation_blocked') return null;
+    throw err;
+  }
 }

@@ -5,9 +5,11 @@ import { ICONS } from '@/components/ui/Icons';
 import { LoadingBar } from '@/components/ui/LoadingBar';
 import { Btn, Chip } from '@/components/ui/Btn';
 import { ImgPlaceholder } from '@/components/ui/Stars';
+import { TopicImage, useTopicImage } from '@/components/ui/TopicImage';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { completePlanItem } from '@/lib/plan';
+import { subjectPromptName } from '@/lib/subjects';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { fetchContent } from '@/lib/fetchContent';
@@ -39,7 +41,7 @@ const FALLBACK_ES: Guide = {
 const MAX_EXTRA = 6;
 
 export default function GuideClient() {
-  const { lang, studyParams, setStudyParams, gamification, setMode, isDemo } = useStore();
+  const { lang, studyParams, setStudyParams, gamification, setMode, isDemo, customSubjects } = useStore();
   const contentLang = studyParams.contentLang ?? lang;
   const [marked, setMarked] = React.useState(false);
   const t = useT(lang);
@@ -58,6 +60,14 @@ export default function GuideClient() {
   const [related, setRelated] = React.useState<string[]>([]);
   const [moreLoading, setMoreLoading] = React.useState<string | null>(null);
   const [moreError, setMoreError] = React.useState(false);
+  // Header picture: requested alongside the guide since drawing a new one takes a while
+  const image = useTopicImage({
+    subject: studyParams.subject,
+    subjectName: subjectPromptName(studyParams.subject, customSubjects),
+    topic: studyParams.topic,
+    topics: studyParams.topics,
+    grade: studyParams.grade,
+  });
 
   React.useEffect(() => {
     setExtra([]);
@@ -201,16 +211,17 @@ export default function GuideClient() {
         </div>
 
         <div style={{ maxWidth: 1100, margin: '24px auto 0', padding: '0 clamp(16px, 4vw, 22px) 64px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 14 }}>
+          <div className="qk-guide-hero">
             <div>
               <span className="qk-eyebrow">{t(studyParams.subject)} · {lang === 'es' ? 'Grado ' : 'Grade '}{studyParams.grade}</span>
               <h1 className="qk-h1" style={{ marginTop: 10 }}>{studyParams.topic}</h1>
               <p className="qk-sub">{guide.intro}</p>
+              <div style={{ marginTop: 18, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <Btn kind="ghost" icon={ICONS.speaker}>{t('listen')}</Btn>
+                <Btn kind="ghost" icon={ICONS.printer} onClick={() => router.push('/kids/pdf')}>{t('print')}</Btn>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <Btn kind="ghost" icon={ICONS.speaker}>{t('listen')}</Btn>
-              <Btn kind="ghost" icon={ICONS.printer} onClick={() => router.push('/kids/pdf')}>{t('print')}</Btn>
-            </div>
+            <TopicImage state={image} alt={`${t('guideImageAlt')} ${studyParams.topic}`} loadingLabel={t('guideDrawing')} />
           </div>
 
           <div className="qk-stack-md" style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '260px minmax(0, 1fr)', gap: 24 }}>
