@@ -14,6 +14,7 @@ import { studyTimeSaved } from '@/lib/studyTimer';
 import { computeStreak, computeWeeklyPct } from '@/lib/streak';
 import { fromRow, subjectInfo, kidSubjectInfo } from '@/lib/subjects';
 import { goalFromRow, goalProgress } from '@/lib/goals';
+import { firstNameOf } from '@/lib/account';
 import type { Kid } from '@/types';
 
 function gradeLabel(grade: string, lang: string) {
@@ -296,7 +297,7 @@ export default function DashboardClient() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
             <div>
               <span className="qk-eyebrow">{t('parent')}</span>
-              <h1 className="qk-h1" style={{ marginTop: 10 }}>{t('dashHi')}, {account?.name?.split(' ')[0] || 'Ana'} 👋</h1>
+              <h1 className="qk-h1" style={{ marginTop: 10 }}>{t('dashHi')}, {firstNameOf(account) || 'Ana'} 👋</h1>
               <p className="qk-sub">{t('dashGreet')}</p>
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

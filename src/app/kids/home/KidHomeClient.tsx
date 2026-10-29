@@ -12,6 +12,7 @@ import { subjectInfo, kidSubjectInfo, levelLabel } from '@/lib/subjects';
 import { goalProgress } from '@/lib/goals';
 import { syncTodayPlan, prepareItem, itemMaterial, dateKey, isWeekday } from '@/lib/plan';
 import { daysUntil, loadUpcomingTests } from '@/lib/tests';
+import { kidTarget, originOf, playProfileSwitch } from '@/lib/profileSwitch';
 import type { ResultRow } from '@/lib/adapt';
 import type { ContentLang } from '@/lib/languages';
 import type { KidGoal, KidTest, KidTopic, PlanItem, RecentItem } from '@/types';
@@ -314,7 +315,7 @@ export default function KidHomeClient() {
           {kids.length > 1 && (
             <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
               {kids.map((k) => (
-                <button key={k.id} onClick={() => setActiveKidId(k.id)} className="qk-chip"
+                <button key={k.id} onClick={(e) => { if (k.id !== kid?.id) playProfileSwitch(kidTarget(k, lang), () => setActiveKidId(k.id), { origin: originOf(e), navigates: false }); }} className="qk-chip"
                   style={{ padding: kid?.id === k.id ? '5px 14px 5px 5px' : '5px 12px 5px 5px', gap: 8, background: kid?.id === k.id ? 'var(--ink)' : 'var(--surface)', color: kid?.id === k.id ? 'var(--surface)' : 'var(--ink-2)', border: '1.5px solid ' + (kid?.id === k.id ? 'var(--ink)' : 'var(--line)') }}>
                   <Avatar id={k.avatar} size={28} /><span>{k.name}</span>
                 </button>

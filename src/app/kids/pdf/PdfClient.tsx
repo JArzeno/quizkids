@@ -11,6 +11,7 @@ import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import type { Worksheet, WorksheetSection, WorksheetSectionType } from '@/types';
 import { shuffledOrder, toWorksheet } from '@/lib/worksheet';
+import { fetchContent } from '@/lib/fetchContent';
 import { loadTest, updateTest } from '@/lib/tests';
 
 /** Saves a worksheet made on open as the worksheet of its school test, when the test has none yet */
@@ -106,12 +107,15 @@ export default function PdfClient() {
 
   const [data, setData] = React.useState<Worksheet | null>(null);
   const [loading, setLoading] = React.useState(true);
+  // 'creating' only while a new worksheet is being written; saved worksheets just load
+  const [loadPhase, setLoadPhase] = React.useState<'loading' | 'creating'>('loading');
   const [hidden, setHidden] = React.useState<Set<WorksheetSectionType>>(new Set());
   const [showKey, setShowKey] = React.useState(false);
 
   React.useEffect(() => {
     const fetchWorksheet = async () => {
       setLoading(true);
+      setLoadPhase('loading');
       setHidden(new Set());
       try {
         // Try loading from cached contentId first
@@ -135,26 +139,21 @@ export default function PdfClient() {
           }
         }
 
-        // Call API (also checks cache server-side)
-        const res = await fetch('/api/generate/worksheet', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            topic: studyParams.topic,
-            grade: studyParams.grade,
-            lang: contentLang,
-            subject: studyParams.subject,
-            source: studyParams.source,
-            // A school test's worksheet covers all its topics and is made for this kid only
-            ...(studyParams.topics ? { topics: studyParams.topics } : {}),
-            ...(studyParams.testId ? { variant: 'test', ...(studyParams.memory?.length ? { context: { memory: studyParams.memory } } : {}) } : {}),
-          }),
-        });
-        const json = res.ok ? await res.json() : null;
+        // Saved worksheet for this topic if there is one, otherwise a new one. A school test's worksheet covers all
+        // its topics and is made for this kid only, so it is always new.
+        const json = await fetchContent<{ contentId?: string | null }>('/api/generate/worksheet', {
+          topic: studyParams.topic,
+          grade: studyParams.grade,
+          lang: contentLang,
+          subject: studyParams.subject,
+          source: studyParams.source,
+          ...(studyParams.topics ? { topics: studyParams.topics } : {}),
+          ...(studyParams.testId ? { variant: 'test', ...(studyParams.memory?.length ? { context: { memory: studyParams.memory } } : {}) } : {}),
+        }, () => setLoadPhase('creating'), !!studyParams.topics || !!studyParams.testId);
         const ws = json ? toWorksheet(json) : null;
         setData(ws ?? FALLBACK);
         // Keep a school test's worksheet, so it prints the same sheet next time
-        if (ws && json.contentId && studyParams.testId && kid && !isDemo) void keepTestWorksheet(kid.id, studyParams.testId, studyParams.topic, json.contentId);
+        if (ws && json?.contentId && studyParams.testId && kid && !isDemo) void keepTestWorksheet(kid.id, studyParams.testId, studyParams.topic, json.contentId);
       } catch {
         setData(FALLBACK);
       }
@@ -214,7 +213,7 @@ export default function PdfClient() {
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, paddingTop: 80 }}>
               <LoadingBar expectedMs={15000} style={{ width: 'min(280px, 100%)' }} />
-              <div style={{ fontSize: 16, color: 'var(--ink-3)', fontFamily: 'var(--font-display)' }}>{t('generating')}</div>
+              <div style={{ fontSize: 16, color: 'var(--ink-3)', fontFamily: 'var(--font-display)', textAlign: 'center' }}>{t(loadPhase === 'creating' ? 'creatingPdf' : 'loadingPdf')}</div>
             </div>
           ) : data && (
             <>

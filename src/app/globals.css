@@ -417,6 +417,36 @@ input, textarea, select { font-family: inherit; color: inherit; }
 /* ---------- stat card ---------- */
 .qk-stat-label { overflow-wrap: anywhere; }
 
+/* ---------- weekly plan calendar: one column per weekday, scrolls sideways when they don't fit ---------- */
+.qk-week {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, 1fr);
+  gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 2px;
+}
+.qk-week-day {
+  display: flex; flex-direction: column; gap: 8px; min-width: 0;
+  padding: 10px; border-radius: 14px; border: 1.5px solid transparent; scroll-snap-align: start;
+}
+
+/* ---------- profile switch (parent ↔ kid): a circle grows from where you tapped, then fades into the new page ---------- */
+.qk-switch {
+  position: fixed; inset: 0; z-index: 10000;
+  display: grid; place-items: center; padding: 24px;
+  clip-path: circle(0 at var(--qk-switch-x, 50%) var(--qk-switch-y, 50%));
+  animation: qk-switch-grow .5s cubic-bezier(.65,0,.35,1) forwards;
+}
+.qk-switch.out { clip-path: none; animation: qk-switch-fade .35s ease forwards; }
+.qk-switch-card { animation: qk-bounce-in .45s cubic-bezier(.2,.7,.2,1) .18s both; }
+.qk-switch.out .qk-switch-card { animation: qk-switch-lift .35s ease forwards; }
+@keyframes qk-switch-grow {
+  to { clip-path: circle(150vmax at var(--qk-switch-x, 50%) var(--qk-switch-y, 50%)); }
+}
+@keyframes qk-switch-fade { to { opacity: 0; } }
+@keyframes qk-switch-lift { to { transform: translateY(-10px) scale(1.04); } }
+@media (prefers-reduced-motion: reduce) {
+  .qk-switch { clip-path: none; animation: qk-overlay-in .15s ease both; }
+  .qk-switch-card, .qk-switch.out .qk-switch-card { animation: none; }
+}
+
 /* ---------- responsive ---------- */
 @media (max-width: 880px) {
   .qk-hide-md { display: none !important; }
