@@ -11,10 +11,11 @@ import { createClient } from '@/lib/supabase/client';
 import { subjectInfo, kidSubjectInfo, levelLabel } from '@/lib/subjects';
 import { goalProgress } from '@/lib/goals';
 import { syncTodayPlan, prepareItem, itemMaterial, dateKey, isWeekday } from '@/lib/plan';
+import { daysUntil, loadUpcomingTests } from '@/lib/tests';
 import { kidTarget, originOf, playProfileSwitch } from '@/lib/profileSwitch';
 import type { ResultRow } from '@/lib/adapt';
 import type { ContentLang } from '@/lib/languages';
-import type { KidGoal, KidTopic, PlanItem, RecentItem } from '@/types';
+import type { KidGoal, KidTest, KidTopic, PlanItem, RecentItem } from '@/types';
 
 function todayKey(): string {
   const d = new Date();
@@ -46,6 +47,18 @@ export default function KidHomeClient() {
   const session = useSession(kid?.id);
 
   React.useEffect(() => { setMode('kid'); }, []);
+
+  // ---- tests coming up --------------------------------------------------------
+  const [upcoming, setUpcoming] = React.useState<KidTest[]>([]);
+  React.useEffect(() => {
+    if (!kid) return;
+    let cancelled = false;
+    loadUpcomingTests(kid, isDemo)
+      .then((list) => { if (!cancelled) setUpcoming(list.slice(0, 3)); })
+      .catch((e) => console.warn('Could not load tests:', e));
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kid?.id, isDemo]);
 
   // ---- today's plan ---------------------------------------------------------
   const [planItems, setPlanItems] = React.useState<PlanItem[]>([]);
@@ -351,6 +364,33 @@ export default function KidHomeClient() {
               <SessionPill lang={lang} session={session} onStart={session.start} onTogglePause={() => session.paused ? session.resume() : session.pause()} onEnd={session.end} />
             </div>
           </div>
+
+          {/* tests coming up */}
+          {upcoming.length > 0 && (
+            <section style={{ marginTop: 28 }}>
+              <h2 className="qk-h2" style={{ margin: '0 0 14px' }}>{lang === 'es' ? 'Exámenes que vienen' : 'Tests coming up'}</h2>
+              <div style={{ display: 'grid', gap: 10 }}>
+                {upcoming.map((test) => {
+                  const info = kidSubjectInfo(kid.subjects, test.subject, lang, customSubjects);
+                  const d = test.testDate ? daysUntil(test.testDate) : null;
+                  const when = d == null ? null : d === 0 ? (lang === 'es' ? '¡Hoy!' : 'Today!') : d === 1 ? (lang === 'es' ? 'Mañana' : 'Tomorrow') : lang === 'es' ? `En ${d} días` : `In ${d} days`;
+                  return (
+                    <button key={test.id} onClick={() => router.push(`/kids/exam/${test.id}`)} className="qk-card"
+                      style={{ appearance: 'none', textAlign: 'left', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', border: '1px solid var(--honey)', background: 'linear-gradient(90deg, var(--honey-l), var(--surface) 70%)' }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--surface)', display: 'grid', placeItems: 'center', fontSize: 22, flexShrink: 0 }}>📝</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                          {info.icon} {info.label}{test.practice ? ` · ${lang === 'es' ? 'Práctica' : 'Practice'} ${test.practice.best}%` : ''}
+                        </div>
+                        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{test.title}</div>
+                      </div>
+                      {when && <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: d! <= 2 ? 'var(--coral-l)' : 'var(--honey-l)', color: d! <= 2 ? 'var(--coral)' : '#7C5410', flexShrink: 0 }}>📅 {when}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {/* today's plan */}
           <section style={{ marginTop: 28 }}>

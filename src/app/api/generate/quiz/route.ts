@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateQuiz, parseContext } from '@/lib/openai';
 import { contentLang } from '@/lib/languages';
 import { createClient } from '@/lib/supabase/server';
-import { parseTopics } from '@/lib/topicsParam';
+import { listedTopics, parseTopics, promptTopic } from '@/lib/topicsParam';
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,8 +19,8 @@ export async function POST(req: NextRequest) {
       : [];
     // Several topics at once (a school test, a goal's final test): the quiz covers all of them
     const multi = parseTopics(topics);
-    // A variant is a personalised request (review / retake / more questions / several topics): never served from, or mistaken for, the shared cache
-    const isVariant = (typeof variant === 'string' && variant.length > 0) || asked.length > 0 || !!multi;
+    // A variant is a personalised request (review / retake / more questions / a test's topics): never served from, or mistaken for, the shared cache
+    const isVariant = (typeof variant === 'string' && variant.length > 0) || asked.length > 0 || listedTopics(topics).length > 0;
     const subj = subject || 'sci';
     // Imported class material: cache per exact material, not just per topic
     const src: string | undefined = typeof source === 'string' && source.trim() ? source.trim() : undefined;
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       if (cacheOnly) return NextResponse.json({ cached: false });
 
       // Generate new
-      const data = await generateQuiz(topic, grade, diff, lng, src, ctx, asked, multi);
+      const data = await generateQuiz(promptTopic(topic, topics), grade, diff, lng, src, ctx, asked, multi);
 
       // Save to cache
       const { data: saved } = await supabase
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       // DB unavailable — generate without caching
       console.warn('Supabase cache miss/error, generating fresh:', dbErr);
       if (cacheOnly) return NextResponse.json({ cached: false });
-      const data = await generateQuiz(topic, grade, diff, lng, src, ctx, asked, multi);
+      const data = await generateQuiz(promptTopic(topic, topics), grade, diff, lng, src, ctx, asked, multi);
       return NextResponse.json({ ...data, contentId: null, cached: false });
     }
   } catch (err) {

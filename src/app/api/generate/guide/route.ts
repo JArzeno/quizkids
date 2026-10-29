@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GUIDE_VERSION, generateGuide, parseContext } from '@/lib/openai';
 import { contentLang } from '@/lib/languages';
 import { createClient } from '@/lib/supabase/server';
-import { parseTopics } from '@/lib/topicsParam';
+import { listedTopics, parseTopics, promptTopic } from '@/lib/topicsParam';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
     const ctx = parseContext(context);
     // Several topics at once (a school test): the guide covers all of them
     const multi = parseTopics(topics);
-    // A variant is a personalised request (review / retake / several topics): never served from, or mistaken for, the shared cache
-    const isVariant = (typeof variant === 'string' && variant.length > 0) || !!multi;
+    // A variant is a personalised request (review / retake / a test's topics): never served from, or mistaken for, the shared cache
+    const isVariant = (typeof variant === 'string' && variant.length > 0) || listedTopics(topics).length > 0;
     const subj = subject || 'sci';
     // Imported class material: cache per exact material, not just per topic
     const src: string | undefined = typeof source === 'string' && source.trim() ? source.trim() : undefined;
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       if (cacheOnly) return NextResponse.json({ cached: false });
 
       // Generate new
-      const data = await generateGuide(topic, grade, lng, src, ctx, multi);
+      const data = await generateGuide(promptTopic(topic, topics), grade, lng, src, ctx, multi);
 
       // Save to cache
       const { data: saved } = await supabase
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     } catch (dbErr) {
       console.warn('Supabase cache miss/error, generating fresh:', dbErr);
       if (cacheOnly) return NextResponse.json({ cached: false });
-      const data = await generateGuide(topic, grade, lng, src, ctx, multi);
+      const data = await generateGuide(promptTopic(topic, topics), grade, lng, src, ctx, multi);
       return NextResponse.json({ ...data, contentId: null, cached: false });
     }
   } catch (err) {

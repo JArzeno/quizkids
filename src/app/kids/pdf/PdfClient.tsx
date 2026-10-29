@@ -12,6 +12,13 @@ import { createClient } from '@/lib/supabase/client';
 import type { Worksheet, WorksheetSection, WorksheetSectionType } from '@/types';
 import { shuffledOrder, toWorksheet } from '@/lib/worksheet';
 import { fetchContent } from '@/lib/fetchContent';
+import { loadTest, updateTest } from '@/lib/tests';
+
+/** Saves a worksheet made on open as the worksheet of its school test, when the test has none yet */
+async function keepTestWorksheet(kidId: string, testId: string, title: string, contentId: string) {
+  const test = await loadTest({ id: kidId }, testId, false).catch(() => null);
+  if (test && test.title === title && !test.worksheetContentId) await updateTest(kidId, test, { worksheetContentId: contentId }, false);
+}
 
 const FALLBACK_EN: Worksheet = {
   sections: [
@@ -132,15 +139,21 @@ export default function PdfClient() {
           }
         }
 
-        // Saved worksheet for this topic if there is one, otherwise a new one
-        const ws = await fetchContent<unknown>('/api/generate/worksheet', {
+        // Saved worksheet for this topic if there is one, otherwise a new one. A school test's worksheet covers all
+        // its topics and is made for this kid only, so it is always new.
+        const json = await fetchContent<{ contentId?: string | null }>('/api/generate/worksheet', {
           topic: studyParams.topic,
           grade: studyParams.grade,
           lang: contentLang,
           subject: studyParams.subject,
           source: studyParams.source,
-        }, () => setLoadPhase('creating'));
-        setData((ws ? toWorksheet(ws) : null) ?? FALLBACK);
+          ...(studyParams.topics ? { topics: studyParams.topics } : {}),
+          ...(studyParams.testId ? { variant: 'test', ...(studyParams.memory?.length ? { context: { memory: studyParams.memory } } : {}) } : {}),
+        }, () => setLoadPhase('creating'), !!studyParams.topics || !!studyParams.testId);
+        const ws = json ? toWorksheet(json) : null;
+        setData(ws ?? FALLBACK);
+        // Keep a school test's worksheet, so it prints the same sheet next time
+        if (ws && json?.contentId && studyParams.testId && kid && !isDemo) void keepTestWorksheet(kid.id, studyParams.testId, studyParams.topic, json.contentId);
       } catch {
         setData(FALLBACK);
       }
