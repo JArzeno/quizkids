@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { normalizeWorksheet } from '@/lib/worksheet';
 import { normalizePractice } from '@/lib/practice';
+import { normalizeGame, type GameKind } from '@/lib/games';
 import { languagePromptName } from '@/lib/languages';
 import { gradeToNumber } from '@/lib/subjects';
 
@@ -447,6 +448,63 @@ Return ONLY valid JSON:
   const test = normalizePractice(JSON.parse(content), list);
   if (test.items.length < 5) throw new Error('Practice test has too few questions');
   return test;
+}
+
+/**
+ * One round of a quick game the kid plays on screen: "tf" true-or-false cards or "fill" complete-the-sentence with
+ * word tiles. Each item says which topic it checks, so results can be saved per topic.
+ */
+export async function generateGame(kind: GameKind, topic: string, grade: string, difficulty: string, lang: string, source?: string, topics?: string[], exclude?: string[]) {
+  const openai = getClient();
+  const gradeDesc = gradeContext(grade);
+  const multi = !!topics && topics.length > 1;
+  const list = multi ? topics! : [topic];
+  const g = grade.toUpperCase() === 'K' ? 0 : parseInt(grade) || 3;
+  const count = multi ? Math.min(14, Math.max(10, list.length * 3)) : g <= 1 ? 8 : 10;
+  const diffLabel = difficulty === 'easy' ? 'simple and straightforward' : difficulty === 'hard' ? 'challenging, with nuanced distinctions' : 'moderately challenging';
+
+  const kindRules = kind === 'tf'
+    ? `Write ${count} true-or-false cards. Each is a short statement (not a question) about one clear fact or idea.
+- About half true and half false, in random order
+- A false statement must be clearly false to someone who studied the topic: change one key fact, never use trick wording, double negatives or "always/never" traps
+- "fix" on every false statement = the corrected true statement
+${g <= 1 ? '- Kindergarten and 1st grade: statements of 6-10 words' : '- Statements of one sentence'}`
+    : `Write ${count} complete-the-sentence cards. Each is one sentence with exactly ONE blank written as "___" that the student fills by tapping a word.
+- "a" = the missing word, number or short phrase (1-2 words) that goes in the blank. Exactly one choice must fit.
+- "wrong" = 3 wrong choices of the same kind as "a" (the same type of word, so the sentence reads fine with any of them). None of them may also be correct.
+- The blank is a key word of the idea, not a filler word like "the" or "is"
+- Math topics: use numbers (e.g. "7 + ___ = 10")`;
+
+  const prompt = `Write a quick learning game about ${multi ? `these topics: ${list.map((t) => `"${t}"`).join('; ')}` : `"${topic}"`} for a student at: ${gradeDesc}
+Make it ${diffLabel}.
+
+${languageRule(lang)}
+
+${kindRules}
+
+Rules:
+- Vocabulary and complexity must match the grade level above
+- Every card checks a different fact or skill; never repeat one
+- "topic" on every item: ${multi ? 'the topic it checks, copied EXACTLY from the list above. Spread the cards evenly so every topic is checked.' : `"${topic}"`}
+${topicsBlock(topics, 'game')}${excludeBlock(exclude)}${sourceBlock(source, topics)}
+Return ONLY valid JSON:
+${kind === 'tf'
+    ? '{ "items": [ { "topic": "Topic", "s": "Statement", "a": false, "fix": "Corrected statement" } ] }'
+    : '{ "items": [ { "topic": "Topic", "s": "Sentence with a ___ blank.", "a": "word", "wrong": ["x", "y", "z"] } ] }'}`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+    temperature: exclude?.length ? 0.9 : 0.7,
+    max_tokens: 2500,
+  });
+
+  const content = response.choices[0].message.content;
+  if (!content) throw new Error('No content from OpenAI');
+  const round = normalizeGame(kind, JSON.parse(content), list);
+  if (round.items.length < 4) throw new Error('Game has too few cards');
+  return round;
 }
 
 export interface AnswerToGrade {
