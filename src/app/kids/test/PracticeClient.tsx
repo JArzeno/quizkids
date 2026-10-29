@@ -8,6 +8,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
+import { fetchContent } from '@/lib/fetchContent';
 import { subjectInfo } from '@/lib/subjects';
 import { PRACTICE_ORDER, PRACTICE_PASS, answered, fallbackGrade, gradeLocally, itemPoints, practiceStats, scorePractice, toPractice, type PracticeAnswer } from '@/lib/practice';
 import { loadTest, updateTest } from '@/lib/tests';
@@ -74,6 +75,7 @@ export default function PracticeClient() {
   const [test, setTest] = React.useState<PracticeTest | null>(null);
   const [sample, setSample] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
+  const [loadPhase, setLoadPhase] = React.useState<'loading' | 'creating'>('loading');
   const [round, setRound] = React.useState(0);
   const [answers, setAnswers] = React.useState<Record<number, PracticeAnswer>>({});
   const [phase, setPhase] = React.useState<'answering' | 'grading' | 'done'>('answering');
@@ -114,6 +116,7 @@ export default function PracticeClient() {
     };
     (async () => {
       setLoading(true);
+      setLoadPhase('loading');
       if (studyParams.contentId && !isDemo && round === 0) {
         try {
           const { data } = await createClient().from('generated_content').select('content, lang').eq('id', studyParams.contentId).single();
@@ -124,21 +127,17 @@ export default function PracticeClient() {
         }
       }
       try {
-        const res = await fetch('/api/generate/practice', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            topic: studyParams.topic, grade: studyParams.grade, lang: contentLang, subject: studyParams.subject, source: studyParams.source,
-            ...(studyParams.topics ? { topics: studyParams.topics } : {}),
-            ...(studyParams.memory?.length ? { context: { memory: studyParams.memory } } : {}),
-            ...(studyParams.testId ? { variant: 'test' } : {}),
-            ...(previous.length ? { variant: 'more', exclude: previous } : {}),
-          }),
-        });
-        const data = res.ok ? await res.json() : null;
+        // A saved practice test on this topic if there is one; a school test's or a new round's is always made new
+        const data = await fetchContent<{ contentId?: string | null }>('/api/generate/practice', {
+          topic: studyParams.topic, grade: studyParams.grade, lang: contentLang, subject: studyParams.subject, source: studyParams.source,
+          ...(studyParams.topics ? { topics: studyParams.topics } : {}),
+          ...(studyParams.memory?.length ? { context: { memory: studyParams.memory } } : {}),
+          ...(studyParams.testId ? { variant: 'test' } : {}),
+          ...(previous.length ? { variant: 'more', exclude: previous } : {}),
+        }, () => setLoadPhase('creating'), !!studyParams.topics || !!studyParams.testId || previous.length > 0);
         const p = data ? toPractice(data) : null;
         if (p) {
-          show(p, data.contentId ?? undefined);
+          show(p, data?.contentId ?? undefined);
           return;
         }
       } catch (e) {
@@ -233,7 +232,7 @@ export default function PracticeClient() {
     <AppShell>
       <div className="qk-screen" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
         <LoadingBar expectedMs={20000} style={{ width: 'min(280px, 100%)' }} />
-        <div style={{ fontSize: 16, color: 'var(--ink-3)', fontFamily: 'var(--font-display)', textAlign: 'center' }}>{L('Writing your practice test…', 'Escribiendo tu examen de práctica…')}</div>
+        <div style={{ fontSize: 16, color: 'var(--ink-3)', fontFamily: 'var(--font-display)', textAlign: 'center' }}>{loadPhase === 'creating' ? L('Writing your practice test…', 'Escribiendo tu examen de práctica…') : L('Loading…', 'Cargando…')}</div>
       </div>
     </AppShell>
   );

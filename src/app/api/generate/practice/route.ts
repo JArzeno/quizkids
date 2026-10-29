@@ -10,7 +10,7 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const { topic, grade, source, lang, subject, variant, context, exclude, topics } = await req.json();
+    const { topic, grade, source, lang, subject, variant, context, exclude, topics, cacheOnly } = await req.json();
     if (!topic || !grade) return NextResponse.json({ error: 'Missing topic or grade' }, { status: 400 });
 
     const lng = contentLang(lang);
@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ...(cached.content as object), contentId: cached.id, cached: true });
       }
 
+      if (cacheOnly) return NextResponse.json({ cached: false });
       const data = await generatePractice(promptTopic(topic, topics), grade, lng, src, ctx, multi, asked);
 
       const { data: saved } = await supabase
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ...data, contentId: saved?.id ?? null, cached: false });
     } catch (dbErr) {
       console.warn('Supabase cache miss/error, generating fresh:', dbErr);
+      if (cacheOnly) return NextResponse.json({ cached: false });
       const data = await generatePractice(promptTopic(topic, topics), grade, lng, src, ctx, multi, asked);
       return NextResponse.json({ ...data, contentId: null, cached: false });
     }
