@@ -4,11 +4,13 @@ import { Btn } from '@/components/ui/Btn';
 import { ICONS } from '@/components/ui/Icons';
 import { starsFor, type FillItem, type GameKind, type TfItem } from '@/lib/games';
 import type { Played } from '@/components/games/GameBits';
+import { LevelCard, LevelUpModal } from '@/components/games/LevelBits';
+import { levelsGained } from '@/lib/levels';
 
 const PASS = 70;
 
 /** End of a round: score, stars, per-topic bars and the cards that were missed, with their answers */
-export default function GameResults({ kind, played, bestStreak, minimal, saved, lang, onAgain, onOther, onBack }: {
+export default function GameResults({ kind, played, bestStreak, minimal, saved, lang, starsBefore, onAgain, onOther, onBack }: {
   kind: GameKind;
   played: Played<TfItem | FillItem>[];
   bestStreak: number;
@@ -16,6 +18,8 @@ export default function GameResults({ kind, played, bestStreak, minimal, saved, 
   /** False for sample cards: nothing was saved */
   saved: boolean;
   lang: string;
+  /** The kid's total stars before this round, to show the level progress it made */
+  starsBefore: number;
   onAgain: () => void;
   onOther: () => void;
   onBack: () => void;
@@ -25,6 +29,9 @@ export default function GameResults({ kind, played, bestStreak, minimal, saved, 
   const pct = played.length ? Math.round((right / played.length) * 100) : 0;
   const stars = starsFor(pct);
   const missed = played.filter((p) => !p.ok);
+  const starsAfter = starsBefore + (saved ? stars : 0);
+  const gained = saved && !minimal ? levelsGained(starsBefore, starsAfter) : [];
+  const [celebrate, setCelebrate] = React.useState(gained.length > 0);
   const byTopic = new Map<string, { right: number; total: number }>();
   played.forEach((p) => {
     if (!p.item.topic) return;
@@ -34,6 +41,7 @@ export default function GameResults({ kind, played, bestStreak, minimal, saved, 
 
   return (
     <div className="qk-slide-up" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 18 }}>
+      {celebrate && <LevelUpModal levels={gained} lang={lang} onClose={() => setCelebrate(false)} />}
       <div className="qk-card" style={{ padding: 'clamp(18px, 4vw, 28px)', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
           <div style={{ width: 96, height: 96, borderRadius: '50%', display: 'grid', placeItems: 'center', background: `conic-gradient(${pct >= PASS ? 'var(--primary)' : 'var(--coral)'} ${pct * 3.6}deg, var(--surface-2) 0)`, flexShrink: 0 }}>
@@ -54,6 +62,12 @@ export default function GameResults({ kind, played, bestStreak, minimal, saved, 
             )}
           </div>
         </div>
+
+        {!minimal && saved && (
+          <div style={{ padding: 12, borderRadius: 16, background: 'var(--surface-2)' }}>
+            <LevelCard stars={starsAfter} from={starsBefore} lang={lang} />
+          </div>
+        )}
 
         {byTopic.size > 1 && (
           <div style={{ display: 'grid', gap: 8 }}>

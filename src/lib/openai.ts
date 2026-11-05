@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { normalizeWorksheet } from '@/lib/worksheet';
 import { normalizePractice } from '@/lib/practice';
-import { normalizeGame, type GameKind } from '@/lib/games';
+import { normalizeGame, type FillItem, type GameKind, type GameRound, type TfItem } from '@/lib/games';
 import { languagePromptName } from '@/lib/languages';
 import { gradeToNumber } from '@/lib/subjects';
 
@@ -460,13 +460,17 @@ export async function generateGame(kind: GameKind, topic: string, grade: string,
   const multi = !!topics && topics.length > 1;
   const list = multi ? topics! : [topic];
   const g = grade.toUpperCase() === 'K' ? 0 : parseInt(grade) || 3;
-  const count = multi ? Math.min(14, Math.max(10, list.length * 3)) : g <= 1 ? 8 : 10;
+  const target = multi ? Math.min(14, Math.max(10, list.length * 3)) : g <= 1 ? 8 : 10;
+  // A few spare cards: the fact-check below drops any that are doubtful
+  const count = target + 3;
   const diffLabel = difficulty === 'easy' ? 'simple and straightforward' : difficulty === 'hard' ? 'challenging, with nuanced distinctions' : 'moderately challenging';
 
   const kindRules = kind === 'tf'
     ? `Write ${count} true-or-false cards. Each is a short statement (not a question) about one clear fact or idea.
 - About half true and half false, in random order
 - A false statement must be clearly false to someone who studied the topic: change one key fact, never use trick wording, double negatives or "always/never" traps
+- Only write facts you are 100% sure of. Never write a statement that is partly true, depends on context, or that experts could argue about. When unsure of a fact, pick a different fact.
+- Double-check every true statement and every false statement before answering: the "a" value must be what a textbook says
 - "fix" on every false statement = the corrected true statement
 ${g <= 1 ? '- Kindergarten and 1st grade: statements of 6-10 words' : '- Statements of one sentence'}`
     : `Write ${count} complete-the-sentence cards. Each is one sentence with exactly ONE blank written as "___" that the student fills by tapping a word.
@@ -504,7 +508,75 @@ ${kind === 'tf'
   if (!content) throw new Error('No content from OpenAI');
   const round = normalizeGame(kind, JSON.parse(content), list);
   if (round.items.length < 4) throw new Error('Game has too few cards');
-  return round;
+  const checked = await verifyGame(kind, round, grade, lang, source, list);
+  if (checked.items.length < 4) throw new Error('Game has too few verified cards');
+  return { ...checked, items: checked.items.slice(0, target) } as typeof checked;
+}
+
+/**
+ * Second opinion on a round: a separate, stricter fact-check that answers each card on its own, without being told
+ * what the "right" answer is, and keeps only the cards where it agrees. Cards it doubts are dropped, so a kid is
+ * never marked wrong for a correct answer.
+ */
+async function verifyGame<K extends GameKind>(kind: K, round: GameRound<K>, grade: string, lang: string, source: string | undefined, topics: string[]): Promise<GameRound<K>> {
+  const openai = getClient();
+  const gradeDesc = gradeContext(grade);
+  const tf = kind === 'tf';
+  const cards = round.items as (TfItem | FillItem)[];
+
+  const payload = cards.map((it, i) => tf
+    ? { i, statement: it.s, corrected_version: (it as TfItem).fix ?? null }
+    : { i, sentence: it.s, options: (it as FillItem).choices });
+
+  const task = tf
+    ? `For each card decide if "statement" is factually TRUE or FALSE, using what is established in textbooks and encyclopedias. Use "unsure" if it is partly true, depends on context, is debatable, is ambiguous, or you cannot be certain.
+Also judge "corrected_version" (when not null): "fix_true" = true only if it is a fully correct, true statement.`
+    : `For each card, list in "fits" the index (0-based) of EVERY option that makes the sentence correct and true when put in the blank. Usually exactly one fits. Use [] if none is clearly right. Also set "clear" = false if the sentence is ambiguous or has no single clearly best word.`;
+
+  const shape = tf
+    ? '{ "results": [ { "i": 0, "truth": "true" | "false" | "unsure", "fix_true": true } ] }'
+    : '{ "results": [ { "i": 0, "fits": [2], "clear": true } ] }';
+
+  const material = source ? `\nThe student's class material is below. When it covers a card, the card must agree with it.\n<class_material>\n${source.slice(0, MAX_SOURCE_CHARS)}\n</class_material>\n` : '';
+
+  const prompt = `You are a strict fact-checker for a children's school game${topics.length ? ` about: ${topics.map((t) => `"${t}"`).join('; ')}` : ''}. The student is at: ${gradeDesc}
+Answer each card yourself, independently and carefully. Do not guess: accuracy matters more than anything, a wrong card teaches a child something false.
+The cards are written in ${languagePromptName(lang)}.
+${material}
+${task}
+
+Cards:
+${JSON.stringify(payload)}
+
+Return ONLY valid JSON, one result per card:
+${shape}`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+    temperature: 0,
+    max_tokens: 2500,
+  });
+  const content = response.choices[0].message.content;
+  if (!content) throw new Error('No content from fact-check');
+  const parsed = JSON.parse(content) as { results?: { i?: number; truth?: string; fix_true?: boolean; fits?: unknown; clear?: boolean }[] };
+  const byIndex = new Map((Array.isArray(parsed.results) ? parsed.results : []).map((r) => [r.i, r]));
+
+  const kept = cards.filter((it, i) => {
+    const r = byIndex.get(i);
+    if (!r) return false;
+    if (tf) {
+      const t = it as TfItem;
+      if (r.truth !== (t.a ? 'true' : 'false')) return false;
+      // A false card is only useful with a correct fix to show
+      return t.a || (!!t.fix && r.fix_true === true);
+    }
+    const f = it as FillItem;
+    const fits = Array.isArray(r.fits) ? (r.fits as unknown[]) : [];
+    return r.clear !== false && fits.length === 1 && f.choices[Number(fits[0])] === f.a;
+  });
+  return { ...round, items: kept as GameRound<K>['items'] };
 }
 
 export interface AnswerToGrade {

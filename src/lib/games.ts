@@ -3,7 +3,7 @@ export type GameMode = 'flip' | 'tf' | 'fill';
 export type GameKind = Exclude<GameMode, 'flip'>;
 
 /** Bump when a game's format changes, so cached rounds in the old format are not served */
-export const GAME_VERSION = 1;
+export const GAME_VERSION = 2;
 
 /** Most topics one round can mix (same limit as a school test) */
 export const MAX_GAME_TOPICS = 8;
@@ -85,7 +85,8 @@ export function normalizeGame<K extends GameKind>(kind: K, v: unknown, topics?: 
       const s = str(x.s);
       const a = x.a === true || x.a === 'true';
       const fix = str(x.fix);
-      return s ? [{ topic: topicOf(x.topic), s, a, ...(!a && fix ? { fix } : {}) }] : [];
+      // A false card without its correction cannot teach anything, so it is dropped
+      return s && (a || fix) ? [{ topic: topicOf(x.topic), s, a, ...(!a && fix ? { fix } : {}) }] : [];
     });
     return { items: items as GameItems[K], v: GAME_VERSION };
   }
