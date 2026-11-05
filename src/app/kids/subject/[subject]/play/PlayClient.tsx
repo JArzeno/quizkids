@@ -47,7 +47,7 @@ export default function PlayClient() {
   const [phase, setPhase] = React.useState<'setup' | 'loading' | 'playing' | 'done'>('setup');
   const [loadPhase, setLoadPhase] = React.useState<'loading' | 'creating'>('loading');
   const [round, setRound] = React.useState<Round | null>(null);
-  const [played, setPlayed] = React.useState<{ played: Played<Item>[]; bestStreak: number } | null>(null);
+  const [played, setPlayed] = React.useState<{ played: Played<Item>[]; bestStreak: number; starsBefore: number } | null>(null);
   // Cards seen in earlier rounds of this visit, so "play again" brings new ones
   const seen = React.useRef<string[]>([]);
   // A new round starts a fresh game component even when the cards look alike
@@ -117,7 +117,7 @@ export default function PlayClient() {
   };
 
   const finish = (results: Played<Item>[], _stars: number, bestStreak: number) => {
-    setPlayed({ played: results, bestStreak });
+    setPlayed({ played: results, bestStreak, starsBefore: kid.stars || 0 });
     setPhase('done');
     // Sample cards are not about the real topics: nothing to save
     if (!round || (round.sample && !isDemo)) return;
@@ -230,7 +230,7 @@ export default function PlayClient() {
 
           {phase === 'done' && round && played && (
             <div style={{ marginTop: 18 }}>
-              <GameResults kind={round.kind} played={played.played} bestStreak={played.bestStreak} minimal={gamification === 'minimal'} saved={!round.sample || isDemo} lang={lang}
+              <GameResults kind={round.kind} played={played.played} bestStreak={played.bestStreak} starsBefore={played.starsBefore} minimal={gamification === 'minimal'} saved={!round.sample || isDemo} lang={lang}
                 onAgain={() => start(true)} onOther={() => setPhase('setup')} onBack={() => router.push(here)} />
             </div>
           )}

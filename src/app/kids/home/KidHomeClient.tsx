@@ -5,6 +5,8 @@ import { ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { SessionPill, useSession, formatElapsed } from '@/components/ui/SessionPill';
 import { AppShell } from '@/components/layout/AppShell';
+import { LevelCard, MedalShelf } from '@/components/games/LevelBits';
+import { levelFor } from '@/lib/levels';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
@@ -35,7 +37,7 @@ function relativeDate(iso: string): string {
 export default function KidHomeClient() {
   const {
     lang, kids, activeKidId, setActiveKidId, setMode, setStudyParams, studyParams,
-    updateKid, isDemo, filterSubject, setFilterSubject, autoStartSession, setAutoStartSession, customSubjects,
+    updateKid, isDemo, filterSubject, setFilterSubject, autoStartSession, setAutoStartSession, customSubjects, gamification,
   } = useStore();
   const t = useT(lang);
   const router = useRouter();
@@ -44,6 +46,7 @@ export default function KidHomeClient() {
   const [dbRecent, setDbRecent] = React.useState<RecentItem[] | null>(null);
   const [loadingHistory, setLoadingHistory] = React.useState(false);
   const [showCompleted, setShowCompleted] = React.useState(false);
+  const [showMedals, setShowMedals] = React.useState(false);
   const session = useSession(kid?.id);
 
   React.useEffect(() => { setMode('kid'); }, []);
@@ -359,11 +362,25 @@ export default function KidHomeClient() {
                   </div>
                 </div>
               </div>
+              {gamification !== 'minimal' && (
+                <button type="button" onClick={() => setShowMedals((v) => !v)} aria-expanded={showMedals} title={lang === 'es' ? 'Ver mis medallas' : 'See my medals'}
+                  style={{ appearance: 'none', font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer', marginTop: 14, width: 'min(380px, 100%)', padding: '8px 12px', borderRadius: 16, border: '1.5px solid var(--line)', background: 'var(--surface)' }}>
+                  <LevelCard stars={kid.stars || 0} lang={lang} compact />
+                </button>
+              )}
             </div>
             <div className="qk-kid-hero-action" style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
               <SessionPill lang={lang} session={session} onStart={session.start} onTogglePause={() => session.paused ? session.resume() : session.pause()} onEnd={session.end} />
             </div>
           </div>
+
+          {gamification !== 'minimal' && showMedals && (
+            <section className="qk-card qk-slide-up" style={{ marginTop: 20, padding: 'clamp(16px, 3vw, 22px)' }}>
+              <h2 className="qk-h2" style={{ margin: '0 0 4px' }}>{lang === 'es' ? 'Mis medallas' : 'My medals'}</h2>
+              <div style={{ fontSize: 13, color: 'var(--ink-3)', marginBottom: 14 }}>{lang === 'es' ? `Cada nivel te da una medalla nueva. Llevas ${levelFor(kid.stars || 0).level.n} de 10.` : `Every level gives you a new medal. You have ${levelFor(kid.stars || 0).level.n} of 10.`}</div>
+              <MedalShelf stars={kid.stars || 0} lang={lang} />
+            </section>
+          )}
 
           {/* tests coming up */}
           {upcoming.length > 0 && (
