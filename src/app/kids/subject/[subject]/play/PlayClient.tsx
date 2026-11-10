@@ -174,7 +174,7 @@ export default function PlayClient() {
     <AppShell>
       <div className="qk-screen qk-page-enter" style={{ padding: '24px clamp(16px, 5vw, 56px) 64px' }}>
         <div style={{ maxWidth: phase === 'setup' ? 860 : 640, margin: '0 auto' }}>
-          <button className="qk-btn qk-btn-ghost" onClick={() => (phase === 'playing' && !fromPath ? setPhase('setup') : router.push(backTo))}>{ICONS.back} <span>{phase === 'playing' ? L('Stop game', 'Salir del juego') : info.label}</span></button>
+          <button className="qk-btn qk-btn-ghost" onClick={() => (phase === 'playing' && !fromPath ? setPhase('setup') : router.push(backTo))}>{ICONS.back} <span>{phase === 'playing' ? L('Stop game', 'Salir del juego') : backHome ? L('Home', 'Inicio') : info.label}</span></button>
 
           {phase === 'setup' && (
             <>
