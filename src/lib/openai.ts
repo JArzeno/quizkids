@@ -775,11 +775,10 @@ Return ONLY valid JSON: { "ok": true, "scene": "..." }` }],
 
   try {
     const image = await openai.images.generate({
-      model: 'gpt-image-1',
+      model: 'gpt-image-2.6-flare',
       prompt: `${scene}\n\nStyle: ${IMAGE_STYLE[imageBand(grade)]}\n\n${IMAGE_SAFETY}`,
       size: '1536x1024',
-      // Section pictures are shown small and there are several per guide: the cheaper quality is enough
-      quality: section ? 'low' : 'medium',
+      quality: 'low',
       output_format: 'webp',
       output_compression: 80,
       moderation: 'auto',
