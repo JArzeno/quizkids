@@ -84,6 +84,8 @@ export interface TopicRow {
   attempts: number;
   /** Score of the most recent quiz on it, 0-100 */
   lastPct: number | null;
+  /** Best score of any quiz on it, 0-100: what the level path uses, so a key that was earned is kept */
+  bestPct: number | null;
   lastAt: string | null;
   mastered: boolean;
 }
@@ -106,8 +108,9 @@ export function subjectTopics(subject: string, topics: KidTopic[], goals: KidGoa
     const attempts = mine.filter((q) => norm(q.topic!) === key).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
     const last = attempts[0];
     const lastPct = last ? Math.round(((last.correct || 0) / (last.total || 1)) * 100) : null;
+    const bestPct = attempts.length ? Math.max(...attempts.map((q) => Math.round(((q.correct || 0) / (q.total || 1)) * 100))) : null;
     seen.add(key);
-    rows.push({ title, topic, inGoal: goalTopics.has(key), attempts: attempts.length, lastPct, lastAt: last?.created_at ?? null, mastered: lastPct != null && lastPct >= MASTERY });
+    rows.push({ title, topic, inGoal: goalTopics.has(key), attempts: attempts.length, lastPct, bestPct, lastAt: last?.created_at ?? null, mastered: lastPct != null && lastPct >= MASTERY });
   };
 
   topics.filter((t) => t.subject === subject).forEach((t) => push(t.title, t));

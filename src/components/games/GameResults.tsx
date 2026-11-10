@@ -8,7 +8,7 @@ import type { Played } from '@/components/games/GameBits';
 const PASS = 70;
 
 /** End of a round: score, stars, per-topic bars and the cards that were missed, with their answers */
-export default function GameResults({ kind, played, bestStreak, minimal, saved, lang, onAgain, onOther, onBack }: {
+export default function GameResults({ kind, played, bestStreak, minimal, saved, lang, fromPath, onAgain, onOther, onBack }: {
   kind: GameKind;
   played: Played<TfItem | FillItem>[];
   bestStreak: number;
@@ -16,6 +16,8 @@ export default function GameResults({ kind, played, bestStreak, minimal, saved, 
   /** False for sample cards: nothing was saved */
   saved: boolean;
   lang: string;
+  /** The round was one level of the subject's path: say whether the key was earned */
+  fromPath?: boolean;
   onAgain: () => void;
   onOther: () => void;
   onBack: () => void;
@@ -55,6 +57,13 @@ export default function GameResults({ kind, played, bestStreak, minimal, saved, 
           </div>
         </div>
 
+        {fromPath && saved && (
+          <div className="qk-bounce-in" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 14, fontWeight: 700, fontSize: 15, background: pct >= PASS ? 'var(--primary-l)' : 'var(--honey-l)', color: pct >= PASS ? 'var(--primary-d)' : '#7C5410' }}>
+            <span aria-hidden className={pct >= PASS ? 'qk-key-spin' : undefined} style={{ fontSize: 24 }}>🔑</span>
+            <span>{pct >= PASS ? L('Level passed! You earned the key.', '¡Nivel superado! Ganaste la llave.') : L(`So close! Get ${PASS}% to earn the key.`, `¡Casi! Saca ${PASS}% para ganar la llave.`)}</span>
+          </div>
+        )}
+
         {byTopic.size > 1 && (
           <div style={{ display: 'grid', gap: 8 }}>
             {Array.from(byTopic, ([name, r]) => {
@@ -71,9 +80,18 @@ export default function GameResults({ kind, played, bestStreak, minimal, saved, 
         )}
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Btn kind="primary" icon={ICONS.shuffle} onClick={onAgain}>{L('Play again', 'Jugar otra vez')}</Btn>
-          <Btn kind="soft" icon={ICONS.cards} onClick={onOther}>{L('Another way to learn', 'Otra forma de aprender')}</Btn>
-          <Btn kind="ghost" icon={ICONS.back} onClick={onBack}>{L('Back to subject', 'Volver a la materia')}</Btn>
+          {fromPath && pct >= PASS ? (
+            <>
+              <Btn kind="primary" icon={ICONS.next} onClick={onBack}>{L('Back to my path', 'Volver a mi camino')}</Btn>
+              <Btn kind="ghost" icon={ICONS.shuffle} onClick={onAgain}>{L('Play again', 'Jugar otra vez')}</Btn>
+            </>
+          ) : (
+            <>
+              <Btn kind="primary" icon={ICONS.shuffle} onClick={onAgain}>{L('Play again', 'Jugar otra vez')}</Btn>
+              {!fromPath && <Btn kind="soft" icon={ICONS.cards} onClick={onOther}>{L('Another way to learn', 'Otra forma de aprender')}</Btn>}
+              <Btn kind="ghost" icon={ICONS.back} onClick={onBack}>{fromPath ? L('Back to my path', 'Volver a mi camino') : L('Back to subject', 'Volver a la materia')}</Btn>
+            </>
+          )}
         </div>
       </div>
 

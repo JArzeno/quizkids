@@ -30,6 +30,12 @@ export default function ResultsClient() {
       });
     }
 
+    // The demo has no database: keep the score on the kid so the level path of the subject moves forward
+    if (isDemo && kid && !savedRef.current && studyParams.subject && studyParams.topic) {
+      savedRef.current = true;
+      updateKid(kid.id, { results: [{ subject: studyParams.subject, topic: studyParams.topic, total: quizResult.total, correct: quizResult.correct, created_at: new Date().toISOString() }, ...(kid.results || [])].slice(0, 200) });
+    }
+
     // Save to Supabase (once)
     if (!isDemo && kid && !savedRef.current) {
       savedRef.current = true;

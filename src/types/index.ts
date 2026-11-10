@@ -26,6 +26,8 @@ export interface Kid {
   topics?: KidTopic[];
   /** Demo mode only: test prep is kept locally instead of in Supabase */
   tests?: KidTest[];
+  /** Demo mode only: scores of finished rounds, kept locally so the level path moves forward */
+  results?: Array<{ subject: string; topic: string; total: number; correct: number; created_at: string }>;
   created_at?: string;
 }
 
