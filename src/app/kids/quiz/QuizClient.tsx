@@ -7,7 +7,6 @@ import { Btn } from '@/components/ui/Btn';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
-import { starsFor } from '@/lib/games';
 import { createClient } from '@/lib/supabase/client';
 import { completePlanItem } from '@/lib/plan';
 import { fetchContent } from '@/lib/fetchContent';
@@ -36,7 +35,7 @@ const FALLBACK_QUIZ_ES: QuizQuestion[] = [
 ];
 
 export default function QuizClient() {
-  const { lang, kids, activeKidId, studyParams, difficulty, gamification, setQuizResult, setMode, isDemo, addQuizAsked, updateKid } = useStore();
+  const { lang, kids, activeKidId, studyParams, difficulty, gamification, setQuizResult, setMode, isDemo, addQuizAsked } = useStore();
   const t = useT(lang);
   const FALLBACK_QUIZ = lang === 'es' ? FALLBACK_QUIZ_ES : FALLBACK_QUIZ_EN;
   const router = useRouter();
@@ -161,11 +160,6 @@ export default function QuizClient() {
               .then(() => {});
           }
         });
-      }
-
-      // Demo keeps the round on the kid, so the levels of "my path" still open
-      if (isDemo && kid) {
-        updateKid(kid.id, { gameResults: [...(kid.gameResults || []), { subject: studyParams.subject, topic: studyParams.topic, difficulty, total: cards.length, correct, stars: starsFor(Math.round((correct / cards.length) * 100)), created_at: new Date().toISOString() }] });
       }
 
       if (studyParams.planItemId) void completePlanItem(studyParams.planItemId, isDemo);

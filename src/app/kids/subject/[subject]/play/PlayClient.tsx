@@ -17,7 +17,6 @@ import { subjectInfo } from '@/lib/subjects';
 import { loadTopics } from '@/lib/topics';
 import { testSource } from '@/lib/tests';
 import { GAME_MODES, MAX_GAME_TOPICS, isGameMode, itemText, sampleGame, starsFor, toGame, type FillItem, type GameKind, type GameMode, type TfItem } from '@/lib/games';
-import { PASS_PCT } from '@/lib/levels';
 import type { KidTopic } from '@/types';
 
 const norm = (x: string) => x.trim().toLowerCase();
@@ -34,9 +33,11 @@ export default function PlayClient() {
   const subject = decodeURIComponent(typeof params?.subject === 'string' ? params.subject : '');
   const search = useSearchParams();
   const modeParam = search.get('mode');
-  // Opened from a level of "my path": that one class, straight into the game, and back to the path afterwards
+  /** Set when a level of the subject's path opens the game: that topic is played right away, no setup */
   const topicParam = search.get('topic');
-  const levelParam = search.get('level');
+  // Opened from the home page's daily path: back goes home instead of to the subject
+  const backHome = search.get('from') === 'home';
+  const fromPath = !!topicParam && isGameMode(modeParam) && modeParam !== 'flip';
   const { lang, kids, activeKidId, isDemo, updateKid, customSubjects, difficulty, gamification, studyParams, setStudyParams, setMode: setAppMode } = useStore();
   const L = (en: string, es: string) => (lang === 'es' ? es : en);
   const router = useRouter();
@@ -45,12 +46,12 @@ export default function PlayClient() {
   const info = subjectInfo(subject, lang, customSubjects, ks);
   const contentLang = ks?.lang ?? lang;
   const here = `/kids/subject/${encodeURIComponent(subject)}`;
-  const backTo = levelParam ? '/kids/home' : here;
+  const backTo = backHome ? '/kids/home' : here;
 
   const [mode, setMode] = React.useState<GameMode>(isGameMode(modeParam) ? modeParam : 'tf');
   const [topics, setTopics] = React.useState<KidTopic[] | null>(null);
   const [picked, setPicked] = React.useState<string[]>([]);
-  const [phase, setPhase] = React.useState<'setup' | 'loading' | 'playing' | 'done'>('setup');
+  const [phase, setPhase] = React.useState<'setup' | 'loading' | 'playing' | 'done'>(fromPath ? 'loading' : 'setup');
   const [loadPhase, setLoadPhase] = React.useState<'loading' | 'creating'>('loading');
   const [round, setRound] = React.useState<Round | null>(null);
   const [played, setPlayed] = React.useState<{ played: Played<Item>[]; bestStreak: number } | null>(null);
@@ -58,8 +59,7 @@ export default function PlayClient() {
   const seen = React.useRef<string[]>([]);
   // A new round starts a fresh game component even when the cards look alike
   const [roundNo, setRoundNo] = React.useState(0);
-
-  const [autoStart, setAutoStart] = React.useState(false);
+  const startRef = React.useRef<(again?: boolean, list?: KidTopic[]) => void>(() => {});
 
   React.useEffect(() => { setAppMode('kid'); }, []);
 
@@ -71,21 +71,14 @@ export default function PlayClient() {
       .then((list) => {
         if (cancelled) return;
         setTopics(list);
-        const one = topicParam ? list.find((x) => norm(x.title) === norm(topicParam)) : undefined;
-        setPicked(one ? [one.title] : list.slice(0, MAX_GAME_TOPICS).map((x) => x.title));
-        if (one && levelParam) setAutoStart(true);
+        const only = fromPath ? list.find((x) => norm(x.title) === norm(topicParam!)) : undefined;
+        setPicked(only ? [only.title] : list.slice(0, MAX_GAME_TOPICS).map((x) => x.title));
+        if (only) startRef.current(false, [only]);
+        else if (fromPath) setPhase('setup');
       });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kid?.id, subject, isDemo]);
-
-  // A level starts its game as soon as its class is loaded
-  const startRef = React.useRef<() => void>(() => {});
-  React.useEffect(() => {
-    if (!autoStart) return;
-    setAutoStart(false);
-    startRef.current();
-  }, [autoStart]);
 
   if (!kid) return null;
 
@@ -96,8 +89,11 @@ export default function PlayClient() {
   const titles = chosen.map((x) => x.title);
   const label = titles.length === 1 ? titles[0] : titles.join(' · ').slice(0, 80);
 
-  const start = async (again = false) => {
-    if (!chosen.length) return;
+  const start = async (again = false, list: KidTopic[] = chosen) => {
+    if (!list.length) return;
+    const chosen = list;
+    const titles = chosen.map((x) => x.title);
+    const label = titles.length === 1 ? titles[0] : titles.join(' · ').slice(0, 80);
     const source = chosen.length === 1 ? chosen[0].notes : testSource(chosen);
 
     if (mode === 'flip') {
@@ -141,6 +137,7 @@ export default function PlayClient() {
     if (!round || (round.sample && !isDemo)) return;
     const right = results.filter((r) => r.ok).length;
     const earned = starsFor(Math.round((right / Math.max(1, results.length)) * 100));
+    updateKid(kid.id, { stars: (kid.stars || 0) + earned, lastSubject: subject });
     const byTopic = new Map<string, { right: number; total: number }>();
     results.forEach((r) => {
       const t = r.item.topic || label;
@@ -151,18 +148,18 @@ export default function PlayClient() {
       kid_id: kid.id, subject, topic, grade: kid.grade, difficulty: round.kind, total: r.total, correct: r.right,
       stars: starsFor(Math.round((r.right / r.total) * 100)), lang: contentLang,
     }));
-    // Demo keeps the rounds on the kid, so the levels of "my path" still open
-    updateKid(kid.id, {
-      stars: (kid.stars || 0) + earned, lastSubject: subject,
-      ...(isDemo ? { gameResults: [...(kid.gameResults || []), ...rows.map((r) => ({ subject: r.subject, topic: r.topic, difficulty: r.difficulty, total: r.total, correct: r.correct, stars: r.stars, created_at: new Date().toISOString() }))] } : {}),
-    });
-    if (isDemo) return;
+    if (isDemo) {
+      // The demo has no database: keep the scores on the kid so the level path moves forward
+      const now = new Date().toISOString();
+      updateKid(kid.id, { results: [...rows.map((r) => ({ subject, topic: r.topic, total: r.total, correct: r.correct, created_at: now, difficulty: round.kind, stars: r.stars })), ...(kid.results || [])].slice(0, 200) });
+      return;
+    }
     const supabase = createClient();
     if (rows.length) supabase.from('quiz_results').insert(rows).then(({ error }) => { if (error) console.warn('Could not save game result:', error); });
     supabase.from('kids').update({ stars: (kid.stars || 0) + earned, last_subject: subject }).eq('id', kid.id).then(() => {});
   };
 
-  startRef.current = () => { void start(); };
+  startRef.current = start;
 
   const meta = GAME_MODES.find((m) => m.id === mode)!;
   const copy = lang === 'es' ? meta.es : meta.en;
@@ -177,9 +174,9 @@ export default function PlayClient() {
     <AppShell>
       <div className="qk-screen qk-page-enter" style={{ padding: '24px clamp(16px, 5vw, 56px) 64px' }}>
         <div style={{ maxWidth: phase === 'setup' ? 860 : 640, margin: '0 auto' }}>
-          <button className="qk-btn qk-btn-ghost" onClick={() => (phase === 'playing' && !levelParam ? setPhase('setup') : router.push(backTo))}>{ICONS.back} <span>{phase === 'playing' ? L('Stop game', 'Salir del juego') : levelParam ? L('My path', 'Mi camino') : info.label}</span></button>
+          <button className="qk-btn qk-btn-ghost" onClick={() => (phase === 'playing' && !fromPath ? setPhase('setup') : router.push(backTo))}>{ICONS.back} <span>{phase === 'playing' ? L('Stop game', 'Salir del juego') : info.label}</span></button>
 
-          {phase === 'setup' && !autoStart && (
+          {phase === 'setup' && (
             <>
               <div className="qk-slide-up" style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div style={{ width: 64, height: 64, borderRadius: 20, background: 'var(--primary-l)', display: 'grid', placeItems: 'center', fontSize: 34, flexShrink: 0 }}>{info.icon}</div>
@@ -245,7 +242,7 @@ export default function PlayClient() {
 
           {phase === 'playing' && round && (
             <div style={{ marginTop: 18 }}>
-              {round.sample && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 12, background: 'var(--honey-l)', color: 'var(--honey-d)', fontWeight: 600, fontSize: 13 }}>{isDemo ? L('Demo: these are sample cards.', 'Demo: estas son tarjetas de ejemplo.') : L("These are sample cards: we couldn't make your game right now.", 'Estas son tarjetas de ejemplo: no pudimos hacer tu juego ahora.')}</div>}
+              {round.sample && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 12, background: 'var(--honey-l)', color: '#7C5410', fontWeight: 600, fontSize: 13 }}>{isDemo ? L('Demo: these are sample cards.', 'Demo: estas son tarjetas de ejemplo.') : L("These are sample cards: we couldn't make your game right now.", 'Estas son tarjetas de ejemplo: no pudimos hacer tu juego ahora.')}</div>}
               {round.kind === 'tf'
                 ? <TrueFalseGame key={roundNo} items={round.items as TfItem[]} lang={lang} minimal={gamification === 'minimal'} label={label} onFinish={finish} />
                 : <FillGame key={roundNo} items={round.items as FillItem[]} lang={lang} minimal={gamification === 'minimal'} label={label} onFinish={finish} />}
@@ -254,7 +251,7 @@ export default function PlayClient() {
 
           {phase === 'done' && round && played && (
             <div style={{ marginTop: 18 }}>
-              <GameResults kind={round.kind} played={played.played} bestStreak={played.bestStreak} minimal={gamification === 'minimal'} saved={!round.sample || isDemo} lang={lang} level={levelParam ? { n: Number(levelParam) || 1, passPct: PASS_PCT } : undefined}
+              <GameResults kind={round.kind} played={played.played} bestStreak={played.bestStreak} minimal={gamification === 'minimal'} saved={!round.sample || isDemo} lang={lang} fromPath={fromPath && picked.length === 1}
                 onAgain={() => start(true)} onOther={() => setPhase('setup')} onBack={() => router.push(backTo)} />
             </div>
           )}

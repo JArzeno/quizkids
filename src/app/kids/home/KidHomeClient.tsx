@@ -5,13 +5,13 @@ import { ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { SessionPill, useSession, formatElapsed } from '@/components/ui/SessionPill';
 import { AppShell } from '@/components/layout/AppShell';
-import LevelPath from '@/components/games/LevelPath';
+import DailyPath from '@/components/games/DailyPath';
 import { TopicThumb } from '@/components/ui/TopicImage';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { subjectInfo, kidSubjectInfo, levelLabel, subjectPromptName } from '@/lib/subjects';
-import { buildLevels, type Level, type LevelResult } from '@/lib/levels';
+import { buildLevels, type Level, type LevelResult } from '@/lib/path';
 import { loadKidTopics } from '@/lib/topics';
 import { goalProgress } from '@/lib/goals';
 import { syncTodayPlan, prepareItem, itemMaterial, dateKey, isWeekday } from '@/lib/plan';
@@ -124,7 +124,7 @@ export default function KidHomeClient() {
     const run = async () => {
       try {
         const list = await loadKidTopics(kid, isDemo);
-        let rows: LevelResult[] = kid.gameResults || [];
+        let rows: LevelResult[] = (kid.results || []).map((r) => ({ ...r, difficulty: r.difficulty ?? null, stars: r.stars ?? 0 }));
         if (!isDemo) {
           const { data } = await createClient().from('quiz_results')
             .select('subject, topic, difficulty, total, correct, stars, created_at')
@@ -156,7 +156,7 @@ export default function KidHomeClient() {
     if (!kid) return;
     session.start();
     if (lv.mode !== 'flip') {
-      router.push(`/kids/subject/${encodeURIComponent(lv.subject)}/play?mode=${lv.mode}&topic=${encodeURIComponent(lv.topic.title)}&level=${lv.n}`);
+      router.push(`/kids/subject/${encodeURIComponent(lv.subject)}/play?mode=${lv.mode}&topic=${encodeURIComponent(lv.topic.title)}&from=home`);
       return;
     }
     setStudyParams({
@@ -448,7 +448,7 @@ export default function KidHomeClient() {
           {/* my path */}
           {levelTopics != null && levelPath.levels.length > 0 && (
             <section style={{ marginTop: 28 }}>
-              <LevelPath path={levelPath} lang={lang} minimal={gamification === 'minimal'} onPlay={playLevel}
+              <DailyPath path={levelPath} lang={lang} minimal={gamification === 'minimal'} onPlay={playLevel}
                 subjectOf={(id) => kidSubjectInfo(kid.subjects, id, lang, customSubjects)} />
             </section>
           )}
