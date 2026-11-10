@@ -81,7 +81,7 @@ function HistoryModal({ kid, history, lang, onClose }: { kid: Kid; history: Quiz
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.topic || '—'}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{relativeDate(h.created_at, lang)} · {h.correct || 0}/{h.total || 0} · {pct}%</div>
+                  <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{relativeDate(h.created_at, lang)} · {h.correct || 0}/{h.total || 0} · {pct}%</div>
                 </div>
               </div>
             );
@@ -97,7 +97,7 @@ function KidGoalsPanel({ kid, summary, lang }: { kid: Kid; summary: KidSummary |
   if (!summary || summary.goals.length === 0) return null;
   return (
     <div style={{ marginTop: 14, padding: '14px 16px', background: 'var(--surface-2)', borderRadius: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
         {lang === 'es' ? 'Metas' : 'Goals'}
       </div>
       {summary.goals.map((g) => {
@@ -124,22 +124,22 @@ function KidSummaryPanel({ kid, summary, lang }: { kid: Kid; summary: KidSummary
 
   return (
     <div style={{ marginTop: 14, padding: '14px 16px', background: 'var(--surface-2)', borderRadius: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
         {lang === 'es' ? 'Resumen de estudio' : 'Study summary'}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
         <div style={{ textAlign: 'center', padding: '8px 4px', background: 'var(--surface)', borderRadius: 10 }}>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, color: 'var(--primary)' }}>{totalMinutes}</div>
-          <div style={{ fontSize: 10, color: 'var(--ink-3)', fontWeight: 600 }}>{lang === 'es' ? 'MIN' : 'MIN'}</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{lang === 'es' ? 'MIN' : 'MIN'}</div>
         </div>
         <div style={{ textAlign: 'center', padding: '8px 4px', background: 'var(--surface)', borderRadius: 10 }}>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, color: 'var(--sky)' }}>{quizzesDone}</div>
-          <div style={{ fontSize: 10, color: 'var(--ink-3)', fontWeight: 600 }}>{lang === 'es' ? 'QUIZZES' : 'QUIZZES'}</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{lang === 'es' ? 'QUIZZES' : 'QUIZZES'}</div>
         </div>
         <div style={{ textAlign: 'center', padding: '8px 4px', background: 'var(--surface)', borderRadius: 10 }}>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, color: 'var(--honey)' }}>{avgScore}%</div>
-          <div style={{ fontSize: 10, color: 'var(--ink-3)', fontWeight: 600 }}>{lang === 'es' ? 'PRECISIÓN' : 'ACCURACY'}</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{lang === 'es' ? 'PRECISIÓN' : 'ACCURACY'}</div>
         </div>
       </div>
 
@@ -148,7 +148,7 @@ function KidSummaryPanel({ kid, summary, lang }: { kid: Kid; summary: KidSummary
           {topSubjects.map((ts) => {
             const info = kidSubjectInfo(kid.subjects, ts.subject, lang, customSubjects);
             return (
-              <span key={ts.subject} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 999, background: 'var(--primary-l)', color: 'var(--primary-d)', fontSize: 11, fontWeight: 700 }}>
+              <span key={ts.subject} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 999, background: 'var(--primary-l)', color: 'var(--primary-d)', fontSize: 12, fontWeight: 700 }}>
                 {info.icon} {info.label} · {ts.count}
               </span>
             );
@@ -158,7 +158,7 @@ function KidSummaryPanel({ kid, summary, lang }: { kid: Kid; summary: KidSummary
 
       {recentTopics.length > 0 && (
         <div>
-          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 4 }}>
+          <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 4 }}>
             {lang === 'es' ? 'Temas recientes:' : 'Recent topics:'}
           </div>
           <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.5 }}>
@@ -325,13 +325,13 @@ export default function DashboardClient() {
                     <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 20 }}>{k.name}</div>
                     <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>
                       {gradeLabel(k.grade, lang)}
-                      {k.lastSubject ? ' · ' + k.lastSubject : ''}
+                      {k.lastSubject ? ' · ' + kidSubjectInfo(k.subjects, k.lastSubject, lang, customSubjects).label : ''}
                     </div>
                   </div>
                   {gamification !== 'minimal' && (
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--coral)', fontWeight: 700 }}>{ICONS.flame}{streakFor(k)}</div>
-                      <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{t('streak')}</div>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--coral-d)', fontWeight: 700 }}>{ICONS.flame}{streakFor(k)}</div>
+                      <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{t('streak')}</div>
                     </div>
                   )}
                 </div>
@@ -346,7 +346,7 @@ export default function DashboardClient() {
 
                 {/* Subjects: each one opens its own page with topics, quizzes and progress */}
                 <div style={{ marginTop: 14 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
                     {lang === 'es' ? 'Materias' : 'Subjects'}
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -379,7 +379,7 @@ export default function DashboardClient() {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</div>
-                          <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{r.when}</div>
+                          <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{r.when}</div>
                         </div>
                         {gamification !== 'minimal' && r.kind === 'quiz' && <Stars count={r.score} of={5} size={14} />}
                       </div>
@@ -389,8 +389,8 @@ export default function DashboardClient() {
 
                 <div style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'nowrap' }}>
                   <Btn kind="primary" onClick={() => openKidDetail(k.id)} icon={ICONS.eye} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t('viewDetails')}</Btn>
-                  <button className="qk-btn qk-btn-ghost" onClick={() => setHistoryKid(k)} title={t('history')} style={{ padding: '0 12px', flexShrink: 0 }}>
-                    {ICONS.clock}
+                  <button className="qk-btn qk-btn-ghost" onClick={() => setHistoryKid(k)} style={{ padding: '0 14px', flexShrink: 0, fontSize: 15 }}>
+                    {ICONS.clock} <span>{t('history')}</span>
                   </button>
                 </div>
               </div>

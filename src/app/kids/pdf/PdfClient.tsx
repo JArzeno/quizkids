@@ -349,7 +349,7 @@ export default function PdfClient() {
                   </div>
                 )}
 
-                <div style={{ marginTop: 24, fontSize: 11, color: MUTED, textAlign: 'center', fontFamily: 'ui-monospace, monospace' }}>
+                <div style={{ marginTop: 24, fontSize: 12, color: MUTED, textAlign: 'center', fontFamily: 'ui-monospace, monospace' }}>
                   QuizKids · Generated for {kid?.name || '—'} · Grade {studyParams.grade} · {new Date().toLocaleDateString(es ? 'es' : 'en')}
                 </div>
               </div>

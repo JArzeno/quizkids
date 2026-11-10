@@ -167,7 +167,7 @@ export default function GenerateClient() {
                 <Avatar id={kid.avatar} size={36} ring={kid.color} />
                 <div>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{kid.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                  <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
                     {gradeLabel()} · {lang === 'es' ? 'Dificultad' : 'Difficulty'}: {difficultyLabel}
                   </div>
                 </div>
@@ -191,7 +191,7 @@ export default function GenerateClient() {
 
           {/* Error */}
           {error && (
-            <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 14, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600 }}>
+            <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 14, background: 'var(--coral-l)', color: 'var(--coral-d)', fontWeight: 600 }}>
               {error}
             </div>
           )}

@@ -101,6 +101,13 @@ export const DEMO_KIDS: Kid[] = [
       { kind: 'quiz', title: 'Solar System & Planets', when: 'Today', score: 4, subject: 'sci' },
       { kind: 'guide', title: 'States of Matter', when: 'Yesterday', score: 5, subject: 'sci' },
     ],
+    // Classes "added by the parent", so the demo shows the subject pages and the level path
+    subjects: [{ subject: 'sci' }, { subject: 'math' }],
+    topics: [
+      { id: 'demo-t1', subject: 'sci', title: 'Solar System & Planets', source: 'manual', createdAt: '2026-01-05T12:00:00Z' },
+      { id: 'demo-t2', subject: 'math', title: 'Multiples and factors', source: 'manual', createdAt: '2026-01-06T12:00:00Z' },
+      { id: 'demo-t3', subject: 'sci', title: 'States of Matter', source: 'manual', createdAt: '2026-01-07T12:00:00Z' },
+    ],
   },
   {
     id: 'lucia', parent_id: 'demo', name: 'Lucía', grade: 'K',

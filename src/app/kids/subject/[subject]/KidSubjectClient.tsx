@@ -149,41 +149,35 @@ export default function KidSubjectClient() {
           <button className="qk-btn qk-btn-ghost" onClick={() => router.push('/kids/home')}>{ICONS.back} <span>{t('backHome')}</span></button>
 
           {/* hero */}
-          <div className="qk-card qk-slide-up" style={{ marginTop: 18, padding: 'clamp(20px, 4vw, 32px)', display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', background: 'linear-gradient(135deg, var(--primary-l) 0%, var(--sky-l) 100%)', borderColor: 'var(--primary)', position: 'relative', overflow: 'hidden' }}>
-            <div aria-hidden style={{ position: 'absolute', inset: 0, opacity: .16, backgroundImage: 'radial-gradient(var(--primary) 1.5px, transparent 1.5px)', backgroundSize: '22px 22px' }} />
+          <div className="qk-card qk-slide-up" style={{ marginTop: 18, padding: 'clamp(20px, 4vw, 32px)', display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', background: 'var(--primary-l)', borderColor: 'var(--primary)', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'relative', width: 84, height: 84, borderRadius: 24, background: 'var(--surface)', display: 'grid', placeItems: 'center', fontSize: 44, flexShrink: 0, boxShadow: 'var(--shadow-sm)' }}>{info.icon}</div>
             <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
               <h1 className="qk-h1" style={{ margin: 0, fontSize: 'clamp(28px, 4vw, 40px)' }}>{info.label}</h1>
               <div style={{ marginTop: 12, display: 'flex', gap: 18, flexWrap: 'wrap' }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{L('Topics', 'Temas')}</div>
+                  <div className="qk-kicker">{L('Topics', 'Temas')}</div>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22 }}>{rows.length}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Quizzes</div>
+                  <div className="qk-kicker">Quizzes</div>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22 }}>{quizzes.length}</div>
                 </div>
                 {quizzes.length > 0 && (
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('accuracy')}</div>
+                    <div className="qk-kicker">{t('accuracy')}</div>
                     <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22 }}>{accuracy}%</div>
                   </div>
                 )}
                 {gamification !== 'minimal' && (
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('starsEarned')}</div>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, color: '#7C5410' }}>
+                    <div className="qk-kicker">{t('starsEarned')}</div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, color: 'var(--honey-d)' }}>
                       {React.cloneElement(ICONS.star as React.ReactElement<{ size?: number }>, { size: 20 })}<span>{starsHere}</span>
                     </div>
                   </div>
                 )}
               </div>
             </div>
-            {topics.length > 0 && (
-              <Btn kind="primary" icon={<span aria-hidden style={{ fontSize: 18, lineHeight: 1 }}>📝</span>} className="qk-full-sm" style={{ position: 'relative', flexShrink: 0 }} onClick={() => router.push(`${here}/exam`)}>
-                {L('Test mode', 'Modo examen')}
-              </Btn>
-            )}
           </div>
 
           {/* goal */}
@@ -191,7 +185,7 @@ export default function KidSubjectClient() {
             <section className="qk-card" style={{ marginTop: 20, padding: 20, display: 'grid', gap: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>🎯 {L('My goal', 'Mi meta')}</div>
+                  <div className="qk-kicker">🎯 {L('My goal', 'Mi meta')}</div>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 19 }}>{goal.title}</div>
                 </div>
                 <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 20, color: 'var(--primary-d)' }}>{prog.pct}%</div>
@@ -221,12 +215,12 @@ export default function KidSubjectClient() {
                     <button key={test.id} onClick={() => router.push(`/kids/exam/${test.id}`)} className="qk-card" style={{ appearance: 'none', font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer', padding: 16, display: 'flex', flexDirection: 'column', gap: 10, border: '1px solid ' + (upcoming ? 'var(--honey)' : 'var(--line)') }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
                         <div style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, lineHeight: 1.25, overflowWrap: 'anywhere' }}>📝 {test.title}</div>
-                        {test.testDate && upcoming && <span style={{ padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: 'var(--honey-l)', color: '#7C5410', flexShrink: 0 }}>📅 {testWhen(test.testDate)}</span>}
-                        {test.resultGrade && <span style={{ padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: 'var(--primary-l)', color: 'var(--primary-d)', flexShrink: 0 }}>{L('Grade', 'Nota')}: {test.resultGrade}</span>}
+                        {test.testDate && upcoming && <span style={{ padding: '2px 9px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: 'var(--honey-l)', color: 'var(--honey-d)', flexShrink: 0 }}>📅 {testWhen(test.testDate)}</span>}
+                        {test.resultGrade && <span style={{ padding: '2px 9px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: 'var(--primary-l)', color: 'var(--primary-d)', flexShrink: 0 }}>{L('Grade', 'Nota')}: {test.resultGrade}</span>}
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{test.topics.join(' · ')}</div>
+                      <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>{test.topics.join(' · ')}</div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 'auto', width: '100%' }}>
-                        <span style={{ fontSize: 12, fontWeight: best == null ? 400 : 700, color: best == null ? 'var(--ink-3)' : best >= 70 ? 'var(--primary-d)' : 'var(--coral)' }}>
+                        <span style={{ fontSize: 12, fontWeight: best == null ? 400 : 700, color: best == null ? 'var(--ink-3)' : best >= 70 ? 'var(--primary-d)' : 'var(--coral-d)' }}>
                           {best == null ? L('Study kit ready', 'Kit de estudio listo') : `${L('Practice test', 'Examen de práctica')}: ${best}%`}
                         </span>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 700, color: 'var(--primary-d)' }}>{L('Open', 'Abrir')} {ICONS.next}</span>
@@ -256,15 +250,15 @@ export default function KidSubjectClient() {
                       <div style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, lineHeight: 1.25 }}>{r.title}</div>
                       {r.mastered && <div title={L('Mastered', 'Dominado')} style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>{ICONS.check}</div>}
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+                    <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>
                       {r.lastPct == null ? L('New! Start with the guide.', '¡Nuevo! Empieza con la guía.') : `${L('Last quiz', 'Último quiz')}: ${r.lastPct}%`}
                       {r.topic?.source === 'import' || r.topic?.source === 'classroom' ? ` · 📎 ${L('From your class', 'De tu clase')}` : ''}
                     </div>
-                    {weakInTests.has(r.title.trim().toLowerCase()) && <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--coral)' }}>🎯 {L('Was hard on a practice test: review it', 'Costó en un examen de práctica: repásalo')}</div>}
+                    {weakInTests.has(r.title.trim().toLowerCase()) && <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--coral-d)' }}>🎯 {L('Was hard on a practice test: review it', 'Costó en un examen de práctica: repásalo')}</div>}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 'auto' }}>
-                      <Btn kind="ghost" icon={ICONS.book} style={{ fontSize: 13, padding: '8px 10px' }} onClick={() => study(r, 'guide')}>{L('Learn', 'Aprender')}</Btn>
-                      <Btn kind="primary" icon={ICONS.cards} style={{ fontSize: 13, padding: '8px 10px' }} onClick={() => study(r, 'quiz')}>Quiz</Btn>
-                      <Btn kind="soft" icon={ICONS.pencil} style={{ gridColumn: '1 / -1', fontSize: 13, padding: '8px 10px' }} onClick={() => study(r, 'practice')}>{L('Practice test', 'Examen de práctica')}</Btn>
+                      <Btn kind={r.lastPct == null ? 'primary' : 'ghost'} icon={ICONS.book} style={{ fontSize: 15, padding: '10px 10px' }} onClick={() => study(r, 'guide')}>{L('Read guide', 'Leer guía')}</Btn>
+                      <Btn kind={r.lastPct == null ? 'ghost' : 'primary'} icon={ICONS.cards} style={{ fontSize: 15, padding: '10px 10px' }} onClick={() => study(r, 'quiz')}>Quiz</Btn>
+                      <Btn kind="ghost" icon={ICONS.pencil} style={{ gridColumn: '1 / -1', fontSize: 15, padding: '10px 10px' }} onClick={() => study(r, 'practice')}>{L('Practice test', 'Examen de práctica')}</Btn>
                     </div>
                   </div>
                 ))}
@@ -285,12 +279,12 @@ export default function KidSubjectClient() {
                   const tone = r.kind === 'guide' ? 'sky' : r.kind === 'pdf' ? 'coral' : 'primary';
                   return (
                     <button key={r.assignmentId || idx} onClick={() => openWork(r)} className="qk-card"
-                      style={{ appearance: 'none', textAlign: 'left', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', border: '1px solid var(--line)', opacity: done ? 0.7 : 1 }}>
+                      style={{ appearance: 'none', textAlign: 'left', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', border: '1px solid var(--line)', background: done ? 'var(--surface-2)' : undefined, boxShadow: done ? 'none' : undefined }}>
                       <div style={{ width: 44, height: 44, borderRadius: 14, background: `var(--${tone === 'primary' ? 'primary-l' : tone + '-l'})`, color: `var(--${tone})`, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
                         {r.kind === 'guide' ? ICONS.book : r.kind === 'pdf' ? ICONS.pdf : ICONS.cards}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                        <div className="qk-kicker">
                           {r.kind === 'quiz' ? t('genQuiz') : r.kind === 'guide' ? t('genGuide') : t('genPdf')} · {r.when}
                         </div>
                         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, lineHeight: 1.25 }}>{r.title}</div>

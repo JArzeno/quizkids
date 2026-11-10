@@ -67,7 +67,7 @@ export function SessionPill({ lang, session, onStart, onTogglePause, onEnd, comp
   }
   return (
     <div style={{ display: 'inline-flex', alignItems: 'stretch', borderRadius: 999, overflow: 'hidden', border: '1px solid var(--line)', background: session.paused ? 'var(--surface-2)' : 'var(--surface)', boxShadow: 'var(--shadow-sm)' }}>
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: session.paused ? 'var(--honey-l)' : 'var(--primary-l)', color: session.paused ? '#7C5410' : 'var(--primary-d)' }}>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: session.paused ? 'var(--honey-l)' : 'var(--primary-l)', color: session.paused ? 'var(--honey-d)' : 'var(--primary-d)' }}>
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: session.paused ? 'var(--honey)' : 'var(--primary)', animation: session.paused ? 'none' : 'qk-pulse 1.4s ease-in-out infinite' }} />
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13 }}>{session.paused ? t('sessionPaused') : t('sessionRunning')}</span>
         <span style={{ fontFamily: 'ui-monospace, monospace', fontWeight: 700, fontSize: 13 }}>{formatElapsed(session.elapsedMs)}</span>
@@ -79,7 +79,7 @@ export function SessionPill({ lang, session, onStart, onTogglePause, onEnd, comp
             : <Ico d={<g><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></g>} fill="currentColor" stroke="none" size={14} />}
         </button>
       )}
-      <button onClick={onEnd} style={{ appearance: 'none', border: 0, padding: '0 12px', background: 'transparent', color: 'var(--coral)', cursor: 'pointer', borderLeft: '1px solid var(--line)' }}>
+      <button onClick={onEnd} style={{ appearance: 'none', border: 0, padding: '0 12px', background: 'transparent', color: 'var(--coral-d)', cursor: 'pointer', borderLeft: '1px solid var(--line)' }}>
         <Ico d={<rect x="6" y="6" width="12" height="12" />} fill="currentColor" stroke="none" size={12} />
       </button>
     </div>
@@ -91,7 +91,7 @@ export function SessionBadge({ lang, session }: { lang: Lang; session: SessionSt
   const t = useT(lang);
   if (!session.running) return null;
   return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 999, border: '1px solid var(--line)', background: session.paused ? 'var(--honey-l)' : 'var(--primary-l)', color: session.paused ? '#7C5410' : 'var(--primary-d)', boxShadow: 'var(--shadow-sm)' }}>
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 999, border: '1px solid var(--line)', background: session.paused ? 'var(--honey-l)' : 'var(--primary-l)', color: session.paused ? 'var(--honey-d)' : 'var(--primary-d)', boxShadow: 'var(--shadow-sm)' }}>
       <span style={{ width: 8, height: 8, borderRadius: '50%', background: session.paused ? 'var(--honey)' : 'var(--primary)', animation: session.paused ? 'none' : 'qk-pulse 1.4s ease-in-out infinite' }} />
       <span className="qk-session-label" style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13 }}>{session.paused ? t('sessionPaused') : t('sessionRunning')}</span>
       <span style={{ fontFamily: 'ui-monospace, monospace', fontWeight: 700, fontSize: 13 }}>{formatElapsed(session.elapsedMs)}</span>

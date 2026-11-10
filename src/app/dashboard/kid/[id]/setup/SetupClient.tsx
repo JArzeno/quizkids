@@ -188,7 +188,7 @@ export default function SetupClient() {
   };
 
   const errorBox = error && (
-    <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600, fontSize: 13 }}>{error}</div>
+    <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral-d)', fontWeight: 600, fontSize: 13 }}>{error}</div>
   );
 
   return (
@@ -471,7 +471,7 @@ function SubjectPath({ items, at, onPick }: { items: Array<SubjectOption & { cou
                 {s.icon}
                 {done && <span style={{ position: 'absolute', right: -3, bottom: -3, width: 18, height: 18, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', border: '2px solid var(--surface)' }}><span style={{ transform: 'scale(.55)', display: 'grid' }}>{ICONS.check}</span></span>}
               </span>
-              <span style={{ fontSize: 11, fontWeight: on ? 800 : 600, color: on ? 'var(--ink)' : 'var(--ink-3)', maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</span>
+              <span style={{ fontSize: 12, fontWeight: on ? 800 : 600, color: on ? 'var(--ink)' : 'var(--ink-3)', maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</span>
             </button>
           </React.Fragment>
         );

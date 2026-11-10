@@ -21,8 +21,8 @@ const smallBtn: React.CSSProperties = { fontSize: 12, padding: '6px 10px' };
 
 function Tag({ text, tone }: { text: string; tone: 'primary' | 'honey' }) {
   return (
-    <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', padding: '3px 9px', borderRadius: 999,
-      background: tone === 'primary' ? 'var(--primary-l)' : 'var(--surface)', color: tone === 'primary' ? 'var(--primary-d)' : '#7C5410' }}>
+    <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', padding: '3px 9px', borderRadius: 999,
+      background: tone === 'primary' ? 'var(--primary-l)' : 'var(--surface)', color: tone === 'primary' ? 'var(--primary-d)' : 'var(--honey-d)' }}>
       {text}
     </span>
   );
@@ -33,12 +33,12 @@ function Step({ mark, done, current, label, status, statusTone }: { mark: React.
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
       <span style={{
-        width: 22, height: 22, borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700,
+        width: 22, height: 22, borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 700,
         background: done ? 'var(--primary)' : 'transparent', color: done ? '#fff' : current ? 'var(--primary-d)' : 'var(--ink-3)',
         border: done ? '1.5px solid var(--primary)' : `1.5px solid ${current ? 'var(--primary)' : 'var(--line)'}`,
       }}>{done ? '✓' : mark}</span>
       <span style={{ flex: 1, minWidth: 0, fontWeight: current ? 700 : 500, color: done || current ? 'var(--ink)' : 'var(--ink-2)' }}>{label}</span>
-      {status && <span style={{ fontSize: 11, fontWeight: 700, color: statusTone || 'var(--ink-3)', textAlign: 'right' }}>{status}</span>}
+      {status && <span style={{ fontSize: 12, fontWeight: 700, color: statusTone || 'var(--ink-3)', textAlign: 'right' }}>{status}</span>}
     </div>
   );
 }
@@ -171,7 +171,7 @@ export default function GoalsSection({ kid, quizzes, only, topics: topicsProp }:
         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17 }}>{only ? t('goalTitleLabel') : t('goalsTitle')}</div>
         <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2, maxWidth: 720 }}>{t('goalsSub').replace('{pct}', String(MASTERY))}</div>
       </div>
-      {error && <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600, fontSize: 13 }}>{error}</div>}
+      {error && <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral-d)', fontWeight: 600, fontSize: 13 }}>{error}</div>}
       {notice && <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--primary-l)', color: 'var(--primary-d)', fontWeight: 600, fontSize: 13 }}>{notice}</div>}
       {subjects.length === 0 && <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{t('goalPickSubjects')}</div>}
 
@@ -191,7 +191,7 @@ export default function GoalsSection({ kid, quizzes, only, topics: topicsProp }:
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {!only && <span style={{ fontSize: 20 }}>{info.icon}</span>}
                   <div style={{ flex: 1, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15 }}>{only ? '' : info.label}</div>
-                  {doneCount > 0 && <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>✓ {doneCount} {t('goalDoneCount')}</span>}
+                  {doneCount > 0 && <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>✓ {doneCount} {t('goalDoneCount')}</span>}
                 </div>
               )}
 
@@ -234,7 +234,7 @@ export default function GoalsSection({ kid, quizzes, only, topics: topicsProp }:
                   {active && prog && (() => {
                     const nextIdx = active.topics.findIndex((tp) => !prog.mastered.includes(tp));
                     const test = prog.testPassed ? { status: t('goalTestPassed'), tone: 'var(--primary-d)' }
-                      : prog.testAttempted ? { status: t('goalReviewing'), tone: '#7C5410' }
+                      : prog.testAttempted ? { status: t('goalReviewing'), tone: 'var(--honey-d)' }
                       : prog.pct === 100 ? { status: t('goalTestReady'), tone: 'var(--primary-d)' }
                       : { status: t('goalTestLocked'), tone: 'var(--ink-3)' };
                     return (
@@ -264,7 +264,7 @@ export default function GoalsSection({ kid, quizzes, only, topics: topicsProp }:
                             return (
                               <Step key={tp} mark={idx + 1} done={done} current={idx === nextIdx} label={tp}
                                 status={done ? t('goalStepMastered') : idx === nextIdx ? t('goalStepNext') : undefined}
-                                statusTone={done ? 'var(--primary-d)' : '#7C5410'} />
+                                statusTone={done ? 'var(--primary-d)' : 'var(--honey-d)'} />
                             );
                           })}
                           <div style={{ borderTop: '1px dashed var(--line)', paddingTop: 8 }}>
@@ -291,7 +291,7 @@ export default function GoalsSection({ kid, quizzes, only, topics: topicsProp }:
                         ))}
                         {proposed.weeks ? <span style={{ fontSize: 12, padding: '3px 0', color: 'var(--ink-3)' }}>· {proposed.weeks} {t('goalWeeksLabel').toLowerCase()}</span> : null}
                       </div>
-                      <div style={{ fontSize: 12, color: '#7C5410' }}>{active ? t('goalUpNextHint') : t('goalApproveHint')}</div>
+                      <div style={{ fontSize: 12, color: 'var(--honey-d)' }}>{active ? t('goalUpNextHint') : t('goalApproveHint')}</div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         {!active && <Btn kind="primary" onClick={() => approve(proposed)} disabled={working}>{t('goalApprove')}</Btn>}
                         <button className="qk-btn qk-btn-ghost" style={smallBtn} onClick={() => openForm(ks.subject, proposed)}>{t('goalEdit')}</button>

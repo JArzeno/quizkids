@@ -237,7 +237,7 @@ export default function ClassroomClient() {
 
 function Notice({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 14, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600 }}>
+    <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 14, background: 'var(--coral-l)', color: 'var(--coral-d)', fontWeight: 600 }}>
       {children}
     </div>
   );

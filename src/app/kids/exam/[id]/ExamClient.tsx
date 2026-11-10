@@ -166,14 +166,14 @@ export default function ExamClient() {
               </div>
               {when() && (
                 <div style={{ padding: '10px 14px', borderRadius: 16, background: 'var(--surface)', textAlign: 'center', flexShrink: 0 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>📅 {days != null && days < 0 ? L('Was on', 'Fue el') : L('Test day', 'Día del examen')}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>📅 {days != null && days < 0 ? L('Was on', 'Fue el') : L('Test day', 'Día del examen')}</div>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: days != null && days >= 0 && days <= 2 ? 'var(--coral)' : 'var(--ink)' }}>{when()}</div>
                 </div>
               )}
             </div>
           </div>
 
-          {error && <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600, fontSize: 13 }}>{error}</div>}
+          {error && <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral-d)', fontWeight: 600, fontSize: 13 }}>{error}</div>}
 
           {/* how did it go (once the test day comes) */}
           {(over || gradeForm) && (
@@ -223,7 +223,7 @@ export default function ExamClient() {
           <section className="qk-card" style={{ marginTop: 20, padding: 20, display: 'grid', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>🎯 {L('How ready am I?', '¿Qué tan listo estoy?')}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>🎯 {L('How ready am I?', '¿Qué tan listo estoy?')}</div>
                 <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, marginTop: 2 }}>
                   {!practice ? L('Take the practice test to find out', 'Haz el examen de práctica para saberlo') : ready ? L('You’re ready! Keep it fresh 🌟', '¡Estás listo! Sigue repasando 🌟') : L('Almost there: review the topics in orange', 'Ya casi: repasa los temas en naranja')}
                 </div>
@@ -266,7 +266,7 @@ export default function ExamClient() {
                   <button key={part} onClick={() => open(part)} className="qk-card" style={{ appearance: 'none', textAlign: 'left', padding: 16, display: 'flex', flexDirection: 'column', gap: 10, cursor: 'pointer', border: '1px solid ' + (part === 'practice' ? 'var(--berry)' : 'var(--line)'), font: 'inherit', color: 'inherit' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{ width: 44, height: 44, borderRadius: 14, background: `var(--${c.tone === 'primary' ? 'primary-l' : c.tone + '-l'})`, color: `var(--${c.tone})`, display: 'grid', placeItems: 'center', flexShrink: 0 }}>{c.icon}</div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{L('Step', 'Paso')} {i + 1} · {steps[part]}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{L('Step', 'Paso')} {i + 1} · {steps[part]}</div>
                     </div>
                     <div>
                       <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, lineHeight: 1.2 }}>{c.title}</div>

@@ -74,7 +74,7 @@ export function CustomSubjectAdder({ lang, options, variant, onAdded }: {
         ))}
       </div>
       <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-        {error && <div style={{ flex: '1 1 200px', fontSize: 13, color: 'var(--coral)', fontWeight: 600 }}>{t('customSubjectSaveError')}</div>}
+        {error && <div style={{ flex: '1 1 200px', fontSize: 13, color: 'var(--coral-d)', fontWeight: 600 }}>{t('customSubjectSaveError')}</div>}
         <button className="qk-btn qk-btn-ghost" style={{ fontSize: 13, padding: '8px 12px' }} onClick={close}>{t('cancel')}</button>
         <Btn kind="primary" icon={ICONS.plus} disabled={!canAdd} style={{ opacity: canAdd ? 1 : .5 }} onClick={submit}>{t('otherSubjectAdd')}</Btn>
       </div>

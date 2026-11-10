@@ -738,21 +738,23 @@ const IMAGE_SAFETY = 'The image is for children and must be gentle and safe: no 
  * Three safety gates: the topic goes through OpenAI moderation, a planner turns it into a gentle concrete scene (or refuses),
  * and the image model's own moderation stays at its strictest. Returns null when the topic can't be shown safely to kids.
  */
-export async function generateTopicImage(subject: string, topics: string[], grade: string): Promise<Buffer | null> {
+export async function generateTopicImage(subject: string, topics: string[], grade: string, section?: { title: string; hint?: string }): Promise<Buffer | null> {
   const openai = getClient();
   const topicText = topics.map((t) => `"${t}"`).join('; ');
+  // A section of the guide gets its own smaller picture, about that one idea
+  const sectionText = section ? `\nSection of the guide to illustrate: "${section.title}"${section.hint ? `\nKey idea of the section: "${section.hint}"` : ''}` : '';
 
-  const mod = await openai.moderations.create({ model: 'omni-moderation-latest', input: `${subject}: ${topicText}` });
+  const mod = await openai.moderations.create({ model: 'omni-moderation-latest', input: `${subject}: ${topicText}${section ? ` — ${section.title}. ${section.hint || ''}` : ''}` });
   if (mod.results.some((r) => r.flagged)) return null;
 
   const plan = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
-    messages: [{ role: 'user', content: `You plan the header illustration of a children's study guide.
+    messages: [{ role: 'user', content: `You plan ${section ? 'the illustration of one section' : 'the header illustration'} of a children's study guide.
 Subject: ${subject}
-Topic${topics.length > 1 ? 's' : ''}: ${topicText}
+Topic${topics.length > 1 ? 's' : ''}: ${topicText}${sectionText}
 Student: ${gradeContext(grade)}
 
-Describe ONE simple scene, in English, in 1–2 sentences, that shows what ${topics.length > 1 ? 'these topics are' : 'this topic is'} about so the student recognizes it at a glance.
+Describe ONE simple scene, in English, in 1–2 sentences, that shows what ${section ? 'this section explains' : topics.length > 1 ? 'these topics are about' : 'this topic is about'} so the student recognizes it at a glance.
 Rules:
 - Use concrete things: objects, animals, plants, places, landscapes, tools or a simple diagram. Show math ideas with everyday objects (e.g. pizza slices for fractions, groups of apples for multiplication), never written numbers or symbols
 - Completely gentle and safe for children: no violence, weapons, blood, injuries, illness, death, sad or scary moments, no nudity
@@ -776,7 +778,8 @@ Return ONLY valid JSON: { "ok": true, "scene": "..." }` }],
       model: 'gpt-image-1',
       prompt: `${scene}\n\nStyle: ${IMAGE_STYLE[imageBand(grade)]}\n\n${IMAGE_SAFETY}`,
       size: '1536x1024',
-      quality: 'medium',
+      // Section pictures are shown small and there are several per guide: the cheaper quality is enough
+      quality: section ? 'low' : 'medium',
       output_format: 'webp',
       output_compression: 80,
       moderation: 'auto',

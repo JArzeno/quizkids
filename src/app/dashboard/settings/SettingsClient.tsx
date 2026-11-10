@@ -165,7 +165,7 @@ export default function SettingsClient() {
                             </Row>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, paddingTop: 8, borderTop: '1px dashed var(--line)' }}>
-                            <button onClick={() => { if (confirm(t('deleteKidWarn'))) { removeKid(k.id); setEditingKidId(null); fireToast(t('saved')); } }} className="qk-btn qk-btn-ghost" style={{ color: 'var(--coral)', borderColor: 'var(--coral-l)', fontSize: 13 }}>{ICONS.trash}<span>{t('deleteKid')}</span></button>
+                            <button onClick={() => { if (confirm(t('deleteKidWarn'))) { removeKid(k.id); setEditingKidId(null); fireToast(t('saved')); } }} className="qk-btn qk-btn-ghost" style={{ color: 'var(--coral-d)', borderColor: 'var(--coral-l)', fontSize: 13 }}>{ICONS.trash}<span>{t('deleteKid')}</span></button>
                             <Btn kind="primary" icon={ICONS.check} onClick={() => { setEditingKidId(null); fireToast(t('saved')); }}>{t('saveChanges')}</Btn>
                           </div>
                         </div>
@@ -193,7 +193,7 @@ export default function SettingsClient() {
                       <div style={{ width: 38, height: 38, borderRadius: 12, background: 'var(--surface)', color: s.color, display: 'grid', placeItems: 'center', fontSize: 20 }}>{s.icon}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15 }}>{s.name}</div>
-                        <div style={{ fontSize: 11, color: s.color, fontWeight: 700 }}>{lang === 'es' ? 'PERSONAL' : 'CUSTOM'}</div>
+                        <div style={{ fontSize: 12, color: s.color, fontWeight: 700 }}>{lang === 'es' ? 'PERSONAL' : 'CUSTOM'}</div>
                       </div>
                       <button onClick={async () => { if (!(await removeCustomSubject(s.id))) fireToast(t('customSubjectSaveError')); }} style={{ appearance: 'none', border: 0, background: 'transparent', color: 'var(--ink-3)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
                         {React.cloneElement(ICONS.trash as React.ReactElement<{ size?: number }>, { size: 14 })}
@@ -262,9 +262,9 @@ export default function SettingsClient() {
 
               {/* DANGER */}
               <section id="sec-danger" className="qk-card" style={{ padding: 'clamp(18px, 4vw, 22px) clamp(16px, 4vw, 24px)', scrollMarginTop: 84, borderColor: 'var(--coral)' }}>
-                <h2 className="qk-h2" style={{ color: 'var(--coral)', marginBottom: 18 }}>{t('settingsDanger')}</h2>
+                <h2 className="qk-h2" style={{ color: 'var(--coral-d)', marginBottom: 18 }}>{t('settingsDanger')}</h2>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <button onClick={async () => { await signOut(); router.push('/auth'); }} className="qk-btn qk-btn-ghost" style={{ borderColor: 'var(--coral)', color: 'var(--coral)' }}>{t('signOut')}</button>
+                  <button onClick={async () => { await signOut(); router.push('/auth'); }} className="qk-btn qk-btn-ghost" style={{ borderColor: 'var(--coral)', color: 'var(--coral-d)' }}>{t('signOut')}</button>
                   <button className="qk-btn" style={{ background: 'var(--coral)', color: '#fff' }}>{lang === 'es' ? 'Eliminar cuenta' : 'Delete account'}</button>
                 </div>
               </section>
@@ -343,7 +343,7 @@ function AddSubjectPanel({ lang, onCancel, onAdd }: { lang: 'en' | 'es'; onCance
       </div>
 
       <div style={{ marginTop: 18, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-        {error && <div style={{ flex: '1 1 200px', fontSize: 13, color: 'var(--coral)', fontWeight: 600 }}>{t('customSubjectSaveError')}</div>}
+        {error && <div style={{ flex: '1 1 200px', fontSize: 13, color: 'var(--coral-d)', fontWeight: 600 }}>{t('customSubjectSaveError')}</div>}
         <Btn kind="primary" icon={ICONS.plus} disabled={!canAdd} style={{ opacity: canAdd ? 1 : .5 }} onClick={submit}>
           {t('addCustomSubject')}
         </Btn>

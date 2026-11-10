@@ -26,6 +26,8 @@ export interface Kid {
   topics?: KidTopic[];
   /** Demo mode only: test prep is kept locally instead of in Supabase */
   tests?: KidTest[];
+  /** Demo mode only: finished rounds (the levels of "my path" are read from them) are kept locally instead of in Supabase */
+  gameResults?: import('@/lib/levels').LevelResult[];
   created_at?: string;
 }
 

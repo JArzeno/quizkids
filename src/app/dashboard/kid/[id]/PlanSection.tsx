@@ -148,7 +148,7 @@ export default function PlanSection({ kid, quizzes, sessions }: { kid: Kid; quiz
 
       {msg && <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--surface-2)', fontSize: 13, fontWeight: 600 }}>{msg}</div>}
       {pausedSubjects.size > 0 && (
-        <div style={{ fontSize: 12, color: '#7C5410' }}>⏸ {L('Paused: ', 'En pausa: ')}{Array.from(pausedSubjects).map((id) => label(id).label).join(', ')}</div>
+        <div style={{ fontSize: 12, color: 'var(--honey-d)' }}>⏸ {L('Paused: ', 'En pausa: ')}{Array.from(pausedSubjects).map((id) => label(id).label).join(', ')}</div>
       )}
 
       {form && (
@@ -182,17 +182,17 @@ export default function PlanSection({ kid, quizzes, sessions }: { kid: Kid; quiz
           return (
             <div key={key} className="qk-week-day" data-today={isToday || undefined} style={{ background: isToday ? 'var(--primary-l)' : 'var(--surface-2)', borderColor: isToday ? 'var(--primary)' : 'transparent' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: isToday ? 'var(--primary-d)' : 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: isToday ? 'var(--primary-d)' : 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
                   {d.toLocaleDateString(lang === 'es' ? 'es-DO' : 'en-US', { weekday: 'short' })}
                 </div>
-                {isToday && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: 'var(--primary)', padding: '2px 7px', borderRadius: 999 }}>{L('Today', 'Hoy')}</span>}
+                {isToday && <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', background: 'var(--primary)', padding: '2px 7px', borderRadius: 999 }}>{L('Today', 'Hoy')}</span>}
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6, marginTop: -4 }}>
                 <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: isToday ? 'var(--primary-d)' : 'var(--ink)' }}>{d.getDate()}</span>
-                {list.length > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)' }}>{done}/{list.length}</span>}
+                {list.length > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)' }}>{done}/{list.length}</span>}
               </div>
               {list.length === 0 && (
-                <div style={{ flex: 1, minHeight: 64, display: 'grid', placeItems: 'center', textAlign: 'center', padding: 8, borderRadius: 10, border: '1.5px dashed var(--line)', fontSize: 11.5, color: 'var(--ink-3)' }}>
+                <div style={{ flex: 1, minHeight: 64, display: 'grid', placeItems: 'center', textAlign: 'center', padding: 8, borderRadius: 10, border: '1.5px dashed var(--line)', fontSize: 12.5, color: 'var(--ink-3)' }}>
                   {future ? L('Handed out when the day starts', 'Se asigna cuando empieza el día') : L('No plan', 'Sin plan')}
                 </div>
               )}
@@ -200,10 +200,10 @@ export default function PlanSection({ kid, quizzes, sessions }: { kid: Kid; quiz
                 const finished = i.status === 'completed';
                 return (
                   <div key={i.id} style={{ padding: '8px 10px', borderRadius: 10, background: 'var(--surface)', border: '1px solid ' + (finished ? 'var(--primary)' : 'var(--line)'), opacity: finished ? 0.75 : 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: finished ? 'var(--primary-d)' : 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.03em' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 700, color: finished ? 'var(--primary-d)' : 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.03em' }}>
                       <span>{label(i.subject).icon}</span>
                       <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{typeLabel(i)}{!i.goalId ? ' ✋' : ''}</span>
-                      {finished && <span role="img" aria-label={L('Done', 'Listo')} style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 10, flexShrink: 0 }}>✓</span>}
+                      {finished && <span role="img" aria-label={L('Done', 'Listo')} style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 12, flexShrink: 0 }}>✓</span>}
                     </div>
                     <div style={{ marginTop: 3, fontSize: 13, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', textDecoration: finished ? 'line-through' : 'none', overflowWrap: 'anywhere' }}>{i.topic}</div>
                   </div>
@@ -216,7 +216,7 @@ export default function PlanSection({ kid, quizzes, sessions }: { kid: Kid; quiz
 
       {upNext.length > 0 && (
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>{L('Coming up', 'Lo que sigue')}</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>{L('Coming up', 'Lo que sigue')}</div>
           <div style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--ink-2)' }}>
             {upNext.map(({ g, next }) => (
               <div key={g.id}>{label(g.subject).icon} {next.map((i) => `${i.topic} (${typeLabel(i)})`).join(' → ')}</div>

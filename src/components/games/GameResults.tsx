@@ -8,7 +8,7 @@ import type { Played } from '@/components/games/GameBits';
 const PASS = 70;
 
 /** End of a round: score, stars, per-topic bars and the cards that were missed, with their answers */
-export default function GameResults({ kind, played, bestStreak, minimal, saved, lang, onAgain, onOther, onBack }: {
+export default function GameResults({ kind, played, bestStreak, minimal, saved, lang, level, onAgain, onOther, onBack }: {
   kind: GameKind;
   played: Played<TfItem | FillItem>[];
   bestStreak: number;
@@ -16,6 +16,8 @@ export default function GameResults({ kind, played, bestStreak, minimal, saved, 
   /** False for sample cards: nothing was saved */
   saved: boolean;
   lang: string;
+  /** Played as a level of "my path": says whether the level was passed, and goes back to the path */
+  level?: { n: number; passPct: number };
   onAgain: () => void;
   onOther: () => void;
   onBack: () => void;
@@ -48,7 +50,7 @@ export default function GameResults({ kind, played, bestStreak, minimal, saved, 
               {bestStreak > 1 && !minimal ? ` · 🔥 ${L('best streak', 'mejor racha')} ${bestStreak}` : ''}
             </div>
             {!minimal && saved && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '4px 12px', borderRadius: 999, background: 'var(--honey-l)', color: '#7C5410', fontWeight: 700 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '4px 12px', borderRadius: 999, background: 'var(--honey-l)', color: 'var(--honey-d)', fontWeight: 700 }}>
                 {React.cloneElement(ICONS.star as React.ReactElement<{ size?: number }>, { size: 16 })} +{stars}
               </div>
             )}
@@ -70,10 +72,22 @@ export default function GameResults({ kind, played, bestStreak, minimal, saved, 
           </div>
         )}
 
+        {level && (
+          <div role="status" style={{ padding: '12px 16px', borderRadius: 14, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, background: pct >= level.passPct ? 'var(--primary-l)' : 'var(--honey-l)', color: pct >= level.passPct ? 'var(--primary-d)' : 'var(--honey-d)' }}>
+            {pct >= level.passPct
+              ? L(`🎉 Level ${level.n} passed!`, `🎉 ¡Pasaste el nivel ${level.n}!`)
+              : L(`You need ${level.passPct}% to pass level ${level.n}. Try again!`, `Necesitas ${level.passPct}% para pasar el nivel ${level.n}. ¡Inténtalo otra vez!`)}
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Btn kind="primary" icon={ICONS.shuffle} onClick={onAgain}>{L('Play again', 'Jugar otra vez')}</Btn>
-          <Btn kind="soft" icon={ICONS.cards} onClick={onOther}>{L('Another way to learn', 'Otra forma de aprender')}</Btn>
-          <Btn kind="ghost" icon={ICONS.back} onClick={onBack}>{L('Back to subject', 'Volver a la materia')}</Btn>
+          {level && pct >= level.passPct
+            ? <Btn kind="primary" icon={ICONS.next} onClick={onBack}>{L('Back to my path', 'Volver a mi camino')}</Btn>
+            : <Btn kind="primary" icon={ICONS.shuffle} onClick={onAgain}>{L('Play again', 'Jugar otra vez')}</Btn>}
+          {!level && <Btn kind="soft" icon={ICONS.cards} onClick={onOther}>{L('Another way to learn', 'Otra forma de aprender')}</Btn>}
+          {level && pct >= level.passPct
+            ? <Btn kind="ghost" icon={ICONS.shuffle} onClick={onAgain}>{L('Play again', 'Jugar otra vez')}</Btn>
+            : <Btn kind="ghost" icon={ICONS.back} onClick={onBack}>{level ? L('Back to my path', 'Volver a mi camino') : L('Back to subject', 'Volver a la materia')}</Btn>}
         </div>
       </div>
 

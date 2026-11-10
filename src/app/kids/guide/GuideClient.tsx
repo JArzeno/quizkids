@@ -4,8 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ICONS } from '@/components/ui/Icons';
 import { LoadingBar } from '@/components/ui/LoadingBar';
 import { Btn, Chip } from '@/components/ui/Btn';
-import { ImgPlaceholder } from '@/components/ui/Stars';
-import { TopicImage, useTopicImage } from '@/components/ui/TopicImage';
+import { SectionVisual, TopicImage, useTopicImage } from '@/components/ui/TopicImage';
 import { AppShell } from '@/components/layout/AppShell';
 import { useStore } from '@/lib/store';
 import { completePlanItem } from '@/lib/plan';
@@ -173,11 +172,11 @@ export default function GuideClient() {
     return (
       <section key={idx} id={`guide-sec-${idx}`} className="qk-card" style={{ padding: 'clamp(18px, 4vw, 24px)', scrollMarginTop: 16 }} onMouseEnter={() => setActive(idx)}>
         <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-          <div style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 14, background: toneBg, color: toneFg, display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18 }}>{idx + 1}</div>
+          <div style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 14, background: toneBg, color: 'var(--ink)', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18 }}>{idx + 1}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <h2 className="qk-h2">
               {s.title}
-              {isNew && <span style={{ marginLeft: 10, verticalAlign: 'middle', fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: toneBg, color: toneFg, textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('guideMoreNew')}</span>}
+              {isNew && <span style={{ marginLeft: 10, verticalAlign: 'middle', fontSize: 12, fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: toneBg, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('guideMoreNew')}</span>}
             </h2>
             {s.body.split(/\n\s*\n/).map((para, pi) => (
               <p key={pi} style={{ marginTop: pi === 0 ? 10 : 12, marginBottom: 0, fontSize: 17, lineHeight: 1.55, color: 'var(--ink)' }}>{para.trim()}</p>
@@ -186,19 +185,20 @@ export default function GuideClient() {
         </div>
         {s.example && (
           <div style={{ marginTop: 16, padding: 16, borderRadius: 14, background: 'var(--surface-2)', border: '1.5px dashed var(--line)' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: toneFg, textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('guideExample')}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('guideExample')}</div>
             <div style={{ marginTop: 6, fontSize: 16, lineHeight: 1.5, color: 'var(--ink)', whiteSpace: 'pre-line' }}>{s.example}</div>
           </div>
         )}
-        <div className="qk-stack-sm" style={{ marginTop: 18, display: 'grid', gridTemplateColumns: s.key ? '1.4fr 1fr' : '1fr', gap: 14 }}>
-          <ImgPlaceholder label={`[ ${lang === 'es' ? 'ilustración' : 'illustration'}: ${s.title.toLowerCase()} ]`} h={150} tone={s.tone} />
+        <SectionVisual
+          req={{ subject: studyParams.subject, subjectName: subjectPromptName(studyParams.subject, customSubjects), topic: studyParams.topic, topics: studyParams.topics, grade: studyParams.grade, section: s.title, hint: s.key }}
+          alt={`${t('guideImageAlt')} ${s.title}`} loadingLabel={t('guideDrawing')}>
           {s.key && (
-            <div style={{ padding: 16, borderRadius: 14, background: toneBg, borderLeft: `4px solid ${toneFg}` }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: toneFg, textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('keyIdea')}</div>
+            <div style={{ padding: 16, borderRadius: 14, background: toneBg, borderLeft: `4px solid ${toneFg}`, alignSelf: 'center' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--ink-2)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('keyIdea')}</div>
               <div style={{ marginTop: 6, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 18, lineHeight: 1.3 }}>{s.key}</div>
             </div>
           )}
-        </div>
+        </SectionVisual>
       </section>
     );
   };
@@ -238,7 +238,7 @@ export default function GuideClient() {
                 ))}
               </div>
               <div className="qk-guide-fact" style={{ marginTop: 18, padding: 14, background: 'var(--honey-l)', borderRadius: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#7C5410', textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('didYouKnow')}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--honey-d)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('didYouKnow')}</div>
                 <div style={{ marginTop: 6, fontSize: 14, color: 'var(--ink)' }}>{guide.fact}</div>
               </div>
             </aside>
@@ -280,7 +280,7 @@ export default function GuideClient() {
               {extra.length < MAX_EXTRA && (
                 <section className="qk-card" style={{ padding: 'clamp(18px, 4vw, 24px)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{ width: 48, height: 48, borderRadius: 16, background: 'var(--honey-l)', color: '#7C5410', display: 'grid', placeItems: 'center', flexShrink: 0 }}>{ICONS.book}</div>
+                    <div style={{ width: 48, height: 48, borderRadius: 16, background: 'var(--honey-l)', color: 'var(--honey-d)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>{ICONS.book}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <h2 className="qk-h2">{t('guideMoreTitle')}</h2>
                       <p style={{ margin: '4px 0 0', fontSize: 15, color: 'var(--ink-2)' }}>{t('guideMoreSub')}</p>
@@ -292,7 +292,7 @@ export default function GuideClient() {
                     ))}
                     <Btn kind="soft" icon={ICONS.plus} disabled={moreLoading != null} onClick={() => askMore()}>{moreLoading === '' ? t('generating') : t('guideMoreBtn')}</Btn>
                   </div>
-                  {moreError && <div style={{ marginTop: 10, fontSize: 14, color: 'var(--coral)' }}>{t('guideMoreError')}</div>}
+                  {moreError && <div style={{ marginTop: 10, fontSize: 14, color: 'var(--coral-d)' }}>{t('guideMoreError')}</div>}
                 </section>
               )}
 

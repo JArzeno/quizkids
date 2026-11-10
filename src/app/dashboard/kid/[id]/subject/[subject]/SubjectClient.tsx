@@ -337,7 +337,7 @@ export default function SubjectClient() {
           </div>
 
           {!ks && !loading && (
-            <div style={{ marginTop: 20, padding: '12px 16px', borderRadius: 14, background: 'var(--honey-l)', color: '#7C5410', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ marginTop: 20, padding: '12px 16px', borderRadius: 14, background: 'var(--honey-l)', color: 'var(--honey-d)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <span style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>{L(`${info.label} isn't on ${kid.name}'s subject list yet.`, `${info.label} aún no está en las materias de ${kid.name}.`)}</span>
               <Btn kind="primary" icon={ICONS.plus} onClick={addSubject}>{t('addSubject')}</Btn>
             </div>
@@ -353,7 +353,7 @@ export default function SubjectClient() {
 
           <LoadingBar top active={loading} expectedMs={1500} />
 
-          {error && <div style={{ marginTop: 20, padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600, fontSize: 13 }}>{error}</div>}
+          {error && <div style={{ marginTop: 20, padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral-d)', fontWeight: 600, fontSize: 13 }}>{error}</div>}
 
           {/* topics */}
           <div style={{ marginTop: 24 }}>
@@ -377,7 +377,7 @@ export default function SubjectClient() {
               ) : (
                 <div style={{ display: 'grid', gap: 8 }}>
                   {rows.map((r) => {
-                    const tone = r.lastPct == null ? 'var(--ink-3)' : r.mastered ? 'var(--primary-d)' : r.lastPct >= 50 ? '#7C5410' : 'var(--coral)';
+                    const tone = r.lastPct == null ? 'var(--ink-3)' : r.mastered ? 'var(--primary-d)' : r.lastPct >= 50 ? 'var(--honey-d)' : 'var(--coral)';
                     return (
                       <div key={r.title} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 12, flexWrap: 'wrap' }}>
                         <div style={{ width: 30, height: 30, borderRadius: 9, background: r.mastered ? 'var(--primary)' : 'var(--surface)', color: r.mastered ? '#fff' : 'var(--ink-3)', display: 'grid', placeItems: 'center', flexShrink: 0, border: r.mastered ? 'none' : '1px solid var(--line)' }}>
@@ -385,7 +385,7 @@ export default function SubjectClient() {
                         </div>
                         <div style={{ flex: '1 1 180px', minWidth: 0 }}>
                           <div style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</div>
-                          <div style={{ fontSize: 11, color: 'var(--ink-3)', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <div style={{ fontSize: 12, color: 'var(--ink-3)', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             {r.topic?.source === 'import' && <span>📎 {L('Imported class', 'Clase importada')}</span>}
                             {r.topic?.source === 'classroom' && <span>🏫 Google Classroom</span>}
                             {r.inGoal && <span>🎯 {L('Goal', 'Meta')}</span>}
@@ -439,12 +439,12 @@ export default function SubjectClient() {
                       <div key={test.id} style={{ padding: '12px 14px', background: 'var(--surface-2)', borderRadius: 12, display: 'grid', gap: 8 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           <div style={{ flex: '1 1 180px', minWidth: 0, fontSize: 14, fontWeight: 700, overflowWrap: 'anywhere' }}>{test.title}</div>
-                          {test.testDate && <span style={{ padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: upcoming ? 'var(--honey-l)' : 'var(--surface)', color: upcoming ? '#7C5410' : 'var(--ink-3)' }}>📅 {testWhen(test.testDate)}</span>}
-                          <span style={{ padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: best == null ? 'var(--surface)' : tone(best).bg, color: best == null ? 'var(--ink-3)' : tone(best).fg }}>
+                          {test.testDate && <span style={{ padding: '2px 9px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: upcoming ? 'var(--honey-l)' : 'var(--surface)', color: upcoming ? 'var(--honey-d)' : 'var(--ink-3)' }}>📅 {testWhen(test.testDate)}</span>}
+                          <span style={{ padding: '2px 9px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: best == null ? 'var(--surface)' : tone(best).bg, color: best == null ? 'var(--ink-3)' : tone(best).fg }}>
                             {best == null ? L('Practice test not taken', 'Examen de práctica sin hacer') : `${L('Practice', 'Práctica')}: ${best}%${test.practice!.attempts > 1 ? ` · ${test.practice!.attempts}×` : ''}`}
                           </span>
                           {test.resultGrade && (
-                            <span title={test.resultNote || undefined} style={{ padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: test.resultPct == null ? 'var(--surface)' : tone(test.resultPct).bg, color: test.resultPct == null ? 'var(--ink)' : tone(test.resultPct).fg }}>
+                            <span title={test.resultNote || undefined} style={{ padding: '2px 9px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: test.resultPct == null ? 'var(--surface)' : tone(test.resultPct).bg, color: test.resultPct == null ? 'var(--ink)' : tone(test.resultPct).fg }}>
                               🏫 {L('Grade', 'Nota')}: {test.resultGrade}
                             </span>
                           )}
@@ -452,7 +452,7 @@ export default function SubjectClient() {
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                           {test.topics.map((name) => {
                             const weak = test.practice?.weak.includes(name);
-                            return <span key={name} style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, background: weak ? 'var(--coral-l)' : 'var(--surface)', border: '1px solid ' + (weak ? 'var(--coral)' : 'var(--line)'), color: weak ? 'var(--coral)' : 'var(--ink-2)', fontWeight: weak ? 700 : 400 }}>{weak ? '🎯 ' : ''}{name}</span>;
+                            return <span key={name} style={{ padding: '2px 8px', borderRadius: 999, fontSize: 12, background: weak ? 'var(--coral-l)' : 'var(--surface)', border: '1px solid ' + (weak ? 'var(--coral)' : 'var(--line)'), color: weak ? 'var(--coral)' : 'var(--ink-2)', fontWeight: weak ? 700 : 400 }}>{weak ? '🎯 ' : ''}{name}</span>;
                           })}
                         </div>
                         {test.resultNote && <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>💬 {test.resultNote}</div>}
@@ -488,7 +488,7 @@ export default function SubjectClient() {
                       <div key={`${q.created_at}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', background: 'var(--surface-2)', borderRadius: 12 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.topic || '—'}</div>
-                          <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                          <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
                             {relativeDate(q.created_at, lang)} · {q.correct || 0}/{q.total || 0} · {pct}%
                             {attempts > 1 ? ` · ${attempts} ${t('attemptsLabel')}${bestPct > pct ? ` · ${t('bestScore')} ${bestPct}%` : ''}` : ''}
                           </div>
@@ -516,9 +516,9 @@ export default function SubjectClient() {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.topic || '—'}</div>
-                          <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{relativeDate(a.assigned_at, lang)}</div>
+                          <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{relativeDate(a.assigned_at, lang)}</div>
                         </div>
-                        <span style={{ padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, flexShrink: 0, background: done ? 'var(--primary-l)' : 'var(--honey-l)', color: done ? 'var(--primary-d)' : '#7C5410' }}>
+                        <span style={{ padding: '3px 9px', borderRadius: 999, fontSize: 12, fontWeight: 700, flexShrink: 0, background: done ? 'var(--primary-l)' : 'var(--honey-l)', color: done ? 'var(--primary-d)' : 'var(--honey-d)' }}>
                           {done ? t('statusDone') : t('statusPending')}
                         </span>
                       </div>
@@ -567,7 +567,7 @@ export default function SubjectClient() {
                     <button className="qk-btn qk-btn-ghost" style={smallBtn} onClick={() => patchSubject({ paused: !ks.paused }, { paused: !ks.paused })} title={L('Paused subjects are left out of the daily plan', 'Las materias en pausa no entran al plan diario')}>
                       {ks.paused ? L('▶ Resume', '▶ Reanudar') : L('⏸ Pause', '⏸ Pausar')}
                     </button>
-                    <button className="qk-btn qk-btn-ghost" style={{ ...smallBtn, color: 'var(--coral)' }} onClick={removeSubject}>{ICONS.trash}<span>{L('Remove subject', 'Quitar materia')}</span></button>
+                    <button className="qk-btn qk-btn-ghost" style={{ ...smallBtn, color: 'var(--coral-d)' }} onClick={removeSubject}>{ICONS.trash}<span>{L('Remove subject', 'Quitar materia')}</span></button>
                   </div>
                 </div>
               </Section>

@@ -248,7 +248,7 @@ function SignatureCanvas({ value, onChange }: { value: string; onChange: (v: str
           onTouchMove={(e) => { if (!drawing.current) return; e.preventDefault(); const ctx = ref.current!.getContext('2d')!; const p = pos(e); ctx.beginPath(); ctx.moveTo(last.current!.x, last.current!.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last.current = p; }}
           onTouchEnd={() => { if (!drawing.current) return; drawing.current = false; onChange(ref.current!.toDataURL('image/png')); }}
         />
-        <div style={{ position: 'absolute', left: 18, bottom: 8, fontSize: 11, color: 'var(--ink-3)', fontFamily: 'ui-monospace, monospace' }}>x ________________________</div>
+        <div style={{ position: 'absolute', left: 18, bottom: 8, fontSize: 12, color: 'var(--ink-3)', fontFamily: 'ui-monospace, monospace' }}>x ________________________</div>
       </div>
       <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
         <button className="qk-btn qk-btn-ghost" style={{ fontSize: 13, padding: '8px 12px' }} onClick={() => { const c = ref.current!; c.getContext('2d')!.clearRect(0, 0, c.width, c.height); onChange(''); }}>
