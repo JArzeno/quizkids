@@ -21,7 +21,7 @@ function BillingToggle({ lang, value, onChange }: { lang: Lang; value: string; o
         <button key={opt} onClick={() => onChange(opt)} style={{ appearance: 'none', border: 0, padding: '8px 16px', borderRadius: 10, background: value === opt ? 'var(--ink)' : 'transparent', color: value === opt ? 'var(--surface)' : 'var(--ink-2)', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           {opt === 'monthly' ? t('billingMonthly') : t('billingYearly')}
           {opt === 'yearly' && (
-            <span style={{ padding: '2px 7px', borderRadius: 999, background: value === 'yearly' ? 'var(--honey)' : 'var(--honey-l)', color: value === 'yearly' ? '#fff' : '#7C5410', fontSize: 10, fontWeight: 700, letterSpacing: '.04em' }}>{t('saveBadge')}</span>
+            <span style={{ padding: '2px 7px', borderRadius: 999, background: value === 'yearly' ? 'var(--honey)' : 'var(--honey-l)', color: value === 'yearly' ? '#fff' : 'var(--honey-d)', fontSize: 12, fontWeight: 700, letterSpacing: '.04em' }}>{t('saveBadge')}</span>
           )}
         </button>
       ))}
@@ -44,7 +44,7 @@ export function PricingCards({ lang, cycle, setCycle, kidsCount = 1, current = f
         <BillingToggle lang={lang} value={cycle} onChange={setCycle} />
       </div>
       <div style={{ position: 'relative', borderRadius: 24, padding: compact ? 20 : '28px 26px', maxWidth: 440, margin: '0 auto', background: 'linear-gradient(160deg, var(--primary-l) 0%, var(--surface) 80%)', border: '2px solid var(--primary)', boxShadow: 'var(--shadow-lg)', display: 'flex', flexDirection: 'column', gap: 18 }}>
-        {current && <div style={{ position: 'absolute', top: -12, left: 18, padding: '4px 12px', borderRadius: 999, background: 'var(--ink)', color: 'var(--surface)', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 11 }}>{t('planFamilyCurrent').toUpperCase()}</div>}
+        {current && <div style={{ position: 'absolute', top: -12, left: 18, padding: '4px 12px', borderRadius: 999, background: 'var(--ink)', color: 'var(--surface)', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 12 }}>{t('planFamilyCurrent').toUpperCase()}</div>}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center' }}>
@@ -86,7 +86,7 @@ export function PricingCards({ lang, cycle, setCycle, kidsCount = 1, current = f
             <button onClick={() => onSelect?.()} style={{ width: '100%', appearance: 'none', border: 0, background: 'var(--primary)', color: '#fff', padding: '12px 16px', borderRadius: 14, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, cursor: 'pointer', boxShadow: '0 3px 0 var(--primary-d)' }}>
               {ctaLabel || t('planFamilyCta')}
             </button>
-            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--ink-3)', textAlign: 'center' }}>{t('freeTrial')}</div>
+            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--ink-3)', textAlign: 'center' }}>{t('freeTrial')}</div>
           </div>
         )}
       </div>

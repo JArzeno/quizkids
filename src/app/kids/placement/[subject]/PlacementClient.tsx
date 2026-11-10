@@ -146,7 +146,7 @@ export default function PlacementClient() {
               <h1 className="qk-h1" style={{ marginTop: 8 }}>{t('placeTake')}</h1>
               <p className="qk-sub" style={{ maxWidth: 480, margin: '10px auto 0' }}>{t('placeIntro')}</p>
               {focus && <p style={{ marginTop: 10, fontSize: 13, color: 'var(--ink-3)' }}>{focus}</p>}
-              {error && <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 14, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600 }}>{error}</div>}
+              {error && <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 14, background: 'var(--coral-l)', color: 'var(--coral-d)', fontWeight: 600 }}>{error}</div>}
               {phase === 'loading' ? (
                 <div style={{ marginTop: 24 }}>
                   <LoadingBar expectedMs={12000} style={{ maxWidth: 280, margin: '0 auto' }} />
@@ -200,7 +200,7 @@ export default function PlacementClient() {
                   {info.label} · {t('placeEstLevel')} <strong>{levelLabel(outcome.level, lang)}</strong> · {outcome.accuracy}%
                 </p>
               </div>
-              {saveFailed && <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 14, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600 }}>{t('placeSaveWarn')}</div>}
+              {saveFailed && <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 14, background: 'var(--coral-l)', color: 'var(--coral-d)', fontWeight: 600 }}>{t('placeSaveWarn')}</div>}
               <div style={{ marginTop: 22, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: 14 }}>
                 <div style={{ padding: 16, borderRadius: 16, background: 'var(--primary-l)' }}>
                   <div style={{ fontWeight: 700, marginBottom: 8 }}>💪 {t('placeStrong')}</div>

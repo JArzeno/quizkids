@@ -75,7 +75,7 @@ export default function ExamSetup({ lang, topics, tests, busy, parts, forKid, on
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: 'block', fontSize: 14, fontWeight: 700, overflowWrap: 'anywhere' }}>{x.title}</span>
                     {(before || x.source !== 'manual') && (
-                      <span style={{ display: 'block', fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>
+                      <span style={{ display: 'block', fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>
                         {x.source !== 'manual' ? `📎 ${L('Class notes', 'Apuntes de clase')}` : ''}
                         {x.source !== 'manual' && before ? ' · ' : ''}
                         {before ? `${L('In', 'En')} ${before.title}` : ''}
@@ -112,10 +112,10 @@ export default function ExamSetup({ lang, topics, tests, busy, parts, forKid, on
                 <div style={{ width: 34, height: 34, borderRadius: 10, background: `var(--${c.tone === 'primary' ? 'primary-l' : c.tone + '-l'})`, color: `var(--${c.tone})`, display: 'grid', placeItems: 'center', flexShrink: 0 }}>{c.icon}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700 }}>{c.title}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-3)', lineHeight: 1.3 }}>{c.sub}</div>
+                  <div style={{ fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.3 }}>{c.sub}</div>
                 </div>
                 {state === 'done' && <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>{React.cloneElement(ICONS.check as React.ReactElement<{ size?: number }>, { size: 14 })}</span>}
-                {state === 'failed' && <span title={L('Will be made when you open it', 'Se hará cuando lo abras')} style={{ fontSize: 11, fontWeight: 700, color: '#7C5410', flexShrink: 0 }}>{L('Later', 'Luego')}</span>}
+                {state === 'failed' && <span title={L('Will be made when you open it', 'Se hará cuando lo abras')} style={{ fontSize: 12, fontWeight: 700, color: 'var(--honey-d)', flexShrink: 0 }}>{L('Later', 'Luego')}</span>}
                 {state === 'waiting' && <span aria-hidden style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--honey)', animation: 'qk-pulse 1s ease-in-out infinite', flexShrink: 0 }} />}
               </div>
             );

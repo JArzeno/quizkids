@@ -400,12 +400,12 @@ export default function ClassroomImportClient() {
                                           <input type="checkbox" checked={cOn} onChange={() => setClasses(id, [c.id], !cOn)} style={check} />
                                           <span style={{ flex: '1 1 180px', minWidth: 0 }}>
                                             <span style={{ display: 'block', fontSize: 14, fontWeight: 600, overflowWrap: 'anywhere' }}>{c.title}</span>
-                                            <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                                            <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>
                                               {c.kind === 'assignment' ? L('Assignment', 'Tarea') : L('Material', 'Material')}
                                               {c.date ? ` · ${c.kind === 'assignment' && c.date ? L('Due', 'Entrega') + ' ' : ''}${fmtDate(c.date)}` : ''}
                                             </span>
                                           </span>
-                                          {added && <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: 'var(--primary-l)', color: 'var(--primary-d)' }}>{L('Already added', 'Ya agregada')}</span>}
+                                          {added && <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: 'var(--primary-l)', color: 'var(--primary-d)' }}>{L('Already added', 'Ya agregada')}</span>}
                                         </label>
                                       );
                                     })}
@@ -486,7 +486,7 @@ export default function ClassroomImportClient() {
 
 function Notice({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 14, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600 }}>
+    <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 14, background: 'var(--coral-l)', color: 'var(--coral-d)', fontWeight: 600 }}>
       {children}
     </div>
   );

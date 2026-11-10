@@ -187,7 +187,7 @@ export default function QuizClient() {
             <button onClick={() => router.push(studyParams.returnTo || '/kids/home')} className="qk-btn qk-btn-ghost" style={{ padding: '8px 12px' }}>{ICONS.back} <span>{t('back')}</span></button>
             {gamification !== 'minimal' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: 'var(--honey-l)', color: '#7C5410', fontWeight: 700 }}>{ICONS.star} {stars}</div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: 'var(--honey-l)', color: 'var(--honey-d)', fontWeight: 700 }}>{ICONS.star} {stars}</div>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: 'var(--coral-l)', color: '#7C2A19', fontWeight: 700 }}>{ICONS.flame} {streak}</div>
               </div>
             )}
@@ -207,7 +207,7 @@ export default function QuizClient() {
               <div className="qk-card" style={{ backfaceVisibility: 'hidden', padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderColor: feedback === 'correct' ? 'var(--primary)' : feedback === 'wrong' ? 'var(--coral)' : 'var(--line)', boxShadow: feedback ? `0 0 0 6px ${feedback === 'correct' ? 'var(--primary-l)' : 'var(--coral-l)'}, var(--shadow)` : 'var(--shadow)', transition: 'box-shadow .25s ease', opacity: flipped ? 0 : 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span className="qk-eyebrow">{lang === 'es' ? 'Pregunta' : 'Question'} {i + 1}</span>
-                  <span style={{ fontSize: 11, color: 'var(--ink-3)', fontFamily: 'ui-monospace, monospace' }}>{t('tapToFlip')} ↻</span>
+                  <span style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'ui-monospace, monospace' }}>{t('tapToFlip')} ↻</span>
                 </div>
                 <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 'clamp(22px, 3.4vw, 30px)', lineHeight: 1.2 }}>{cur.q}</div>
                 <div style={{ display: 'grid', gap: 10 }} onClick={(e) => e.stopPropagation()}>
@@ -221,7 +221,7 @@ export default function QuizClient() {
                         <span style={{ width: 24, height: 24, flexShrink: 0, borderRadius: 8, background: isAnswer ? 'var(--primary)' : isWrong ? 'var(--coral)' : 'var(--surface-2)', color: (isAnswer || isWrong) ? '#fff' : 'var(--ink-3)', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13 }}>{String.fromCharCode(65 + ci)}</span>
                         <span style={{ flex: 1 }}>{c}</span>
                         {isAnswer && <span style={{ color: 'var(--primary)' }}>{ICONS.check}</span>}
-                        {isWrong && <span style={{ color: 'var(--coral)' }}>{ICONS.x}</span>}
+                        {isWrong && <span style={{ color: 'var(--coral-d)' }}>{ICONS.x}</span>}
                       </button>
                     );
                   })}
@@ -231,7 +231,7 @@ export default function QuizClient() {
               <div className="qk-card" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 14, background: 'var(--primary-l)', borderColor: 'var(--primary)', textAlign: 'center', opacity: flipped ? 1 : 0 }}>
                 <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--primary-d)', letterSpacing: '.06em', textTransform: 'uppercase', fontSize: 13 }}>{lang === 'es' ? 'Pista' : 'Hint'}</div>
                 <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 24, lineHeight: 1.25 }}>{cur.hint}</div>
-                <div style={{ fontSize: 11, color: 'var(--ink-3)', fontFamily: 'ui-monospace, monospace' }}>{t('tapToFlip')} ↺</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'ui-monospace, monospace' }}>{t('tapToFlip')} ↺</div>
               </div>
             </div>
           </div>

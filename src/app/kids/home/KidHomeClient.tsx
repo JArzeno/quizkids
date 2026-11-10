@@ -5,10 +5,14 @@ import { ICONS } from '@/components/ui/Icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { SessionPill, useSession, formatElapsed } from '@/components/ui/SessionPill';
 import { AppShell } from '@/components/layout/AppShell';
+import DailyPath from '@/components/games/DailyPath';
+import { TopicThumb } from '@/components/ui/TopicImage';
 import { useStore } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
-import { subjectInfo, kidSubjectInfo, levelLabel } from '@/lib/subjects';
+import { subjectInfo, kidSubjectInfo, levelLabel, subjectPromptName } from '@/lib/subjects';
+import { buildLevels, type Level, type LevelResult } from '@/lib/path';
+import { loadKidTopics } from '@/lib/topics';
 import { goalProgress } from '@/lib/goals';
 import { syncTodayPlan, prepareItem, itemMaterial, dateKey, isWeekday } from '@/lib/plan';
 import { daysUntil, loadUpcomingTests } from '@/lib/tests';
@@ -21,6 +25,9 @@ function todayKey(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+
+/** Cards under "pick up where you left off" that may have a new picture drawn; the rest only use one that exists */
+const DRAW_COVERS = 3;
 
 function relativeDate(iso: string): string {
   const d = new Date(iso);
@@ -35,7 +42,7 @@ function relativeDate(iso: string): string {
 export default function KidHomeClient() {
   const {
     lang, kids, activeKidId, setActiveKidId, setMode, setStudyParams, studyParams,
-    updateKid, isDemo, filterSubject, setFilterSubject, autoStartSession, setAutoStartSession, customSubjects,
+    updateKid, isDemo, gamification, filterSubject, setFilterSubject, autoStartSession, setAutoStartSession, customSubjects,
   } = useStore();
   const t = useT(lang);
   const router = useRouter();
@@ -107,6 +114,60 @@ export default function KidHomeClient() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kid?.id, isDemo]);
+
+  // ---- my path: the kid's classes as levels --------------------------------
+  const [levelTopics, setLevelTopics] = React.useState<KidTopic[] | null>(null);
+  const [levelResults, setLevelResults] = React.useState<LevelResult[]>([]);
+  React.useEffect(() => {
+    if (!kid) return;
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const list = await loadKidTopics(kid, isDemo);
+        let rows: LevelResult[] = (kid.results || []).map((r) => ({ ...r, difficulty: r.difficulty ?? null, stars: r.stars ?? 0 }));
+        if (!isDemo) {
+          const { data } = await createClient().from('quiz_results')
+            .select('subject, topic, difficulty, total, correct, stars, created_at')
+            .eq('kid_id', kid.id).order('created_at', { ascending: false }).limit(1000);
+          rows = (data as LevelResult[]) || [];
+        }
+        if (cancelled) return;
+        setLevelTopics(list);
+        setLevelResults(rows);
+      } catch (e) {
+        console.warn('Could not load the path:', e);
+        if (!cancelled) setLevelTopics([]);
+      }
+    };
+    run();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kid?.id, isDemo]);
+
+  const levelPath = React.useMemo(() => {
+    // Classes of subjects the parent paused or removed stay out of the path
+    const subjects = kid?.subjects || [];
+    const active = new Set(subjects.filter((x) => !x.paused).map((x) => x.subject));
+    const list = (levelTopics || []).filter((x) => !subjects.length || active.has(x.subject));
+    return buildLevels(list, levelResults, new Date());
+  }, [levelTopics, levelResults, kid?.subjects]);
+
+  const playLevel = (lv: Level) => {
+    if (!kid) return;
+    session.start();
+    if (lv.mode !== 'flip') {
+      router.push(`/kids/subject/${encodeURIComponent(lv.subject)}/play?mode=${lv.mode}&topic=${encodeURIComponent(lv.topic.title)}&from=home`);
+      return;
+    }
+    setStudyParams({
+      ...studyParams,
+      subject: lv.subject, topic: lv.topic.title, grade: kid.grade,
+      contentId: undefined, assignmentId: undefined, planItemId: undefined,
+      contentLang: subjectLangs.current[lv.subject] || kid.subjects?.find((x) => x.subject === lv.subject)?.lang,
+      source: lv.topic.notes, topics: undefined, pairedContentId: undefined, returnTo: undefined, testId: undefined, memory: undefined,
+    });
+    router.push('/kids/quiz');
+  };
 
   const openPlanItem = (item: PlanItem) => {
     if (!kid) return;
@@ -259,16 +320,15 @@ export default function KidHomeClient() {
 
   if (!kid) return null;
 
-  const renderRecent = (r: RecentItem, key: string) => {
+  const renderRecent = (r: RecentItem, key: string, index: number) => {
     const tone = r.kind === 'quiz' ? 'primary' : r.kind === 'guide' ? 'sky' : 'coral';
     const bg = `var(--${tone === 'primary' ? 'primary-l' : tone + '-l'})`;
-    const fg = `var(--${tone === 'primary' ? 'primary' : tone})`;
     const subjInfo = r.subject ? kidSubjectInfo(kid.subjects, r.subject, lang, customSubjects) : null;
     const isCompleted = r.status === 'completed';
 
     return (
-      <button key={key} onClick={() => openRecent(r)} className="qk-card qk-wiggle"
-        style={{ appearance: 'none', textAlign: 'left', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'pointer', border: '1px solid var(--line)', transition: 'transform .2s ease, box-shadow .2s ease', position: 'relative' }}>
+      <button key={key} onClick={() => openRecent(r)} className="qk-card qk-card-interactive"
+        style={{ appearance: 'none', textAlign: 'left', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'pointer', border: '1px solid var(--line)', position: 'relative' }}>
 
         {/* completion badge */}
         {isCompleted && (
@@ -277,26 +337,20 @@ export default function KidHomeClient() {
           </div>
         )}
 
-        <div style={{ height: 96, background: bg, color: fg, display: 'grid', placeItems: 'center', position: 'relative' }}>
-          <div style={{ position: 'absolute', inset: 0, opacity: .18, backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)', backgroundSize: '12px 12px' }} />
-          <div style={{ position: 'relative', transform: 'scale(2)' }}>
-            {r.kind === 'quiz' ? ICONS.cards : r.kind === 'guide' ? ICONS.book : ICONS.pdf}
-          </div>
+        <div style={{ background: bg }}>
+          <TopicThumb alt="" req={{ subject: r.subject || studyParams.subject, subjectName: subjectPromptName(r.subject || studyParams.subject, customSubjects), topic: r.title, grade: kid.grade, cachedOnly: isCompleted || index >= DRAW_COVERS }}>
+            <span aria-hidden style={{ fontSize: 46, lineHeight: 1 }}>{subjInfo?.icon || '📚'}</span>
+          </TopicThumb>
         </div>
         <div style={{ padding: 16, flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 11, color: 'var(--ink-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em' }}>
-              {r.kind === 'quiz' ? t('genQuiz') : r.kind === 'guide' ? t('genGuide') : t('genPdf')}
+            <span className="qk-kicker">
+              {r.kind === 'quiz' ? t('genQuiz') : r.kind === 'guide' ? t('genGuide') : t('genPdf')}{subjInfo ? ` · ${subjInfo.label}` : ''}
             </span>
-            {subjInfo && (
-              <span style={{ fontSize: 11, color: fg, background: bg, padding: '1px 7px', borderRadius: 999, fontWeight: 700 }}>
-                {subjInfo.icon} {subjInfo.label}
-              </span>
-            )}
           </div>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, lineHeight: 1.25 }}>{r.title}</div>
           <div style={{ marginTop: 'auto', paddingTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{r.when}</span>
+            <span style={{ fontSize: 13, color: 'var(--ink-3)' }}>{r.when}</span>
             {r.score > 0 && (
               <span style={{ fontSize: 12, color: 'var(--honey)', fontWeight: 700 }}>
                 {'⭐'.repeat(Math.min(r.score, 5))}
@@ -324,37 +378,36 @@ export default function KidHomeClient() {
           )}
 
           {/* greeting card */}
-          <div className="qk-card qk-slide-up qk-kid-hero" style={{ padding: 'clamp(20px, 4vw, 36px)', display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', gap: 24, alignItems: 'center', background: 'linear-gradient(135deg, var(--primary-l) 0%, var(--honey-l) 100%)', borderColor: 'var(--primary)', position: 'relative', overflow: 'hidden' }}>
-            <div aria-hidden style={{ position: 'absolute', inset: 0, opacity: .16, backgroundImage: 'radial-gradient(var(--primary) 1.5px, transparent 1.5px)', backgroundSize: '22px 22px' }} />
+          <div className="qk-card qk-slide-up qk-kid-hero" style={{ padding: 'clamp(20px, 4vw, 36px)', display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', gap: 24, alignItems: 'center', background: 'var(--primary-l)', borderColor: 'var(--primary)', position: 'relative', overflow: 'hidden' }}>
             <div className="qk-kid-hero-avatar" style={{ position: 'relative' }}>
               <Avatar id={kid.avatar} size={104} ring={kid.color || 'var(--primary)'} />
               {session.running && (
-                <span style={{ position: 'absolute', right: -4, top: -4, padding: '3px 8px', borderRadius: 999, background: session.paused ? 'var(--honey)' : 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700 }}>
-                  {session.paused ? 'PAUSE' : 'LIVE'}
+                <span style={{ position: 'absolute', right: -4, top: -4, padding: '3px 8px', borderRadius: 999, background: session.paused ? 'var(--honey-d)' : 'var(--primary-d)', color: '#fff', fontSize: 12, fontWeight: 700 }}>
+                  {session.paused ? (lang === 'es' ? 'En pausa' : 'Paused') : (lang === 'es' ? 'Estudiando' : 'Studying')}
                 </span>
               )}
             </div>
             <div style={{ minWidth: 0, position: 'relative' }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 600, color: 'var(--primary-d)', letterSpacing: '.04em', textTransform: 'uppercase' }}>
-                {t('kidHomeHi')}, {kid.name}! 👋
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 600, color: 'var(--primary-d)' }}>
+                {lang === 'es' ? '¡' : ''}{t('kidHomeHi')}, {kid.name}! 👋
               </div>
               <h1 className="qk-h1" style={{ marginTop: 6, fontSize: 'clamp(26px, 3vw, 38px)' }}>{t('kidHomeReady')}</h1>
               <div style={{ marginTop: 14, display: 'flex', gap: 18, flexWrap: 'wrap' }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('today')}</div>
+                  <div className="qk-kicker">{t('today')}</div>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, fontVariantNumeric: 'tabular-nums' }}>{formatElapsed(todayElapsedMs)}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{t('todayStudied')}</div>
+                  <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>{t('todayStudied')}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase' }}>{t('streak')}</div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, color: 'var(--coral)' }}>
+                  <div className="qk-kicker">{t('streak')}</div>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, color: 'var(--coral-d)' }}>
                     {React.cloneElement(ICONS.flame as React.ReactElement<{ size?: number }>, { size: 20 })}<span>{kid.streak || 0}</span>
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{lang === 'es' ? 'días seguidos' : 'days'}</div>
+                  <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>{lang === 'es' ? 'días seguidos' : 'days'}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase' }}>{t('starsEarned')}</div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, color: '#7C5410' }}>
+                  <div className="qk-kicker">{t('starsEarned')}</div>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, color: 'var(--honey-d)' }}>
                     {React.cloneElement(ICONS.star as React.ReactElement<{ size?: number }>, { size: 20 })}<span>{kid.stars || 0}</span>
                   </div>
                 </div>
@@ -376,19 +429,27 @@ export default function KidHomeClient() {
                   const when = d == null ? null : d === 0 ? (lang === 'es' ? '¡Hoy!' : 'Today!') : d === 1 ? (lang === 'es' ? 'Mañana' : 'Tomorrow') : lang === 'es' ? `En ${d} días` : `In ${d} days`;
                   return (
                     <button key={test.id} onClick={() => router.push(`/kids/exam/${test.id}`)} className="qk-card"
-                      style={{ appearance: 'none', textAlign: 'left', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', border: '1px solid var(--honey)', background: 'linear-gradient(90deg, var(--honey-l), var(--surface) 70%)' }}>
+                      style={{ appearance: 'none', textAlign: 'left', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', border: '1.5px solid var(--honey)', background: 'var(--honey-l)' }}>
                       <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--surface)', display: 'grid', placeItems: 'center', fontSize: 22, flexShrink: 0 }}>📝</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                        <div className="qk-kicker">
                           {info.icon} {info.label}{test.practice ? ` · ${lang === 'es' ? 'Práctica' : 'Practice'} ${test.practice.best}%` : ''}
                         </div>
                         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{test.title}</div>
                       </div>
-                      {when && <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: d! <= 2 ? 'var(--coral-l)' : 'var(--honey-l)', color: d! <= 2 ? 'var(--coral)' : '#7C5410', flexShrink: 0 }}>📅 {when}</span>}
+                      {when && <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: d! <= 2 ? 'var(--coral-l)' : 'var(--surface)', color: d! <= 2 ? 'var(--coral-d)' : 'var(--honey-d)', flexShrink: 0 }}>📅 {when}</span>}
                     </button>
                   );
                 })}
               </div>
+            </section>
+          )}
+
+          {/* my path */}
+          {levelTopics != null && levelPath.levels.length > 0 && (
+            <section style={{ marginTop: 28 }}>
+              <DailyPath path={levelPath} lang={lang} minimal={gamification === 'minimal'} onPlay={playLevel}
+                subjectOf={(id) => kidSubjectInfo(kid.subjects, id, lang, customSubjects)} />
             </section>
           )}
 
@@ -404,7 +465,7 @@ export default function KidHomeClient() {
               <div className="qk-progress" style={{ marginBottom: 14 }}><span style={{ width: (planItems.filter((i) => i.status === 'completed').length / planItems.length) * 100 + '%' }} /></div>
             )}
             {planState === 'loading' && planItems.length === 0 && <div className="qk-card" style={{ padding: 20, color: 'var(--ink-3)' }}>{t('planPreparing')}</div>}
-            {planState === 'error' && <div className="qk-card" style={{ padding: 20, color: 'var(--coral)' }}>{t('planError')}</div>}
+            {planState === 'error' && <div className="qk-card" style={{ padding: 20, color: 'var(--coral-d)' }}>{t('planError')}</div>}
             {planState === 'ready' && planItems.length === 0 && (
               <div className="qk-card" style={{ padding: 20, color: 'var(--ink-3)' }}>{isWeekday(new Date()) ? t('planNone') : t('planRest')}</div>
             )}
@@ -416,17 +477,19 @@ export default function KidHomeClient() {
                   const tone = item.type === 'guide' ? 'sky' : item.type === 'pdf' ? 'coral' : 'primary';
                   return (
                     <button key={item.id} onClick={() => openPlanItem(item)} className="qk-card"
-                      style={{ appearance: 'none', textAlign: 'left', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', border: '1px solid var(--line)', opacity: done ? 0.65 : 1 }}>
+                      style={{ appearance: 'none', textAlign: 'left', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', border: '1px solid var(--line)', background: done ? 'var(--surface-2)' : undefined, boxShadow: done ? 'none' : undefined }}>
                       <div style={{ width: 44, height: 44, borderRadius: 14, background: `var(--${tone === 'primary' ? 'primary-l' : tone + '-l'})`, color: `var(--${tone === 'primary' ? 'primary' : tone})`, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
                         {item.type === 'guide' ? ICONS.book : item.type === 'pdf' ? ICONS.pdf : ICONS.cards}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                        <div className="qk-kicker">
                           {info.icon} {info.label} · {item.review && `${t('planReview')} · `}{!item.goalId && '✋ '}{item.type === 'guide' ? t('genGuide') : item.type === 'pdf' ? t('genPdf') : item.type === 'test' ? t('planFinalTest') : t('genQuiz')} · {item.minutes} {t('planMin')}
                         </div>
-                        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, lineHeight: 1.25, textDecoration: done ? 'line-through' : 'none' }}>{item.topic}</div>
+                        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, lineHeight: 1.25, color: done ? 'var(--ink-2)' : undefined }}>{item.topic}</div>
                       </div>
-                      {done && <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>{ICONS.check}</div>}
+                      {done
+                        ? <div title={lang === 'es' ? 'Listo' : 'Done'} style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>{ICONS.check}</div>
+                        : <span aria-hidden style={{ color: 'var(--primary-d)', display: 'inline-flex', flexShrink: 0 }}>{ICONS.next}</span>}
                     </button>
                   );
                 })}
@@ -447,18 +510,18 @@ export default function KidHomeClient() {
                   const goal = (kid.goals || []).find((g) => g.subject === ks.subject && g.status === 'active');
                   const pct = goal ? goalProgress(goal, results).pct : null;
                   return (
-                    <button key={ks.subject} onClick={() => router.push(`/kids/subject/${encodeURIComponent(ks.subject)}`)} className="qk-card qk-wiggle"
+                    <button key={ks.subject} onClick={() => router.push(`/kids/subject/${encodeURIComponent(ks.subject)}`)} className="qk-card qk-card-interactive"
                       style={{ appearance: 'none', textAlign: 'left', padding: 16, display: 'flex', flexDirection: 'column', gap: 10, cursor: 'pointer', border: '1px solid var(--line)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div style={{ width: 48, height: 48, borderRadius: 16, background: 'var(--primary-l)', display: 'grid', placeItems: 'center', fontSize: 26, flexShrink: 0 }}>{info.icon}</div>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, lineHeight: 1.2 }}>{info.label}</div>
-                          {ks.level != null && <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{levelLabel(ks.level, lang)}</div>}
+                          {ks.level != null && <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{levelLabel(ks.level, lang)}</div>}
                         </div>
                       </div>
                       {pct != null && (
                         <div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--ink-3)', marginBottom: 4 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13, color: 'var(--ink-2)', marginBottom: 4 }}>
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🎯 {goal!.title}</span><span>{pct}%</span>
                           </div>
                           <div className="qk-progress"><span style={{ width: pct + '%' }} /></div>
@@ -474,7 +537,7 @@ export default function KidHomeClient() {
           {/* subject filter */}
           {subjects.length > 1 && (
             <div style={{ marginTop: 28, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+              <span className="qk-kicker">
                 {lang === 'es' ? 'Filtrar' : 'Filter'}
               </span>
               <button
@@ -511,7 +574,7 @@ export default function KidHomeClient() {
             </div>
 
             <div className="qk-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px, 100%), 1fr))', gap: 14 }}>
-              {pendingRecent.map((r, idx) => renderRecent(r, `p${idx}`))}
+              {pendingRecent.map((r, idx) => renderRecent(r, `p${idx}`, idx))}
               {filtered.length === 0 && (
                 <div className="qk-card" style={{ padding: 24, textAlign: 'center', color: 'var(--ink-3)', gridColumn: '1 / -1' }}>
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: 18 }}>{t('kidHomeNothing')}</div>
@@ -537,7 +600,7 @@ export default function KidHomeClient() {
                 </button>
                 {showCompleted && (
                   <div className="qk-stagger" style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px, 100%), 1fr))', gap: 14 }}>
-                    {completedRecent.map((r, idx) => renderRecent(r, `c${idx}`))}
+                    {completedRecent.map((r, idx) => renderRecent(r, `c${idx}`, idx))}
                   </div>
                 )}
               </div>

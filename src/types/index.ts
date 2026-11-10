@@ -27,7 +27,7 @@ export interface Kid {
   /** Demo mode only: test prep is kept locally instead of in Supabase */
   tests?: KidTest[];
   /** Demo mode only: scores of finished rounds, kept locally so the level path moves forward */
-  results?: Array<{ subject: string; topic: string; total: number; correct: number; created_at: string }>;
+  results?: Array<{ subject: string; topic: string; total: number; correct: number; created_at: string; /** 'tf' | 'fill' for the quick games (the daily path reads it) */ difficulty?: string; stars?: number }>;
   created_at?: string;
 }
 

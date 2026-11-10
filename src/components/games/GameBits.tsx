@@ -67,7 +67,7 @@ export function GameHeader({ pos, total, stars, streak, minimal, lang, label }: 
         {label && <div style={{ fontSize: 13, color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1, textAlign: 'right' }}>{label}</div>}
         {!minimal && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            <div title={es ? 'Estrellas' : 'Stars'} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: 'var(--honey-l)', color: '#7C5410', fontWeight: 700 }}>{ICONS.star} <span key={stars} className="qk-num-tick">{stars}</span></div>
+            <div title={es ? 'Estrellas' : 'Stars'} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: 'var(--honey-l)', color: 'var(--honey-d)', fontWeight: 700 }}>{ICONS.star} <span key={stars} className="qk-num-tick">{stars}</span></div>
             <div title={es ? 'Racha' : 'Streak'} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: 'var(--coral-l)', color: '#7C2A19', fontWeight: 700 }}>{ICONS.flame} <span key={streak} className="qk-num-tick">{streak}</span></div>
           </div>
         )}
@@ -90,5 +90,5 @@ export function Feedback({ ok, children, lang }: { ok: boolean; children?: React
 
 /** Small pill that marks a card shown again after a miss */
 export function RetryPill({ lang }: { lang: string }) {
-  return <span style={{ padding: '2px 10px', borderRadius: 999, background: 'var(--honey-l)', color: '#7C5410', fontSize: 11, fontWeight: 700 }}>↻ {lang === 'es' ? 'Otra vez' : 'Try again'}</span>;
+  return <span style={{ padding: '2px 10px', borderRadius: 999, background: 'var(--honey-l)', color: 'var(--honey-d)', fontSize: 12, fontWeight: 700 }}>↻ {lang === 'es' ? 'Otra vez' : 'Try again'}</span>;
 }

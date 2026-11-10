@@ -83,7 +83,7 @@ export default function ExamNewClient() {
             </div>
           </div>
 
-          {error && <div style={{ marginTop: 20, padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600, fontSize: 13 }}>{error}</div>}
+          {error && <div style={{ marginTop: 20, padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral-d)', fontWeight: 600, fontSize: 13 }}>{error}</div>}
 
           <div className="qk-card" style={{ marginTop: 22, padding: 'clamp(16px, 4vw, 26px)' }}>
             {topics == null ? (

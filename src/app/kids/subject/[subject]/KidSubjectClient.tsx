@@ -216,7 +216,7 @@ export default function KidSubjectClient() {
                 {headline && <div style={{ marginTop: 2, fontSize: 15, fontWeight: 700, color: 'var(--ink-2)' }}>{headline}</div>}
               </div>
               {!minimal && levels.length > 0 && (
-                <div title={L('Stars won in this subject', 'Estrellas ganadas en esta materia')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: 'var(--surface)', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, color: '#7C5410', flexShrink: 0, boxShadow: 'var(--shadow-sm)' }}>
+                <div title={L('Stars won in this subject', 'Estrellas ganadas en esta materia')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: 'var(--surface)', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, color: 'var(--honey-d)', flexShrink: 0, boxShadow: 'var(--shadow-sm)' }}>
                   {React.cloneElement(ICONS.star as React.ReactElement<{ size?: number }>, { size: 18 })}
                   <span key={starsHere} className="qk-num-tick">{starsHere}</span><span style={{ color: 'var(--ink-3)', fontSize: 14 }}>/{levels.length * 3}</span>
                 </div>
@@ -252,7 +252,7 @@ export default function KidSubjectClient() {
                     <span style={{ display: 'block', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{test.title}</span>
                     <span style={{ display: 'block', fontSize: 12, color: 'var(--ink-3)' }}>{test.resultGrade ? `${L('Grade', 'Nota')}: ${test.resultGrade}` : isComing(test) ? L('Get ready for your test', 'Prepárate para tu examen') : L('How did it go? Add your grade', '¿Cómo te fue? Agrega tu nota')}</span>
                   </span>
-                  {test.testDate && <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: isComing(test) ? 'var(--honey-l)' : 'var(--surface-2)', color: isComing(test) ? '#7C5410' : 'var(--ink-3)', flexShrink: 0 }}>{testWhen(test.testDate)}</span>}
+                  {test.testDate && <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: isComing(test) ? 'var(--honey-l)' : 'var(--surface-2)', color: isComing(test) ? 'var(--honey-d)' : 'var(--ink-3)', flexShrink: 0 }}>{testWhen(test.testDate)}</span>}
                 </button>
               ))}
               <Btn kind="ghost" icon={<span aria-hidden style={{ fontSize: 18, lineHeight: 1 }}>📝</span>} onClick={() => router.push(`${here}/exam`)} style={{ justifySelf: 'center' }}>
@@ -284,7 +284,7 @@ export default function KidSubjectClient() {
                         {r.kind === 'guide' ? ICONS.book : r.kind === 'pdf' ? ICONS.pdf : ICONS.cards}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
                           {r.kind === 'quiz' ? t('genQuiz') : r.kind === 'guide' ? t('genGuide') : t('genPdf')} · {r.when}
                         </div>
                         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, lineHeight: 1.25 }}>{r.title}</div>

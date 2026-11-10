@@ -202,7 +202,7 @@ export function LevelSheet({ level, lang, minimal, weak, onLearn, onPlay, onPrac
           {minimal ? <span aria-hidden style={{ fontSize: 24 }}>{level.cleared ? '✅' : '🔑'}</span> : <StarRow stars={level.stars} size={28} pop />}
           <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)' }}>{note}</span>
         </div>
-        {weak && <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--coral)' }}>🎯 {L('This one was hard on a practice test: review it.', 'Este costó en un examen de práctica: repásalo.')}</div>}
+        {weak && <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--coral-d)' }}>🎯 {L('This one was hard on a practice test: review it.', 'Este costó en un examen de práctica: repásalo.')}</div>}
 
         <div style={{ display: 'grid', gap: 8 }}>
           {stepLabel(1, L('Learn it', 'Aprende'))}

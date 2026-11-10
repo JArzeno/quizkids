@@ -33,7 +33,7 @@ export default function ResultsClient() {
     // The demo has no database: keep the score on the kid so the level path of the subject moves forward
     if (isDemo && kid && !savedRef.current && studyParams.subject && studyParams.topic) {
       savedRef.current = true;
-      updateKid(kid.id, { results: [{ subject: studyParams.subject, topic: studyParams.topic, total: quizResult.total, correct: quizResult.correct, created_at: new Date().toISOString() }, ...(kid.results || [])].slice(0, 200) });
+      updateKid(kid.id, { results: [{ subject: studyParams.subject, topic: studyParams.topic, total: quizResult.total, correct: quizResult.correct, created_at: new Date().toISOString(), difficulty: 'flip' }, ...(kid.results || [])].slice(0, 200) });
     }
 
     // Save to Supabase (once)
@@ -156,7 +156,7 @@ export default function ResultsClient() {
                         <div style={{ fontWeight: 700 }}>{c.q}</div>
                         <div style={{ marginTop: 2, color: 'var(--ink-3)', fontSize: 13 }}>
                           {lang === 'es' ? 'Respuesta:' : 'Answer:'} <strong style={{ color: 'var(--ink-2)' }}>{c.choices[c.a]}</strong>
-                          {!right && picks[idx] != null && <> · {lang === 'es' ? 'Elegiste:' : 'You chose:'} <span style={{ color: 'var(--coral)' }}>{c.choices[picks[idx]]}</span></>}
+                          {!right && picks[idx] != null && <> · {lang === 'es' ? 'Elegiste:' : 'You chose:'} <span style={{ color: 'var(--coral-d)' }}>{c.choices[picks[idx]]}</span></>}
                         </div>
                       </div>
                     </div>

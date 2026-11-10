@@ -35,6 +35,8 @@ export default function PlayClient() {
   const modeParam = search.get('mode');
   /** Set when a level of the subject's path opens the game: that topic is played right away, no setup */
   const topicParam = search.get('topic');
+  // Opened from the home page's daily path: back goes home instead of to the subject
+  const backHome = search.get('from') === 'home';
   const fromPath = !!topicParam && isGameMode(modeParam) && modeParam !== 'flip';
   const { lang, kids, activeKidId, isDemo, updateKid, customSubjects, difficulty, gamification, studyParams, setStudyParams, setMode: setAppMode } = useStore();
   const L = (en: string, es: string) => (lang === 'es' ? es : en);
@@ -44,6 +46,7 @@ export default function PlayClient() {
   const info = subjectInfo(subject, lang, customSubjects, ks);
   const contentLang = ks?.lang ?? lang;
   const here = `/kids/subject/${encodeURIComponent(subject)}`;
+  const backTo = backHome ? '/kids/home' : here;
 
   const [mode, setMode] = React.useState<GameMode>(isGameMode(modeParam) ? modeParam : 'tf');
   const [topics, setTopics] = React.useState<KidTopic[] | null>(null);
@@ -148,7 +151,7 @@ export default function PlayClient() {
     if (isDemo) {
       // The demo has no database: keep the scores on the kid so the level path moves forward
       const now = new Date().toISOString();
-      updateKid(kid.id, { results: [...rows.map((r) => ({ subject, topic: r.topic, total: r.total, correct: r.correct, created_at: now })), ...(kid.results || [])].slice(0, 200) });
+      updateKid(kid.id, { results: [...rows.map((r) => ({ subject, topic: r.topic, total: r.total, correct: r.correct, created_at: now, difficulty: round.kind, stars: r.stars })), ...(kid.results || [])].slice(0, 200) });
       return;
     }
     const supabase = createClient();
@@ -171,7 +174,7 @@ export default function PlayClient() {
     <AppShell>
       <div className="qk-screen qk-page-enter" style={{ padding: '24px clamp(16px, 5vw, 56px) 64px' }}>
         <div style={{ maxWidth: phase === 'setup' ? 860 : 640, margin: '0 auto' }}>
-          <button className="qk-btn qk-btn-ghost" onClick={() => (phase === 'playing' && !fromPath ? setPhase('setup') : router.push(here))}>{ICONS.back} <span>{phase === 'playing' ? L('Stop game', 'Salir del juego') : info.label}</span></button>
+          <button className="qk-btn qk-btn-ghost" onClick={() => (phase === 'playing' && !fromPath ? setPhase('setup') : router.push(backTo))}>{ICONS.back} <span>{phase === 'playing' ? L('Stop game', 'Salir del juego') : backHome ? L('Home', 'Inicio') : info.label}</span></button>
 
           {phase === 'setup' && (
             <>
@@ -249,7 +252,7 @@ export default function PlayClient() {
           {phase === 'done' && round && played && (
             <div style={{ marginTop: 18 }}>
               <GameResults kind={round.kind} played={played.played} bestStreak={played.bestStreak} minimal={gamification === 'minimal'} saved={!round.sample || isDemo} lang={lang} fromPath={fromPath && picked.length === 1}
-                onAgain={() => start(true)} onOther={() => setPhase('setup')} onBack={() => router.push(here)} />
+                onAgain={() => start(true)} onOther={() => setPhase('setup')} onBack={() => router.push(backTo)} />
             </div>
           )}
         </div>

@@ -15,8 +15,10 @@ const STALE_MS = 3 * 60 * 1000;
 const clean = (v: unknown) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ').slice(0, 120) : '');
 
 /**
- * Header illustration of a study guide, shared by every kid studying the same topic in the same age band.
- * Answers { status: 'ready', url } | { status: 'pending' } (another request is drawing it: ask again in a few seconds) | { status: 'none' }.
+ * Illustration of a study guide, shared by every kid studying the same topic in the same age band: the header picture,
+ * or with `section` the picture of one section. `cachedOnly` never draws: it only answers with a picture that exists.
+ * Answers { status: 'ready', url } | { status: 'pending' } (another request is drawing it: ask again in a few seconds) |
+ * { status: 'none', reason } (reason says why there is no picture, to tell a missing key from a blocked topic).
  */
 export async function POST(req: NextRequest) {
   try {
@@ -29,33 +31,41 @@ export async function POST(req: NextRequest) {
     const subject = clean(b.subjectName) || subjectPromptName(String(b.subject || 'sci'));
     // A test guide covers several topics: the picture is about all of them, not the test's title
     const topics = parseTopics(b.topics)?.map(clean) ?? [topic];
+    const sectionTitle = clean(b.section);
+    const section = sectionTitle ? { title: sectionTitle, hint: clean(b.hint) || undefined } : undefined;
+    const none = (reason: string, status = 200) => NextResponse.json({ status: 'none', reason }, { status });
     const key = createHash('sha256')
-      .update([band, subject.toLowerCase(), ...topics.map((t) => t.toLowerCase()).sort()].join('|'))
+      .update([band, subject.toLowerCase(), ...topics.map((t) => t.toLowerCase()).sort(), ...(section ? ['§' + section.title.toLowerCase()] : [])].join('|'))
       .digest('hex')
       .slice(0, 40);
 
     const admin = createAdminClient();
     if (!admin) {
       console.warn('Topic images need SUPABASE_SERVICE_ROLE_KEY');
-      return NextResponse.json({ status: 'none' });
+      return none('no-service-key');
     }
     const url = (path: string) => admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 
     const { data: row, error: readErr } = await admin.from('topic_images').select('status, path, updated_at').eq('key', key).maybeSingle();
     if (readErr) throw readErr;
     if (row?.status === 'ready' && row.path) return NextResponse.json({ status: 'ready', url: url(row.path), band });
-    if (row?.status === 'blocked') return NextResponse.json({ status: 'none' });
+    if (row?.status === 'blocked') return none('blocked');
     const stale = !!row && Date.now() - new Date(row.updated_at).getTime() > STALE_MS;
     if (row && !stale) return NextResponse.json({ status: 'pending' });
+    if (b.cachedOnly) return none('not-drawn');
+    if (!process.env.OPENAI_API_KEY) {
+      console.warn('Topic images need OPENAI_API_KEY');
+      return none('no-openai-key');
+    }
 
     // Drawing costs money: only signed-in families trigger it (the demo only sees pictures that already exist)
     const { data: { user } } = await (await createClient()).auth.getUser();
-    if (!user) return NextResponse.json({ status: 'none' });
+    if (!user) return none('signed-out');
 
     // Claim the drawing so kids opening the same guide at once don't each pay for a picture
     const now = new Date().toISOString();
     if (!row) {
-      const { error } = await admin.from('topic_images').insert({ key, band, subject, topic: topics.join('; '), status: 'pending', updated_at: now });
+      const { error } = await admin.from('topic_images').insert({ key, band, subject, topic: topics.join('; ') + (section ? ` § ${section.title}` : ''), status: 'pending', updated_at: now });
       // Unique violation: another request claimed it first
       if (error?.code === '23505') return NextResponse.json({ status: 'pending' });
       if (error) throw error;
@@ -66,10 +76,10 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      const image = await generateTopicImage(subject, topics, grade);
+      const image = await generateTopicImage(subject, topics, grade, section);
       if (!image) {
         await admin.from('topic_images').update({ status: 'blocked', updated_at: new Date().toISOString() }).eq('key', key);
-        return NextResponse.json({ status: 'none' });
+        return none('blocked');
       }
       const path = `${band}/${key}.webp`;
       const { error: upErr } = await admin.storage.from(BUCKET).upload(path, image, { contentType: 'image/webp', cacheControl: '31536000', upsert: true });
@@ -83,6 +93,7 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     console.error('Topic image error:', err);
-    return NextResponse.json({ status: 'none' }, { status: 500 });
+    // The message tells a wrong key or an unverified OpenAI organization from a storage problem
+    return NextResponse.json({ status: 'none', reason: 'error', detail: err instanceof Error ? err.message.slice(0, 300) : String(err) }, { status: 500 });
   }
 }

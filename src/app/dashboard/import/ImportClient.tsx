@@ -131,7 +131,7 @@ export default function ImportClient() {
                       <Avatar id={k.avatar} size={32} ring={on ? k.color : undefined} />
                       <div style={{ textAlign: 'left' }}>
                         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: on ? (k.color || 'var(--primary)') : 'var(--ink)' }}>{k.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{es ? 'Grado ' : 'Grade '}{k.grade}</div>
+                        <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{es ? 'Grado ' : 'Grade '}{k.grade}</div>
                       </div>
                       {on && <span style={{ marginLeft: 4, color: k.color || 'var(--primary)' }}>{ICONS.check}</span>}
                     </button>
@@ -142,7 +142,7 @@ export default function ImportClient() {
           )}
 
           {error && (
-            <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 14, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600 }}>
+            <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 14, background: 'var(--coral-l)', color: 'var(--coral-d)', fontWeight: 600 }}>
               {error}
             </div>
           )}
@@ -175,7 +175,7 @@ export default function ImportClient() {
                   <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
                     {files.map((f) => (
                       <div key={f.id} className="qk-card" style={{ padding: 8, position: 'relative' }}>
-                        <div style={{ height: 100, borderRadius: 10, overflow: 'hidden', background: 'var(--surface-2)', display: 'grid', placeItems: 'center', color: 'var(--coral)' }}>
+                        <div style={{ height: 100, borderRadius: 10, overflow: 'hidden', background: 'var(--surface-2)', display: 'grid', placeItems: 'center', color: 'var(--coral-d)' }}>
                           {f.kind === 'image'
                             // eslint-disable-next-line @next/next/no-img-element
                             ? <img src={f.dataUrl} alt={f.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

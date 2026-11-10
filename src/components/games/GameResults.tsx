@@ -50,7 +50,7 @@ export default function GameResults({ kind, played, bestStreak, minimal, saved, 
               {bestStreak > 1 && !minimal ? ` · 🔥 ${L('best streak', 'mejor racha')} ${bestStreak}` : ''}
             </div>
             {!minimal && saved && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '4px 12px', borderRadius: 999, background: 'var(--honey-l)', color: '#7C5410', fontWeight: 700 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '4px 12px', borderRadius: 999, background: 'var(--honey-l)', color: 'var(--honey-d)', fontWeight: 700 }}>
                 {React.cloneElement(ICONS.star as React.ReactElement<{ size?: number }>, { size: 16 })} +{stars}
               </div>
             )}
@@ -58,7 +58,7 @@ export default function GameResults({ kind, played, bestStreak, minimal, saved, 
         </div>
 
         {fromPath && saved && (
-          <div className="qk-bounce-in" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 14, fontWeight: 700, fontSize: 15, background: pct >= PASS ? 'var(--primary-l)' : 'var(--honey-l)', color: pct >= PASS ? 'var(--primary-d)' : '#7C5410' }}>
+          <div className="qk-bounce-in" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 14, fontWeight: 700, fontSize: 15, background: pct >= PASS ? 'var(--primary-l)' : 'var(--honey-l)', color: pct >= PASS ? 'var(--primary-d)' : 'var(--honey-d)' }}>
             <span aria-hidden className={pct >= PASS ? 'qk-key-spin' : undefined} style={{ fontSize: 24 }}>🔑</span>
             <span>{pct >= PASS ? L('Level passed! You earned the key.', '¡Nivel superado! Ganaste la llave.') : L(`So close! Get ${PASS}% to earn the key.`, `¡Casi! Saca ${PASS}% para ganar la llave.`)}</span>
           </div>

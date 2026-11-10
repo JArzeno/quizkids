@@ -112,13 +112,13 @@ function DailyBars({ days, lang }: { days: Array<{ date: Date; minutes: number }
         return (
           <div key={dayKey(d.date)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}
             title={`${d.date.toLocaleDateString(lang === 'es' ? 'es-DO' : 'en-US', { month: 'short', day: 'numeric' })} · ${d.minutes} min`}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: d.minutes > 0 ? 'var(--ink-2)' : 'transparent' }}>{d.minutes}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: d.minutes > 0 ? 'var(--ink-2)' : 'transparent' }}>{d.minutes}</div>
             <div style={{
               width: '100%', height: `${pct}%`, minHeight: 3, borderRadius: 6,
               background: d.minutes > 0 ? 'var(--primary)' : 'var(--line)',
               opacity: d.minutes > 0 ? 1 : 0.5,
             }} />
-            <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>{weekdays[d.date.getDay()]}</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{weekdays[d.date.getDay()]}</div>
           </div>
         );
       })}
@@ -420,7 +420,7 @@ export default function KidDetailClient() {
                 </div>
               }
             >
-              {subjectError && <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral)', fontWeight: 600, fontSize: 13 }}>{t('placeError')}</div>}
+              {subjectError && <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--coral-l)', color: 'var(--coral-d)', fontWeight: 600, fontSize: 13 }}>{t('placeError')}</div>}
               {addingSubject && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {subjectChoices.filter((c) => !kidSubjects.some((s) => s.subject === c.id)).map((c) => (
@@ -488,7 +488,7 @@ export default function KidDetailClient() {
               </div>
               {sessionMinutes > 0 ? (
                 <>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('last14Days')}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('last14Days')}</div>
                   <DailyBars days={days} lang={lang} />
                 </>
               ) : (
@@ -581,7 +581,7 @@ export default function KidDetailClient() {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.topic || '—'}</div>
-                          <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                          <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
                             {relativeDate(q.created_at, lang)} · {q.correct || 0}/{q.total || 0} · {pct}%
                             {attempts > 1 ? ` · ${attempts} ${t('attemptsLabel')}${bestPct > pct ? ` · ${t('bestScore')} ${bestPct}%` : ''}` : ''}
                           </div>
@@ -609,15 +609,15 @@ export default function KidDetailClient() {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.topic || '—'}</div>
-                          <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                          <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
                             {a.subject ? kidSubjectInfo(kidSubjects, a.subject, lang, customSubjects).label + ' · ' : ''}
                             {relativeDate(a.assigned_at, lang)}
                           </div>
                         </div>
                         <span style={{
-                          padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, flexShrink: 0,
+                          padding: '3px 9px', borderRadius: 999, fontSize: 12, fontWeight: 700, flexShrink: 0,
                           background: done ? 'var(--primary-l)' : 'var(--honey-l)',
-                          color: done ? 'var(--primary-d)' : '#7C5410',
+                          color: done ? 'var(--primary-d)' : 'var(--honey-d)',
                         }}>
                           {done ? t('statusDone') : t('statusPending')}
                         </span>
@@ -625,7 +625,7 @@ export default function KidDetailClient() {
                     );
                   })}
                   {pendingAssignments.length > 0 && (
-                    <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>
+                    <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>
                       {pendingAssignments.length} {t('statusPending').toLowerCase()}
                     </div>
                   )}

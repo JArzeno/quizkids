@@ -53,7 +53,7 @@ const PART_COPY: Record<PracticeItemType, { en: [string, string]; es: [string, s
 
 const VERDICT = {
   correct: { en: 'Correct', es: 'Correcto', bg: 'var(--primary-l)', fg: 'var(--primary-d)', mark: '✓' },
-  partial: { en: 'Almost', es: 'Casi', bg: 'var(--honey-l)', fg: '#7C5410', mark: '½' },
+  partial: { en: 'Almost', es: 'Casi', bg: 'var(--honey-l)', fg: 'var(--honey-d)', mark: '½' },
   wrong: { en: 'Not yet', es: 'Todavía no', bg: 'var(--coral-l)', fg: 'var(--coral)', mark: '✗' },
 };
 
@@ -252,7 +252,7 @@ export default function PracticeClient() {
             <h1 className="qk-h1" style={{ margin: '6px 0 0', fontSize: 'clamp(24px, 4vw, 34px)', overflowWrap: 'anywhere' }}>{studyParams.topic}</h1>
           </div>
 
-          {sample && <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 12, background: 'var(--honey-l)', color: '#7C5410', fontWeight: 600, fontSize: 13 }}>{isDemo ? L('Demo: these are sample questions.', 'Demo: estas son preguntas de ejemplo.') : L("These are sample questions: we couldn't write your test right now.", 'Estas son preguntas de ejemplo: no pudimos escribir tu examen ahora.')}</div>}
+          {sample && <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 12, background: 'var(--honey-l)', color: 'var(--honey-d)', fontWeight: 600, fontSize: 13 }}>{isDemo ? L('Demo: these are sample questions.', 'Demo: estas son preguntas de ejemplo.') : L("These are sample questions: we couldn't write your test right now.", 'Estas son preguntas de ejemplo: no pudimos escribir tu examen ahora.')}</div>}
 
           {/* answering: progress */}
           {phase === 'answering' && (
@@ -372,7 +372,7 @@ function Question({ n, item, answer, onAnswer, graded, lang }: { n: number; item
           ) : item.type === 'tf' ? item.s : item.q}
         </div>
         {v && <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: v.bg, color: v.fg, flexShrink: 0 }}>{v.mark} {lang === 'es' ? v.es : v.en}</span>}
-        {item.type === 'short' && !v && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', flexShrink: 0 }}>{itemPoints(item)} {L('pts', 'pts')}</span>}
+        {item.type === 'short' && !v && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)', flexShrink: 0 }}>{itemPoints(item)} {L('pts', 'pts')}</span>}
       </div>
 
       {item.type === 'mc' && (
@@ -407,7 +407,7 @@ function Question({ n, item, answer, onAnswer, graded, lang }: { n: number; item
           {graded.verdict !== 'correct' && item.type === 'fill' && <div style={{ color: 'var(--ink-2)' }}>{L('Answer', 'Respuesta')}: <strong>{item.a}</strong></div>}
           {item.type === 'short' && (
             <div style={{ padding: '10px 12px', borderRadius: 12, background: 'var(--surface-2)' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>{L('A complete answer', 'Una respuesta completa')}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>{L('A complete answer', 'Una respuesta completa')}</div>
               <div style={{ color: 'var(--ink)' }}>{item.a}</div>
             </div>
           )}
