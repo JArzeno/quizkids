@@ -31,7 +31,11 @@ interface Round { kind: GameKind; items: Item[]; sample: boolean }
 export default function PlayClient() {
   const params = useParams<{ subject: string }>();
   const subject = decodeURIComponent(typeof params?.subject === 'string' ? params.subject : '');
-  const modeParam = useSearchParams().get('mode');
+  const search = useSearchParams();
+  const modeParam = search.get('mode');
+  /** Set when a level of the subject's path opens the game: that topic is played right away, no setup */
+  const topicParam = search.get('topic');
+  const fromPath = !!topicParam && isGameMode(modeParam) && modeParam !== 'flip';
   const { lang, kids, activeKidId, isDemo, updateKid, customSubjects, difficulty, gamification, studyParams, setStudyParams, setMode: setAppMode } = useStore();
   const L = (en: string, es: string) => (lang === 'es' ? es : en);
   const router = useRouter();
@@ -44,7 +48,7 @@ export default function PlayClient() {
   const [mode, setMode] = React.useState<GameMode>(isGameMode(modeParam) ? modeParam : 'tf');
   const [topics, setTopics] = React.useState<KidTopic[] | null>(null);
   const [picked, setPicked] = React.useState<string[]>([]);
-  const [phase, setPhase] = React.useState<'setup' | 'loading' | 'playing' | 'done'>('setup');
+  const [phase, setPhase] = React.useState<'setup' | 'loading' | 'playing' | 'done'>(fromPath ? 'loading' : 'setup');
   const [loadPhase, setLoadPhase] = React.useState<'loading' | 'creating'>('loading');
   const [round, setRound] = React.useState<Round | null>(null);
   const [played, setPlayed] = React.useState<{ played: Played<Item>[]; bestStreak: number } | null>(null);
@@ -52,6 +56,7 @@ export default function PlayClient() {
   const seen = React.useRef<string[]>([]);
   // A new round starts a fresh game component even when the cards look alike
   const [roundNo, setRoundNo] = React.useState(0);
+  const startRef = React.useRef<(again?: boolean, list?: KidTopic[]) => void>(() => {});
 
   React.useEffect(() => { setAppMode('kid'); }, []);
 
@@ -63,7 +68,10 @@ export default function PlayClient() {
       .then((list) => {
         if (cancelled) return;
         setTopics(list);
-        setPicked(list.slice(0, MAX_GAME_TOPICS).map((x) => x.title));
+        const only = fromPath ? list.find((x) => norm(x.title) === norm(topicParam!)) : undefined;
+        setPicked(only ? [only.title] : list.slice(0, MAX_GAME_TOPICS).map((x) => x.title));
+        if (only) startRef.current(false, [only]);
+        else if (fromPath) setPhase('setup');
       });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -78,8 +86,11 @@ export default function PlayClient() {
   const titles = chosen.map((x) => x.title);
   const label = titles.length === 1 ? titles[0] : titles.join(' · ').slice(0, 80);
 
-  const start = async (again = false) => {
-    if (!chosen.length) return;
+  const start = async (again = false, list: KidTopic[] = chosen) => {
+    if (!list.length) return;
+    const chosen = list;
+    const titles = chosen.map((x) => x.title);
+    const label = titles.length === 1 ? titles[0] : titles.join(' · ').slice(0, 80);
     const source = chosen.length === 1 ? chosen[0].notes : testSource(chosen);
 
     if (mode === 'flip') {
@@ -124,7 +135,6 @@ export default function PlayClient() {
     const right = results.filter((r) => r.ok).length;
     const earned = starsFor(Math.round((right / Math.max(1, results.length)) * 100));
     updateKid(kid.id, { stars: (kid.stars || 0) + earned, lastSubject: subject });
-    if (isDemo) return;
     const byTopic = new Map<string, { right: number; total: number }>();
     results.forEach((r) => {
       const t = r.item.topic || label;
@@ -135,10 +145,18 @@ export default function PlayClient() {
       kid_id: kid.id, subject, topic, grade: kid.grade, difficulty: round.kind, total: r.total, correct: r.right,
       stars: starsFor(Math.round((r.right / r.total) * 100)), lang: contentLang,
     }));
+    if (isDemo) {
+      // The demo has no database: keep the scores on the kid so the level path moves forward
+      const now = new Date().toISOString();
+      updateKid(kid.id, { results: [...rows.map((r) => ({ subject, topic: r.topic, total: r.total, correct: r.correct, created_at: now })), ...(kid.results || [])].slice(0, 200) });
+      return;
+    }
     const supabase = createClient();
     if (rows.length) supabase.from('quiz_results').insert(rows).then(({ error }) => { if (error) console.warn('Could not save game result:', error); });
     supabase.from('kids').update({ stars: (kid.stars || 0) + earned, last_subject: subject }).eq('id', kid.id).then(() => {});
   };
+
+  startRef.current = start;
 
   const meta = GAME_MODES.find((m) => m.id === mode)!;
   const copy = lang === 'es' ? meta.es : meta.en;
@@ -153,7 +171,7 @@ export default function PlayClient() {
     <AppShell>
       <div className="qk-screen qk-page-enter" style={{ padding: '24px clamp(16px, 5vw, 56px) 64px' }}>
         <div style={{ maxWidth: phase === 'setup' ? 860 : 640, margin: '0 auto' }}>
-          <button className="qk-btn qk-btn-ghost" onClick={() => (phase === 'playing' ? setPhase('setup') : router.push(here))}>{ICONS.back} <span>{phase === 'playing' ? L('Stop game', 'Salir del juego') : info.label}</span></button>
+          <button className="qk-btn qk-btn-ghost" onClick={() => (phase === 'playing' && !fromPath ? setPhase('setup') : router.push(here))}>{ICONS.back} <span>{phase === 'playing' ? L('Stop game', 'Salir del juego') : info.label}</span></button>
 
           {phase === 'setup' && (
             <>
@@ -230,7 +248,7 @@ export default function PlayClient() {
 
           {phase === 'done' && round && played && (
             <div style={{ marginTop: 18 }}>
-              <GameResults kind={round.kind} played={played.played} bestStreak={played.bestStreak} minimal={gamification === 'minimal'} saved={!round.sample || isDemo} lang={lang}
+              <GameResults kind={round.kind} played={played.played} bestStreak={played.bestStreak} minimal={gamification === 'minimal'} saved={!round.sample || isDemo} lang={lang} fromPath={fromPath && picked.length === 1}
                 onAgain={() => start(true)} onOther={() => setPhase('setup')} onBack={() => router.push(here)} />
             </div>
           )}
