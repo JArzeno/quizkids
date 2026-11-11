@@ -15,7 +15,8 @@ import { buildLevels, type Level } from '@/lib/levels';
 import type { GameMode } from '@/lib/games';
 import { loadTopics, subjectTopics, type TopicRow } from '@/lib/topics';
 import { daysUntil, examWeakTopics, loadTests } from '@/lib/tests';
-import type { KidTest, KidTopic, RecentItem } from '@/types';
+import { dateLabel, listProgress, loadWordLists } from '@/lib/words';
+import type { KidTest, KidTopic, RecentItem, WordList } from '@/types';
 
 interface QuizRow { subject: string | null; topic: string | null; total: number | null; correct: number | null; stars: number | null; created_at: string; assignment_id?: string | null }
 interface AssignmentRow { id: string; subject: string | null; topic: string | null; type: string | null; status: string | null; assigned_at: string; content_id: string | null }
@@ -45,6 +46,7 @@ export default function KidSubjectClient() {
   const [assignments, setAssignments] = React.useState<AssignmentRow[]>([]);
   const [topics, setTopics] = React.useState<KidTopic[]>([]);
   const [tests, setTests] = React.useState<KidTest[]>([]);
+  const [wordLists, setWordLists] = React.useState<WordList[]>([]);
   const [loading, setLoading] = React.useState(!isDemo);
   const [openLevel, setOpenLevel] = React.useState<string | null>(null);
   const [showDone, setShowDone] = React.useState(false);
@@ -64,6 +66,7 @@ export default function KidSubjectClient() {
       ]);
       setTopics((kid.topics || []).filter((x) => x.subject === subject).reverse());
       setTests((kid.tests || []).filter((x) => x.subject === subject).reverse());
+      loadWordLists(kid.id, subject, true).then(setWordLists).catch(() => {});
       setLoading(false);
       return;
     }
@@ -89,6 +92,8 @@ export default function KidSubjectClient() {
         if (!cancelled) setTopics(list);
         const testList = await loadTests(kid, subject, false).catch((e) => { console.warn('Could not load tests:', e); return [] as KidTest[]; });
         if (!cancelled) setTests(testList);
+        const words = await loadWordLists(kid.id, subject, false).catch((e) => { console.warn('Could not load word lists:', e); return [] as WordList[]; });
+        if (!cancelled) setWordLists(words);
       } catch (e) {
         console.warn('Could not load subject:', e);
       }
@@ -229,10 +234,33 @@ export default function KidSubjectClient() {
             )}
           </div>
 
+          {/* spelling words a grown-up added: each list opens its games */}
+          {wordLists.length > 0 && (
+            <section style={{ marginTop: 22, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 10 }}>
+              {wordLists.map((list) => {
+                const p = listProgress(list);
+                const coming = !!list.testDate && daysUntil(list.testDate) >= 0;
+                return (
+                  <button key={list.id} onClick={() => router.push(`${here}/words?list=${encodeURIComponent(list.id)}`)} className="qk-card qk-card-interactive"
+                    style={{ appearance: 'none', font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid ' + (coming ? 'var(--berry)' : 'var(--line)'), background: coming ? 'var(--berry-l)' : undefined }}>
+                    <span aria-hidden style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--surface)', display: 'grid', placeItems: 'center', fontSize: 24, flexShrink: 0 }}>✏️</span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{list.title}</span>
+                      <span style={{ display: 'block', fontSize: 12, color: 'var(--ink-3)' }}>
+                        {L(`Practice your words · ${p.known}/${p.total} right`, `Practica tus palabras · ${p.known}/${p.total} bien`)}{p.missed.length ? ` · 🎯 ${p.missed.length}` : ''}
+                      </span>
+                    </span>
+                    {list.testDate && <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: coming ? 'var(--surface)' : 'var(--surface-2)', color: coming ? 'var(--honey-d)' : 'var(--ink-3)', flexShrink: 0 }}>📅 {dateLabel(list.testDate, lang)}</span>}
+                  </button>
+                );
+              })}
+            </section>
+          )}
+
           {/* the path */}
           <section style={{ marginTop: 26 }}>
             {loading && levels.length === 0 && <div className="qk-card" style={{ padding: 20, color: 'var(--ink-3)', textAlign: 'center' }}>{L('Loading…', 'Cargando…')}</div>}
-            {!loading && levels.length === 0 && (
+            {!loading && levels.length === 0 && wordLists.length === 0 && (
               <div className="qk-card" style={{ padding: 24, textAlign: 'center', color: 'var(--ink-3)' }}>
                 <div aria-hidden style={{ fontSize: 40 }}>🗺️</div>
                 <div style={{ marginTop: 6, fontFamily: 'var(--font-display)', fontSize: 18 }}>{L('Your path is not ready yet.', 'Tu camino todavía no está listo.')}</div>

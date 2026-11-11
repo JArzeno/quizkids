@@ -26,6 +26,8 @@ export interface Kid {
   topics?: KidTopic[];
   /** Demo mode only: test prep is kept locally instead of in Supabase */
   tests?: KidTest[];
+  /** Demo mode only: word lists are kept locally instead of in Supabase */
+  wordLists?: WordList[];
   /** Demo mode only: scores of finished rounds, kept locally so the level path moves forward */
   results?: Array<{ subject: string; topic: string; total: number; correct: number; created_at: string; /** 'tf' | 'fill' for the quick games (the daily path reads it) */ difficulty?: string; stars?: number }>;
   created_at?: string;
@@ -293,6 +295,31 @@ export interface KidTest {
   /** What was hard, or what the teacher said */
   resultNote?: string;
   resultAt?: string;
+}
+
+/** Words (or sentences) a kid practices spelling, e.g. for a dictation or a spelling olympiad */
+export interface WordList {
+  id: string;
+  subject: string;
+  title: string;
+  /** One word or sentence each, as the grown-up wrote it; "tuvo (Él tuvo suerte)" adds a sentence to hear it in */
+  words: string[];
+  /** yyyy-mm-dd of the dictation, if known */
+  testDate?: string;
+  /** Language the words are read aloud in */
+  lang?: ContentLang;
+  createdAt?: string;
+  /** How each word went, keyed by the word (without its sentence) */
+  stats: Record<string, WordStat>;
+}
+
+export interface WordStat {
+  /** Rounds it was right on the first try */
+  ok: number;
+  miss: number;
+  /** Right the last time it was played */
+  last: boolean;
+  at: string;
 }
 
 export interface PracticeStats {
