@@ -16,10 +16,11 @@ import { loadKidTopics } from '@/lib/topics';
 import { goalProgress } from '@/lib/goals';
 import { syncTodayPlan, prepareItem, itemMaterial, dateKey, isWeekday } from '@/lib/plan';
 import { daysUntil, loadUpcomingTests } from '@/lib/tests';
+import { listProgress, loadUpcomingWordLists } from '@/lib/words';
 import { kidTarget, originOf, playProfileSwitch } from '@/lib/profileSwitch';
 import type { ResultRow } from '@/lib/adapt';
 import type { ContentLang } from '@/lib/languages';
-import type { KidGoal, KidTest, KidTopic, PlanItem, RecentItem } from '@/types';
+import type { KidGoal, KidTest, KidTopic, PlanItem, RecentItem, WordList } from '@/types';
 
 function todayKey(): string {
   const d = new Date();
@@ -57,12 +58,16 @@ export default function KidHomeClient() {
 
   // ---- tests coming up --------------------------------------------------------
   const [upcoming, setUpcoming] = React.useState<KidTest[]>([]);
+  const [upcomingWords, setUpcomingWords] = React.useState<WordList[]>([]);
   React.useEffect(() => {
     if (!kid) return;
     let cancelled = false;
     loadUpcomingTests(kid, isDemo)
       .then((list) => { if (!cancelled) setUpcoming(list.slice(0, 3)); })
       .catch((e) => console.warn('Could not load tests:', e));
+    loadUpcomingWordLists(kid.id, isDemo)
+      .then((list) => { if (!cancelled) setUpcomingWords(list.slice(0, 3)); })
+      .catch((e) => console.warn('Could not load word lists:', e));
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kid?.id, isDemo]);
@@ -419,7 +424,7 @@ export default function KidHomeClient() {
           </div>
 
           {/* tests coming up */}
-          {upcoming.length > 0 && (
+          {(upcoming.length > 0 || upcomingWords.length > 0) && (
             <section style={{ marginTop: 28 }}>
               <h2 className="qk-h2" style={{ margin: '0 0 14px' }}>{lang === 'es' ? 'Exámenes que vienen' : 'Tests coming up'}</h2>
               <div style={{ display: 'grid', gap: 10 }}>
@@ -438,6 +443,23 @@ export default function KidHomeClient() {
                         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{test.title}</div>
                       </div>
                       {when && <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: d! <= 2 ? 'var(--coral-l)' : 'var(--surface)', color: d! <= 2 ? 'var(--coral-d)' : 'var(--honey-d)', flexShrink: 0 }}>📅 {when}</span>}
+                    </button>
+                  );
+                })}
+                {upcomingWords.map((list) => {
+                  const info = kidSubjectInfo(kid.subjects, list.subject, lang, customSubjects);
+                  const d = daysUntil(list.testDate!);
+                  const when = d === 0 ? (lang === 'es' ? '¡Hoy!' : 'Today!') : d === 1 ? (lang === 'es' ? 'Mañana' : 'Tomorrow') : lang === 'es' ? `En ${d} días` : `In ${d} days`;
+                  const p = listProgress(list);
+                  return (
+                    <button key={list.id} onClick={() => router.push(`/kids/subject/${encodeURIComponent(list.subject)}/words?list=${encodeURIComponent(list.id)}&from=home`)} className="qk-card"
+                      style={{ appearance: 'none', textAlign: 'left', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', border: '1.5px solid var(--berry)', background: 'var(--berry-l)' }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--surface)', display: 'grid', placeItems: 'center', fontSize: 22, flexShrink: 0 }}>✏️</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="qk-kicker">{info.icon} {info.label} · {p.known}/{p.total} {lang === 'es' ? 'palabras bien' : 'words right'}</div>
+                        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{list.title}</div>
+                      </div>
+                      <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: d <= 2 ? 'var(--coral-l)' : 'var(--surface)', color: d <= 2 ? 'var(--coral-d)' : 'var(--honey-d)', flexShrink: 0 }}>📅 {when}</span>
                     </button>
                   );
                 })}

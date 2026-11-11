@@ -266,6 +266,32 @@ create policy "kid_tests_update" on public.kid_tests
 create policy "kid_tests_delete" on public.kid_tests
   for delete using (kid_id in (select id from public.kids where parent_id = auth.uid()));
 
+-- Word lists to practice spelling per kid and subject (see migrations/013_word_lists.sql)
+create table if not exists public.kid_word_lists (
+  id uuid primary key default gen_random_uuid(),
+  kid_id uuid not null references public.kids(id) on delete cascade,
+  subject text not null,
+  title text not null,
+  words text[] not null default '{}',
+  test_date date,
+  lang text,
+  stats jsonb not null default '{}'::jsonb,
+  created_at timestamptz default now()
+);
+
+create index if not exists kid_word_lists_kid_subject on public.kid_word_lists (kid_id, subject, created_at desc);
+
+alter table public.kid_word_lists enable row level security;
+
+create policy "kid_word_lists_select" on public.kid_word_lists
+  for select using (kid_id in (select id from public.kids where parent_id = auth.uid()));
+create policy "kid_word_lists_insert" on public.kid_word_lists
+  for insert with check (kid_id in (select id from public.kids where parent_id = auth.uid()));
+create policy "kid_word_lists_update" on public.kid_word_lists
+  for update using (kid_id in (select id from public.kids where parent_id = auth.uid()));
+create policy "kid_word_lists_delete" on public.kid_word_lists
+  for delete using (kid_id in (select id from public.kids where parent_id = auth.uid()));
+
 -- Custom subjects per parent account (see migrations/009_custom_subjects.sql)
 create table if not exists public.custom_subjects (
   parent_id uuid not null default auth.uid() references auth.users(id) on delete cascade,

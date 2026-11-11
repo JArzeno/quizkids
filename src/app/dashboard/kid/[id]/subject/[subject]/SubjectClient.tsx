@@ -12,13 +12,14 @@ import { useT } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase/client';
 import { subjectInfo, subjectLabelFields, levelLabel, fromRow } from '@/lib/subjects';
 import { goalFromRow } from '@/lib/goals';
-import { CONTENT_LANGUAGES, CONTENT_LANG_CODES, isContentLang } from '@/lib/languages';
+import { CONTENT_LANGUAGES, CONTENT_LANG_CODES, contentLang, isContentLang } from '@/lib/languages';
 import { addTopic, loadTopics, removeTopic, subjectTopics, type TopicRow } from '@/lib/topics';
 import { KIT_PARTS, createTest, daysUntil, examMemory, loadTests, removeTest, type KitPart } from '@/lib/tests';
 import ExamSetup, { type ExamSetupValue, type PartState } from '@/components/exam/ExamSetup';
+import WordListsPanel from '@/components/words/WordListsPanel';
 import GoalsSection from '../../GoalsSection';
 import { LIST_PREVIEW, ViewAllToggle, pendingFirst, quizzesByTopic } from '../../lists';
-import type { Kid, KidSubject, KidTest, KidTopic } from '@/types';
+import type { Kid, KidSubject, KidTest, KidTopic, WordList } from '@/types';
 
 interface QuizRow { subject: string | null; topic: string | null; total: number | null; correct: number | null; stars: number | null; created_at: string }
 interface AssignmentRow { id: string; subject: string | null; topic: string | null; type: string | null; status: string | null; assigned_at: string }
@@ -221,6 +222,14 @@ export default function SubjectClient() {
     router.push(`/kids/exam/${test.id}`);
   };
 
+  // Opens a word list's practice in the kid view
+  const openWords = (list: WordList) => {
+    if (!kid) return;
+    setActiveKidId(kid.id);
+    setMode('kid');
+    router.push(`/kids/subject/${encodeURIComponent(subject)}/words?list=${encodeURIComponent(list.id)}`);
+  };
+
   const testWhen = (date: string) => {
     const d = daysUntil(date);
     if (d === 0) return L('Today', 'Hoy');
@@ -406,6 +415,11 @@ export default function SubjectClient() {
                 </div>
               )}
             </Section>
+          </div>
+
+          {/* spelling words (dictations, spelling olympiad) */}
+          <div style={{ marginTop: 24 }}>
+            <WordListsPanel kid={kid} subject={subject} lang={lang} wordLang={ks?.lang ?? contentLang(lang)} isDemo={isDemo} onPractice={openWords} />
           </div>
 
           {/* test prep */}

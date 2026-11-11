@@ -2,12 +2,20 @@
 import React from 'react';
 import { GAME_MODES, type GameMode } from '@/lib/games';
 
-/** "How do you want to learn?": one big tile per way to learn. With `selected` it works as a choice, without it each tile opens its game. */
-export default function ModePicker({ lang, selected, onPick }: { lang: string; selected?: GameMode | null; onPick: (mode: GameMode) => void }) {
+interface ModeTile<T extends string> {
+  id: T;
+  emoji: string;
+  tone: string;
+  en: { title: string; sub: string };
+  es: { title: string; sub: string };
+}
+
+/** One big tile per way to play. With `selected` it works as a choice, without it each tile opens its game. */
+export function ModeTiles<T extends string>({ modes, lang, selected, onPick }: { modes: ModeTile<T>[]; lang: string; selected?: T | null; onPick: (mode: T) => void }) {
   return (
     <div className="qk-stagger" role="radiogroup" aria-label={lang === 'es' ? '¿Cómo quieres aprender?' : 'How do you want to learn?'}
       style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: 14 }}>
-      {GAME_MODES.map((m) => {
+      {modes.map((m) => {
         const copy = lang === 'es' ? m.es : m.en;
         const on = selected === m.id;
         return (
@@ -24,4 +32,9 @@ export default function ModePicker({ lang, selected, onPick }: { lang: string; s
       })}
     </div>
   );
+}
+
+/** "How do you want to learn?": the ways to learn a topic */
+export default function ModePicker({ lang, selected, onPick }: { lang: string; selected?: GameMode | null; onPick: (mode: GameMode) => void }) {
+  return <ModeTiles modes={GAME_MODES} lang={lang} selected={selected} onPick={onPick} />;
 }
