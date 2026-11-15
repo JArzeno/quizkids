@@ -10,17 +10,34 @@ const W = 340;
 const ROW = 156;
 const NODE = 76;
 const TOP = 10;
+/** Room between the bottom of a level's title and the next level's button */
+const GAP = 12;
 /** How far each level sits from the middle of the path: a gentle zigzag */
 const offsetOf = (i: number) => Math.round(Math.sin(i * 0.95) * 84);
-const center = (i: number) => ({ x: W / 2 + offsetOf(i), y: TOP + i * ROW + NODE / 2 });
 
-function curve(from: number, to: number) {
+const useIsoLayoutEffect = typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect;
+
+/** Vertical center of every stop (each level, then the trophy). A stop sits ROW below the one before it, or lower
+ * when the stars and title under that one need more room. */
+function stopsY(under: number[], count: number) {
+  const ys: number[] = [];
+  let y = TOP + NODE / 2;
+  for (let i = 0; i <= count; i++) {
+    ys.push(y);
+    y += Math.max(ROW, NODE + (under[i] ?? 0) + GAP);
+  }
+  return ys;
+}
+
+function curve(ys: number[], from: number, to: number) {
+  const at = (i: number) => ({ x: W / 2 + offsetOf(i), y: ys[i] });
   let d = '';
   for (let i = from; i <= to; i++) {
-    const p = center(i);
+    const p = at(i);
     if (i === from) { d = `M ${p.x} ${p.y}`; continue; }
-    const q = center(i - 1);
-    d += ` C ${q.x} ${q.y + ROW / 2}, ${p.x} ${p.y - ROW / 2}, ${p.x} ${p.y}`;
+    const q = at(i - 1);
+    const bend = (p.y - q.y) / 2;
+    d += ` C ${q.x} ${q.y + bend}, ${p.x} ${p.y - bend}, ${p.x} ${p.y}`;
   }
   return d;
 }
@@ -57,7 +74,24 @@ export default function LevelPath({ levels, lang, minimal, unlockedN, onOpen }: 
   const currentIdx = levels.findIndex((l) => l.state === 'current');
   // The colored part of the path reaches the level to play next (or the trophy)
   const reach = allDone ? levels.length : Math.max(0, currentIdx);
-  const height = TOP + (levels.length + 1) * ROW - 30;
+
+  // Titles are shown in full, so a long one pushes the levels below it further down
+  const underRefs = React.useRef<(HTMLDivElement | null)[]>([]);
+  const [under, setUnder] = React.useState<number[]>([]);
+  useIsoLayoutEffect(() => {
+    const measure = () => {
+      const next = levels.map((_, i) => underRefs.current[i]?.offsetHeight ?? 0);
+      setUnder((prev) => (prev.length === next.length && prev.every((h, i) => h === next[i]) ? prev : next));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    underRefs.current.slice(0, levels.length).forEach((el) => el && ro.observe(el));
+    return () => ro.disconnect();
+  }, [levels, minimal]);
+  const ys = stopsY(under, levels.length);
+  const center = (i: number) => ({ x: W / 2 + offsetOf(i), y: ys[i] });
+  const height = ys[levels.length] - NODE / 2 + ROW - 30;
 
   // Long paths open on the level to play, not on level 1
   React.useEffect(() => {
@@ -81,8 +115,8 @@ export default function LevelPath({ levels, lang, minimal, unlockedN, onOpen }: 
   return (
     <div style={{ position: 'relative', width: '100%', maxWidth: W, height, margin: '0 auto' }}>
       <svg aria-hidden width="100%" height={height} viewBox={`0 0 ${W} ${height}`} preserveAspectRatio="xMidYMin meet" style={{ position: 'absolute', inset: 0, overflow: 'visible' }}>
-        <path d={curve(0, levels.length)} fill="none" stroke="var(--line)" strokeWidth={10} strokeLinecap="round" strokeDasharray="2 18" />
-        {reach > 0 && <path className="qk-path-draw" d={curve(0, reach)} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={10} strokeLinecap="round" opacity={0.55} />}
+        <path d={curve(ys, 0, levels.length)} fill="none" stroke="var(--line)" strokeWidth={10} strokeLinecap="round" strokeDasharray="2 18" />
+        {reach > 0 && <path className="qk-path-draw" d={curve(ys, 0, reach)} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={10} strokeLinecap="round" opacity={0.55} />}
       </svg>
 
       {levels.map((level, i) => {
@@ -114,9 +148,14 @@ export default function LevelPath({ levels, lang, minimal, unlockedN, onOpen }: 
                 </span>
               )}
             </div>
-            {!minimal && !locked && <span style={{ marginTop: 10 }}><StarRow stars={level.stars} size={17} /></span>}
-            <div style={{ marginTop: minimal || locked ? 12 : 4, width: 158, textAlign: 'center', padding: '4px 10px', borderRadius: 12, background: 'var(--bg)', fontSize: 13, fontWeight: 700, lineHeight: 1.25, color: locked ? 'var(--ink-3)' : 'var(--ink)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' }}>
-              {level.title}
+            {/* stars and title share one card in the page color, so the path runs under them instead of through them */}
+            <div ref={(el) => { underRefs.current[i] = el; }} style={{ paddingTop: minimal || locked ? 12 : 10 }}>
+              <div style={{ width: 158, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 12, background: 'var(--bg)' }}>
+                {!minimal && !locked && <StarRow stars={level.stars} size={17} />}
+                <div style={{ maxWidth: '100%', textAlign: 'center', fontSize: 13, fontWeight: 700, lineHeight: 1.25, color: locked ? 'var(--ink-3)' : 'var(--ink)', overflowWrap: 'break-word' }}>
+                  {level.title}
+                </div>
+              </div>
             </div>
           </div>
         );
